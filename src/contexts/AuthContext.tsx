@@ -31,12 +31,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (session?.user) {
           // Fetch profile with setTimeout to avoid deadlock
           setTimeout(async () => {
-            const { data } = await supabase
+            const { data } = await (supabase as any)
               .from('profiles')
               .select('*')
               .eq('id', session.user.id)
               .single();
-            setProfile(data as unknown as UserProfile);
+            setProfile(data as UserProfile);
             setLoading(false);
           }, 0);
         } else {
