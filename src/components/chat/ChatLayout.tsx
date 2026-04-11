@@ -3,6 +3,7 @@ import { ChatSidebar } from './ChatSidebar';
 import { ChatArea } from './ChatArea';
 import { EmptyState } from './EmptyState';
 import { NewChatDialog } from './NewChatDialog';
+import { ChannelView } from '@/components/channel/ChannelView';
 import type { Chat, Message } from '@/types/chat';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { cn } from '@/lib/utils';
@@ -45,7 +46,15 @@ const DEMO_MESSAGES: Record<string, Message[]> = {
     { id: 'g3', chat_id: '2', sender_id: 'other2', content: 'Meeting at 3pm tomorrow', type: 'text', status: 'seen', created_at: new Date(Date.now() - 3600000).toISOString(), sender: { id: 'other2', username: 'carol', display_name: 'Carol Chen', phone: '', hide_phone: false, is_online: false, last_seen: '', created_at: '' } },
   ],
   '3': [
-    { id: 'c1', chat_id: '3', sender_id: 'admin', content: '🚀 New React 19 features announced!\n\nReact 19 brings exciting new features including server components, improved suspense, and much more.', type: 'text', status: 'sent', created_at: new Date(Date.now() - 7200000).toISOString(), sender: { id: 'admin', username: 'technews', display_name: 'Tech News', phone: '', hide_phone: false, is_online: true, last_seen: '', created_at: '' } },
+    { id: 'c1', chat_id: '3', sender_id: 'admin', content: '🚀 New React 19 features announced!\n\nReact 19 brings exciting new features including server components, improved suspense, and much more. Check out the full blog post for details.', type: 'text', status: 'sent', created_at: new Date(Date.now() - 7200000).toISOString(), sender: { id: 'admin', username: 'technews', display_name: 'Tech News', phone: '', hide_phone: false, is_online: true, last_seen: '', created_at: '' } },
+    { id: 'c2', chat_id: '3', sender_id: 'admin', content: '📱 iOS 19 leak reveals major design overhaul\n\nApple is reportedly planning a complete redesign of iOS with AI-first interactions.', type: 'text', status: 'sent', created_at: new Date(Date.now() - 3600000).toISOString(), sender: { id: 'admin', username: 'technews', display_name: 'Tech News', phone: '', hide_phone: false, is_online: true, last_seen: '', created_at: '' },
+      reactions: [
+        { id: 'r1', message_id: 'c2', user_id: 'u1', emoji: '🔥' },
+        { id: 'r2', message_id: 'c2', user_id: 'u2', emoji: '🔥' },
+        { id: 'r3', message_id: 'c2', user_id: 'u3', emoji: '👍' },
+        { id: 'r4', message_id: 'c2', user_id: 'u4', emoji: '😮' },
+      ],
+    },
   ],
 };
 
@@ -74,7 +83,6 @@ export function ChatLayout() {
       ...prev,
       [activeChat]: [...(prev[activeChat] || []), newMsg],
     }));
-    // Simulate delivery
     setTimeout(() => {
       setMessages(prev => ({
         ...prev,
@@ -103,13 +111,23 @@ export function ChatLayout() {
       {showChat && (
         <div className="flex-1 h-full">
           {currentChat ? (
-            <ChatArea
-              chat={currentChat}
-              messages={currentMessages}
-              currentUserId="me"
-              onSendMessage={handleSendMessage}
-              onBack={() => setActiveChat(null)}
-            />
+            currentChat.type === 'channel' ? (
+              <ChannelView
+                chat={currentChat}
+                messages={currentMessages}
+                currentUserId="me"
+                onSendMessage={handleSendMessage}
+                onBack={() => setActiveChat(null)}
+              />
+            ) : (
+              <ChatArea
+                chat={currentChat}
+                messages={currentMessages}
+                currentUserId="me"
+                onSendMessage={handleSendMessage}
+                onBack={() => setActiveChat(null)}
+              />
+            )
           ) : (
             <EmptyState />
           )}
