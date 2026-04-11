@@ -64,6 +64,10 @@ export function ChatSidebar({ chats, activeChat, onSelectChat, onNewChat, onNewG
               <button className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-popover-foreground hover:bg-accent transition-colors">
                 <Settings className="w-4 h-4" /> Settings
               </button>
+              <div className="border-t border-border my-1" />
+              <button onClick={() => { navigate('/admin'); setShowMenu(false); }} className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-popover-foreground hover:bg-accent transition-colors">
+                <Shield className="w-4 h-4 text-primary" /> Admin Panel
+              </button>
             </div>
           )}
         </div>
