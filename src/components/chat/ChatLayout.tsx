@@ -9,6 +9,7 @@ import { useIsMobile } from '@/hooks/use-mobile';
 import { useAuth } from '@/contexts/AuthContext';
 import { useChats } from '@/hooks/useChats';
 import { useMessages } from '@/hooks/useMessages';
+import { useTypingPresence } from '@/hooks/useTypingPresence';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
@@ -18,7 +19,9 @@ export function ChatLayout() {
   const navigate = useNavigate();
   const { chats, reload: reloadChats } = useChats();
   const [activeChat, setActiveChat] = useState<string | null>(null);
-  const { messages } = useMessages(activeChat);
+  const { messages, loadOlder, hasMore, loadingOlder } = useMessages(activeChat);
+  const currentChat = chats.find(c => c.id === activeChat);
+  const { typingUsers, notifyTyping } = useTypingPresence(activeChat, user?.user_metadata?.display_name || user?.email || 'Someone');
   const [showNewChat, setShowNewChat] = useState(false);
   const isMobile = useIsMobile();
 
@@ -26,8 +29,6 @@ export function ChatLayout() {
   useEffect(() => {
     if (!authLoading && !user) navigate('/auth');
   }, [authLoading, user, navigate]);
-
-  const currentChat = chats.find(c => c.id === activeChat);
 
   const handleSendMessage = useCallback(async (content: string) => {
     if (!activeChat || !user) return;
@@ -82,6 +83,11 @@ export function ChatLayout() {
                 currentUserId={user?.id || ''}
                 onSendMessage={handleSendMessage}
                 onBack={() => setActiveChat(null)}
+                typingUsers={typingUsers}
+                onTyping={notifyTyping}
+                onLoadOlder={loadOlder}
+                hasMore={hasMore}
+                loadingOlder={loadingOlder}
               />
             )
           ) : (

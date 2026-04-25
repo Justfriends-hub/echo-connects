@@ -2,35 +2,26 @@ import { useEffect, useState, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import type { Message, Reaction, UserProfile } from '@/types/chat';
 
+const PAGE_SIZE = 30;
+
 /**
  * Loads messages for a chat with sender profile + reactions, subscribes to realtime.
+ * Supports paginated loading of older messages via `loadOlder()`.
  */
 export function useMessages(chatId: string | null) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState(false);
+  const [loadingOlder, setLoadingOlder] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
 
-  const load = useCallback(async () => {
-    if (!chatId) { setMessages([]); return; }
-    setLoading(true);
-    const { data: msgs } = await supabase
-      .from('messages')
-      .select('*')
-      .eq('chat_id', chatId)
-      .order('created_at', { ascending: true })
-      .limit(200);
-
-    const list = (msgs || []) as Message[];
-    if (list.length === 0) { setMessages([]); setLoading(false); return; }
-
-    // Fetch sender profiles + reactions in batch
-    const senderIds = Array.from(new Set(list.map(m => m.sender_id)));
-    const msgIds = list.map(m => m.id);
-
+  const hydrate = useCallback(async (rows: Message[]): Promise<Message[]> => {
+    if (rows.length === 0) return [];
+    const senderIds = Array.from(new Set(rows.map(m => m.sender_id)));
+    const msgIds = rows.map(m => m.id);
     const [{ data: profiles }, { data: reactions }] = await Promise.all([
       supabase.from('profiles').select('*').in('id', senderIds),
       supabase.from('reactions').select('*').in('message_id', msgIds),
     ]);
-
     const profMap = new Map((profiles || []).map((p: any) => [p.id, p as UserProfile]));
     const reactionMap = new Map<string, Reaction[]>();
     (reactions || []).forEach((r: any) => {
@@ -38,14 +29,48 @@ export function useMessages(chatId: string | null) {
       arr.push(r as Reaction);
       reactionMap.set(r.message_id, arr);
     });
-
-    setMessages(list.map(m => ({
+    return rows.map(m => ({
       ...m,
       sender: profMap.get(m.sender_id),
       reactions: reactionMap.get(m.id) || [],
-    })));
+    }));
+  }, []);
+
+  const load = useCallback(async () => {
+    if (!chatId) { setMessages([]); setHasMore(true); return; }
+    setLoading(true);
+    // Fetch the most recent PAGE_SIZE messages (descending), then reverse for display order.
+    const { data: msgs } = await supabase
+      .from('messages')
+      .select('*')
+      .eq('chat_id', chatId)
+      .order('created_at', { ascending: false })
+      .limit(PAGE_SIZE);
+
+    const desc = (msgs || []) as Message[];
+    setHasMore(desc.length === PAGE_SIZE);
+    const list = desc.slice().reverse();
+    setMessages(await hydrate(list));
     setLoading(false);
-  }, [chatId]);
+  }, [chatId, hydrate]);
+
+  const loadOlder = useCallback(async () => {
+    if (!chatId || loadingOlder || !hasMore || messages.length === 0) return;
+    setLoadingOlder(true);
+    const oldest = messages[0];
+    const { data: msgs } = await supabase
+      .from('messages')
+      .select('*')
+      .eq('chat_id', chatId)
+      .lt('created_at', oldest.created_at)
+      .order('created_at', { ascending: false })
+      .limit(PAGE_SIZE);
+    const desc = (msgs || []) as Message[];
+    setHasMore(desc.length === PAGE_SIZE);
+    const older = await hydrate(desc.slice().reverse());
+    setMessages(prev => [...older, ...prev]);
+    setLoadingOlder(false);
+  }, [chatId, loadingOlder, hasMore, messages, hydrate]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -90,5 +115,5 @@ export function useMessages(chatId: string | null) {
     return () => { supabase.removeChannel(channel); };
   }, [chatId]);
 
-  return { messages, loading, reload: load };
+  return { messages, loading, loadingOlder, hasMore, loadOlder, reload: load };
 }

@@ -14,14 +14,32 @@ interface ChatAreaProps {
   onSendMessage: (content: string) => void;
   onBack: () => void;
   typingUsers?: string[];
+  onTyping?: () => void;
+  onLoadOlder?: () => void;
+  hasMore?: boolean;
+  loadingOlder?: boolean;
 }
 
-export function ChatArea({ chat, messages, currentUserId, onSendMessage, onBack, typingUsers = [] }: ChatAreaProps) {
+export function ChatArea({ chat, messages, currentUserId, onSendMessage, onBack, typingUsers = [], onTyping, onLoadOlder, hasMore, loadingOlder }: ChatAreaProps) {
   const bottomRef = useRef<HTMLDivElement>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const prevFirstIdRef = useRef<string | null>(null);
 
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+    // If we prepended older messages, keep scroll position; otherwise scroll to bottom on new ones.
+    const first = messages[0]?.id || null;
+    if (prevFirstIdRef.current && first !== prevFirstIdRef.current) {
+      // older messages were prepended — don't auto-scroll
+    } else {
+      bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }
+    prevFirstIdRef.current = first;
   }, [messages]);
+
+  const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
+    if (!onLoadOlder || !hasMore || loadingOlder) return;
+    if (e.currentTarget.scrollTop < 80) onLoadOlder();
+  };
 
   const getInitials = (name: string) =>
     name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
@@ -65,8 +83,13 @@ export function ChatArea({ chat, messages, currentUserId, onSendMessage, onBack,
       </div>
 
       {/* Messages */}
-      <ScrollArea className="flex-1 px-3 py-2">
+      <div ref={scrollRef} onScroll={handleScroll} className="flex-1 px-3 py-2 overflow-y-auto">
         <div className="max-w-3xl mx-auto space-y-0.5">
+          {hasMore && (
+            <div className="flex justify-center py-2">
+              <span className="text-xs text-muted-foreground">{loadingOlder ? 'Loading…' : 'Scroll up for older messages'}</span>
+            </div>
+          )}
           {messages.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-full py-20 text-muted-foreground">
               <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mb-4">
@@ -90,12 +113,22 @@ export function ChatArea({ chat, messages, currentUserId, onSendMessage, onBack,
               );
             })
           )}
+          {typingUsers.length > 0 && (
+            <div className="flex items-center gap-2 px-3 py-2 text-xs text-muted-foreground animate-fade-in">
+              <span className="flex gap-0.5">
+                <span className="w-1.5 h-1.5 bg-muted-foreground rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+                <span className="w-1.5 h-1.5 bg-muted-foreground rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+                <span className="w-1.5 h-1.5 bg-muted-foreground rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+              </span>
+              {typingUsers.join(', ')} typing…
+            </div>
+          )}
           <div ref={bottomRef} />
         </div>
-      </ScrollArea>
+      </div>
 
       {/* Input */}
-      <ChatInput onSend={onSendMessage} />
+      <ChatInput onSend={onSendMessage} onTyping={onTyping} />
     </div>
   );
 }
