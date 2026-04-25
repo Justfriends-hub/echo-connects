@@ -368,6 +368,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      get_or_create_direct_chat: {
+        Args: { _other_user: string }
+        Returns: string
+      }
       get_visible_boost: { Args: { _chat_id: string }; Returns: number }
       has_role: {
         Args: {
