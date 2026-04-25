@@ -18,9 +18,10 @@ interface ChatAreaProps {
   onLoadOlder?: () => void;
   hasMore?: boolean;
   loadingOlder?: boolean;
+  othersLastReadAt?: string | null;
 }
 
-export function ChatArea({ chat, messages, currentUserId, onSendMessage, onBack, typingUsers = [], onTyping, onLoadOlder, hasMore, loadingOlder }: ChatAreaProps) {
+export function ChatArea({ chat, messages, currentUserId, onSendMessage, onBack, typingUsers = [], onTyping, onLoadOlder, hasMore, loadingOlder, othersLastReadAt }: ChatAreaProps) {
   const bottomRef = useRef<HTMLDivElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const prevFirstIdRef = useRef<string | null>(null);
@@ -103,12 +104,17 @@ export function ChatArea({ chat, messages, currentUserId, onSendMessage, onBack,
               const prevMsg = messages[i - 1];
               const showName = isGroup && msg.sender_id !== currentUserId &&
                 (!prevMsg || prevMsg.sender_id !== msg.sender_id);
+              const isOwn = msg.sender_id === currentUserId;
+              const seen = isOwn && othersLastReadAt
+                ? new Date(msg.created_at) <= new Date(othersLastReadAt)
+                : false;
               return (
                 <MessageBubble
                   key={msg.id}
                   message={msg}
-                  isOwn={msg.sender_id === currentUserId}
+                  isOwn={isOwn}
                   senderName={showName ? msg.sender?.display_name : undefined}
+                  seen={seen}
                 />
               );
             })

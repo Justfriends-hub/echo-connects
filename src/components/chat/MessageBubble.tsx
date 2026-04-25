@@ -8,9 +8,10 @@ interface MessageBubbleProps {
   isOwn: boolean;
   showAvatar?: boolean;
   senderName?: string;
+  seen?: boolean;
 }
 
-export function MessageBubble({ message, isOwn, showAvatar, senderName }: MessageBubbleProps) {
+export function MessageBubble({ message, isOwn, showAvatar, senderName, seen }: MessageBubbleProps) {
   const time = new Date(message.created_at).toLocaleTimeString([], {
     hour: '2-digit',
     minute: '2-digit',
@@ -18,11 +19,13 @@ export function MessageBubble({ message, isOwn, showAvatar, senderName }: Messag
 
   const statusIcon = () => {
     if (!isOwn) return null;
+    if (seen) return <CheckCheck className="w-3.5 h-3.5 text-primary" />;
     switch (message.status) {
       case 'sending': return <span className="w-3 h-3 rounded-full border border-muted-foreground animate-pulse-soft" />;
       case 'sent': return <Check className="w-3.5 h-3.5 text-muted-foreground" />;
       case 'delivered': return <CheckCheck className="w-3.5 h-3.5 text-muted-foreground" />;
       case 'seen': return <CheckCheck className="w-3.5 h-3.5 text-primary" />;
+      default: return <Check className="w-3.5 h-3.5 text-muted-foreground" />;
     }
   };
 

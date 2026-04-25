@@ -10,6 +10,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useChats } from '@/hooks/useChats';
 import { useMessages } from '@/hooks/useMessages';
 import { useTypingPresence } from '@/hooks/useTypingPresence';
+import { useReadReceipts } from '@/hooks/useReadReceipts';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
@@ -22,6 +23,8 @@ export function ChatLayout() {
   const { messages, loadOlder, hasMore, loadingOlder } = useMessages(activeChat);
   const currentChat = chats.find(c => c.id === activeChat);
   const { typingUsers, notifyTyping } = useTypingPresence(activeChat, user?.user_metadata?.display_name || user?.email || 'Someone');
+  const latestMessageAt = messages[messages.length - 1]?.created_at;
+  const { othersLastReadAt } = useReadReceipts(activeChat, user?.id, latestMessageAt);
   const [showNewChat, setShowNewChat] = useState(false);
   const isMobile = useIsMobile();
 
@@ -88,6 +91,7 @@ export function ChatLayout() {
                 onLoadOlder={loadOlder}
                 hasMore={hasMore}
                 loadingOlder={loadingOlder}
+                othersLastReadAt={othersLastReadAt}
               />
             )
           ) : (
