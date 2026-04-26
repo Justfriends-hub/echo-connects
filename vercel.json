@@ -11,10 +11,15 @@
   ],
   "routes": [
     {
-      "handle": "filesystem"
+      "src": "/manifest.json",
+      "dest": "/manifest.json"
     },
     {
-      "src": "/.*",
+      "src": "/(.*\\.(js|css|png|jpg|jpeg|gif|svg|ico|woff|woff2))",
+      "dest": "/$1"
+    },
+    {
+      "src": "/(?!.*\\.)",
       "dest": "/index.html"
     }
   ]
