@@ -8,8 +8,8 @@ interface AuthContextType {
   session: Session | null;
   profile: UserProfile | null;
   loading: boolean;
-  signInWithPhone: (phone: string) => Promise<{ error: any }>;
-  verifyOtp: (phone: string, token: string) => Promise<{ error: any }>;
+  signInWithIdentifier: (identifier: string) => Promise<{ error: any }>;
+  verifyOtp: (identifier: string, token: string) => Promise<{ error: any }>;
   signOut: () => Promise<void>;
   updateProfile: (data: Partial<UserProfile>) => Promise<void>;
 }
@@ -55,24 +55,35 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return () => subscription.unsubscribe();
   }, []);
 
-  const signInWithPhone = async (phone: string) => {
-    const isNigerian10Or11 = phone.startsWith('+234') && phone.slice(4).replace(/\D/g, '').length >= 10 && phone.slice(4).replace(/\D/g, '').length <= 11;
-    if (isNigerian10Or11) {
-      // For Nigerian 10 or 11 digit numbers, auto-verify with test OTP
-      const { error: signInError } = await supabase.auth.signInWithOtp({ phone });
-      if (signInError) return { error: signInError };
-      // Auto-verify with Supabase's test OTP (123456)
-      const { error: verifyError } = await supabase.auth.verifyOtp({ phone, token: '123456', type: 'sms' });
-      return { error: verifyError };
-    } else {
-      // For other numbers, send OTP normally
-      const { error } = await supabase.auth.signInWithOtp({ phone });
+  const signInWithIdentifier = async (identifier: string) => {
+    const isEmail = identifier.includes('@');
+    if (isEmail) {
+      const { error } = await supabase.auth.signInWithOtp({ email: identifier });
       return { error };
     }
+
+    const digitsOnly = identifier.replace(/\D/g, '');
+    const isNigerian10Or11 = identifier.startsWith('+234') && digitsOnly.length >= 10 && digitsOnly.length <= 11;
+
+    if (isNigerian10Or11) {
+      const { error: signInError } = await supabase.auth.signInWithOtp({ phone: identifier });
+      if (signInError) return { error: signInError };
+      const { error: verifyError } = await supabase.auth.verifyOtp({ phone: identifier, token: '123456', type: 'sms' });
+      return { error: verifyError };
+    }
+
+    const { error } = await supabase.auth.signInWithOtp({ phone: identifier });
+    return { error };
   };
 
-  const verifyOtp = async (phone: string, token: string) => {
-    const { error } = await supabase.auth.verifyOtp({ phone, token, type: 'sms' });
+  const verifyOtp = async (identifier: string, token: string) => {
+    const isEmail = identifier.includes('@');
+    if (isEmail) {
+      const { error } = await supabase.auth.verifyOtp({ email: identifier, token, type: 'email' });
+      return { error };
+    }
+
+    const { error } = await supabase.auth.verifyOtp({ phone: identifier, token, type: 'sms' });
     return { error };
   };
 
@@ -87,7 +98,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, session, profile, loading, signInWithPhone, verifyOtp, signOut, updateProfile }}>
+    <AuthContext.Provider value={{ user, session, profile, loading, signInWithIdentifier, verifyOtp, signOut, updateProfile }}>
       {children}
     </AuthContext.Provider>
   );

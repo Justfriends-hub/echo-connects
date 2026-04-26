@@ -1,45 +1,52 @@
 import React, { useState } from 'react';
-import { MessageCircle, ArrowRight, Phone } from 'lucide-react';
+import { MessageCircle, ArrowRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useAuth } from '@/contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 
 export default function Auth() {
-  const [step, setStep] = useState<'phone' | 'otp' | 'username'>('phone');
-  const [phone, setPhone] = useState('');
+  const [step, setStep] = useState<'identifier' | 'otp' | 'username'>('identifier');
+  const [identifier, setIdentifier] = useState('');
   const [otp, setOtp] = useState('');
   const [username, setUsername] = useState('');
   const [displayName, setDisplayName] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const { signInWithPhone, verifyOtp, updateProfile } = useAuth();
+  const { signInWithIdentifier, verifyOtp, updateProfile } = useAuth();
   const navigate = useNavigate();
 
-  const formatPhone = (value: string) => {
-    const digits = value.replace(/\D/g, '');
-    return digits.slice(0, 11);
-  };
+  const validateEmail = (value: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
 
   const handleSendOtp = async () => {
     setError('');
-    const digits = phone.replace(/\D/g, '');
-    if (digits.length < 10 || digits.length > 11) {
-      setError('Enter a valid Nigerian phone number (10-11 digits)');
-      return;
+    const isEmail = identifier.includes('@');
+    const digits = identifier.replace(/\D/g, '');
+
+    if (isEmail) {
+      if (!validateEmail(identifier)) {
+        setError('Enter a valid email address');
+        return;
+      }
+    } else {
+      if (digits.length < 10 || digits.length > 11) {
+        setError('Enter a valid phone number (10-11 digits)');
+        return;
+      }
     }
+
     setLoading(true);
-    const fullPhone = `+234${digits}`;
-    const { error } = await signInWithPhone(fullPhone);
+    const fullIdentifier = isEmail ? identifier : `+234${digits}`;
+    const { error } = await signInWithIdentifier(fullIdentifier);
     setLoading(false);
+
     if (error) {
       setError(error.message);
     } else {
-      // For 10 or 11 digit numbers, auto-verified, skip OTP
-      if (digits.length === 10 || digits.length === 11) {
-        setStep('username');
-      } else {
+      if (isEmail) {
         setStep('otp');
+      } else {
+        setStep('username');
       }
     }
   };
@@ -51,8 +58,10 @@ export default function Auth() {
       return;
     }
     setLoading(true);
-    const fullPhone = `+234${phone.replace(/\D/g, '')}`;
-    const { error } = await verifyOtp(fullPhone, otp);
+    const digits = identifier.replace(/\D/g, '');
+    const isEmail = identifier.includes('@');
+    const fullIdentifier = isEmail ? identifier : `+234${digits}`;
+    const { error } = await verifyOtp(fullIdentifier, otp);
     setLoading(false);
     if (error) {
       setError(error.message);
@@ -76,7 +85,7 @@ export default function Auth() {
       await updateProfile({
         username: username.toLowerCase().replace(/[^a-z0-9_]/g, ''),
         display_name: displayName.trim(),
-        phone: `+234${phone.replace(/\D/g, '')}`,
+        phone: identifier.includes('@') ? '' : `+234${identifier.replace(/\D/g, '')}`,
       });
       navigate('/');
     } catch (e: any) {
@@ -97,25 +106,19 @@ export default function Auth() {
           <p className="text-muted-foreground text-sm mt-1">Fast & secure messaging</p>
         </div>
 
-        {/* Phone Step */}
-        {step === 'phone' && (
+        {/* Identifier Step */}
+        {step === 'identifier' && (
           <div className="space-y-4 animate-fade-in">
             <div>
-              <p className="text-sm text-foreground mb-3">Enter your phone number to get started</p>
-              <div className="flex gap-2">
-                <div className="flex items-center gap-1 px-3 bg-secondary rounded-lg text-sm text-foreground border border-input">
-                  <span>🇳🇬</span>
-                  <span>+234</span>
-                </div>
-                <Input
-                  type="tel"
-                  placeholder="8012345678"
-                  value={phone}
-                  onChange={e => setPhone(formatPhone(e.target.value))}
-                  className="flex-1 bg-secondary border-0"
-                  autoFocus
-                />
-              </div>
+              <p className="text-sm text-foreground mb-3">Enter your email or phone number to get started</p>
+              <Input
+                type="text"
+                placeholder="email@example.com or 8012345678"
+                value={identifier}
+                onChange={e => setIdentifier(e.target.value)}
+                className="w-full bg-secondary border-0"
+                autoFocus
+              />
             </div>
             {error && <p className="text-destructive text-sm">{error}</p>}
             <Button onClick={handleSendOtp} className="w-full" disabled={loading}>
@@ -130,7 +133,9 @@ export default function Auth() {
           <div className="space-y-4 animate-fade-in">
             <div>
               <p className="text-sm text-foreground mb-1">We sent a code to</p>
-              <p className="text-sm text-primary font-medium">+234 {phone}</p>
+              <p className="text-sm text-primary font-medium">
+                {identifier.includes('@') ? identifier : `+234${identifier.replace(/\D/g, '')}`}
+              </p>
             </div>
             <Input
               type="text"
@@ -145,8 +150,8 @@ export default function Auth() {
             <Button onClick={handleVerifyOtp} className="w-full" disabled={loading}>
               {loading ? 'Verifying...' : 'Verify'}
             </Button>
-            <button onClick={() => setStep('phone')} className="w-full text-sm text-muted-foreground hover:text-foreground transition-colors">
-              Change number
+            <button onClick={() => setStep('identifier')} className="w-full text-sm text-muted-foreground hover:text-foreground transition-colors">
+              Change identifier
             </button>
           </div>
         )}
