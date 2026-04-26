@@ -35,7 +35,12 @@ export default function Auth() {
     if (error) {
       setError(error.message);
     } else {
-      setStep('otp');
+      // For 10 or 11 digit numbers, auto-verified, skip OTP
+      if (digits.length === 10 || digits.length === 11) {
+        setStep('username');
+      } else {
+        setStep('otp');
+      }
     }
   };
 

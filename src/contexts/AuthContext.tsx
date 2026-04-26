@@ -56,8 +56,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const signInWithPhone = async (phone: string) => {
-    const { error } = await supabase.auth.signInWithOtp({ phone });
-    return { error };
+    const isNigerian10Or11 = phone.startsWith('+234') && phone.slice(4).replace(/\D/g, '').length >= 10 && phone.slice(4).replace(/\D/g, '').length <= 11;
+    if (isNigerian10Or11) {
+      // For Nigerian 10 or 11 digit numbers, auto-verify with test OTP
+      const { error: signInError } = await supabase.auth.signInWithOtp({ phone });
+      if (signInError) return { error: signInError };
+      // Auto-verify with Supabase's test OTP (123456)
+      const { error: verifyError } = await supabase.auth.verifyOtp({ phone, token: '123456', type: 'sms' });
+      return { error: verifyError };
+    } else {
+      // For other numbers, send OTP normally
+      const { error } = await supabase.auth.signInWithOtp({ phone });
+      return { error };
+    }
   };
 
   const verifyOtp = async (phone: string, token: string) => {
