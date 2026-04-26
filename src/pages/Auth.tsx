@@ -18,7 +18,14 @@ export default function Auth() {
 
   const validateEmail = (value: string) => {
     const trimmed = value.trim();
-    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed);
+    if (!trimmed || /\s/.test(trimmed)) return false;
+    const parts = trimmed.split('@');
+    if (parts.length !== 2) return false;
+    const [local, domain] = parts;
+    if (!local || !domain) return false;
+    if (domain.startsWith('.') || domain.endsWith('.')) return false;
+    if (!domain.includes('.')) return false;
+    return true;
   };
 
   const handleSendOtp = async () => {
