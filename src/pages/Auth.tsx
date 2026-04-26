@@ -43,11 +43,7 @@ export default function Auth() {
     if (error) {
       setError(error.message);
     } else {
-      if (isEmail) {
-        setStep('otp');
-      } else {
-        setStep('username');
-      }
+      setStep('username');
     }
   };
 

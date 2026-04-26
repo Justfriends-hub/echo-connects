@@ -57,23 +57,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signInWithIdentifier = async (identifier: string) => {
     const isEmail = identifier.includes('@');
-    if (isEmail) {
-      const { error } = await supabase.auth.signInWithOtp({ email: identifier });
-      return { error };
-    }
+    const fullIdentifier = isEmail ? identifier : identifier;
 
-    const digitsOnly = identifier.replace(/\D/g, '');
-    const isNigerian10Or11 = identifier.startsWith('+234') && digitsOnly.length >= 10 && digitsOnly.length <= 11;
+    const signInResult = isEmail
+      ? await supabase.auth.signInWithOtp({ email: fullIdentifier })
+      : await supabase.auth.signInWithOtp({ phone: fullIdentifier });
 
-    if (isNigerian10Or11) {
-      const { error: signInError } = await supabase.auth.signInWithOtp({ phone: identifier });
-      if (signInError) return { error: signInError };
-      const { error: verifyError } = await supabase.auth.verifyOtp({ phone: identifier, token: '123456', type: 'sms' });
-      return { error: verifyError };
-    }
+    if (signInResult.error) return { error: signInResult.error };
 
-    const { error } = await supabase.auth.signInWithOtp({ phone: identifier });
-    return { error };
+    const verifyResult = isEmail
+      ? await supabase.auth.verifyOtp({ email: fullIdentifier, token: '123456', type: 'email' })
+      : await supabase.auth.verifyOtp({ phone: fullIdentifier, token: '123456', type: 'sms' });
+
+    return { error: verifyResult.error };
   };
 
   const verifyOtp = async (identifier: string, token: string) => {
