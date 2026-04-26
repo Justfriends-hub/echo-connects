@@ -57,18 +57,39 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signInWithIdentifier = async (identifier: string) => {
     const isEmail = identifier.includes('@');
-    const fullIdentifier = isEmail ? identifier : identifier;
 
-    const signInResult = isEmail
-      ? await supabase.auth.signInWithOtp({ email: fullIdentifier })
-      : await supabase.auth.signInWithOtp({ phone: fullIdentifier });
+    if (isEmail) {
+      const password = `auto-${identifier.toLowerCase()}`;
+      const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
+        email: identifier,
+        password,
+      });
 
+      if (!signInError) {
+        return { error: null };
+      }
+
+      if (signInError.message.includes('Invalid login credentials') || signInError.message.includes('User not found')) {
+        const { error: signUpError } = await supabase.auth.signUp({
+          email: identifier,
+          password,
+        });
+        if (signUpError) return { error: signUpError };
+
+        const { error: signInAfterSignUpError } = await supabase.auth.signInWithPassword({
+          email: identifier,
+          password,
+        });
+        return { error: signInAfterSignUpError };
+      }
+
+      return { error: signInError };
+    }
+
+    const signInResult = await supabase.auth.signInWithOtp({ phone: identifier });
     if (signInResult.error) return { error: signInResult.error };
 
-    const verifyResult = isEmail
-      ? await supabase.auth.verifyOtp({ email: fullIdentifier, token: '123456', type: 'email' })
-      : await supabase.auth.verifyOtp({ phone: fullIdentifier, token: '123456', type: 'sms' });
-
+    const verifyResult = await supabase.auth.verifyOtp({ phone: identifier, token: '123456', type: 'sms' });
     return { error: verifyResult.error };
   };
 

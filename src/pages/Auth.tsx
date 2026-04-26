@@ -53,7 +53,11 @@ export default function Auth() {
     if (error) {
       setError(error.message);
     } else {
-      setStep('username');
+      if (isEmail) {
+        navigate('/');
+      } else {
+        setStep('username');
+      }
     }
   };
 
