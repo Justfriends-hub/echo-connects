@@ -26,7 +26,7 @@ export function NewChatDialog({ open, onClose, onChatCreated }: NewChatDialogPro
       const term = search.trim();
       let query = supabase.from('profiles').select('*').neq('id', user?.id || '').limit(20);
       if (term) {
-        query = query.or(`username.ilike.%${term}%,display_name.ilike.%${term}%,phone.ilike.%${term}%`);
+        query = query.or(`username.ilike.%${term}%,display_name.ilike.%${term}%,phone.ilike.%${term}%,email.ilike.%${term}%`);
       }
       const { data } = await query;
       setResults((data || []) as UserProfile[]);
@@ -54,7 +54,7 @@ export function NewChatDialog({ open, onClose, onChatCreated }: NewChatDialogPro
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <Input
-            placeholder="Search by username, name or phone"
+            placeholder="Search by username, name, email or phone"
             value={search}
             onChange={e => setSearch(e.target.value)}
             className="pl-9 bg-secondary border-0"

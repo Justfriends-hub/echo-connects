@@ -61,7 +61,7 @@ export function ChatSidebar({ chats, activeChat, onSelectChat, onNewChat, onNewG
               <button onClick={() => { onNewChannel(); setShowMenu(false); }} className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-popover-foreground hover:bg-accent transition-colors">
                 <Megaphone className="w-4 h-4" /> New Channel
               </button>
-              <button className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-popover-foreground hover:bg-accent transition-colors">
+              <button onClick={() => { navigate('/settings'); setShowMenu(false); }} className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-popover-foreground hover:bg-accent transition-colors">
                 <Settings className="w-4 h-4" /> Settings
               </button>
               <div className="border-t border-border my-1" />
