@@ -52,7 +52,7 @@ export default function Auth() {
   const handleSignUp = async () => {
     setError('');
     if (username.length < 3) {
-      setError('Username must be at least 3 characters');
+      setError('Username must be at least 3 characters.');
       return;
     }
     if (!displayName.trim()) {
