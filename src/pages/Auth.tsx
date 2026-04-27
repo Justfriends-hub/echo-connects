@@ -166,9 +166,9 @@ export default function Auth() {
             <button onClick={() => setStep('identifier')} className="w-full text-sm text-muted-foreground hover:text-foreground transition-colors">
               Use different email/phone
             </button>
-            <button onClick={() => navigate('/login')} className="w-full text-sm text-muted-foreground hover:text-foreground transition-colors">
+            <Button onClick={() => navigate('/login')} variant="outline" className="w-full mt-2">
               Already have an account? Login
-            </button>
+            </Button>
             {import.meta.env.DEV && debugInfo && (
               <div className="bg-slate-950/90 text-white text-xs p-3 rounded-lg mt-4 overflow-auto max-h-48">
                 <p className="font-medium text-sm text-white mb-2">Debug info</p>
