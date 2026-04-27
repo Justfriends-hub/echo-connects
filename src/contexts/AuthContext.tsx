@@ -9,6 +9,7 @@ interface AuthContextType {
   profile: UserProfile | null;
   loading: boolean;
   signUp: (identifier: string, username: string, displayName: string, phone: string) => Promise<{ data: any; error: any }>;
+  signIn: (identifier: string, password: string) => Promise<{ data: any; error: any }>;
   signOut: () => Promise<void>;
   updateProfile: (data: Partial<UserProfile>) => Promise<void>;
 }
@@ -97,6 +98,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return { data, error };
   };
 
+  const signIn = async (identifier: string, password: string) => {
+    const isEmail = identifier.includes('@');
+    const digits = identifier.replace(/\D/g, '');
+    const formattedPhone = identifier.startsWith('+') ? identifier : `+234${digits}`;
+    const payload = isEmail
+      ? { email: identifier, password }
+      : { phone: formattedPhone, password };
+
+    if (import.meta.env.DEV) {
+      console.debug('[Auth Debug] signIn payload', payload);
+    }
+
+    const { data, error } = await supabase.auth.signInWithPassword(payload as any);
+
+    if (import.meta.env.DEV) {
+      console.debug('[Auth Debug] signIn response', { data, error });
+    }
+
+    return { data, error };
+  };
+
   const signOut = async () => {
     await supabase.auth.signOut();
   };
@@ -125,7 +147,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, session, profile, loading, signUp, signOut, updateProfile }}>
+    <AuthContext.Provider value={{ user, session, profile, loading, signUp, signIn, signOut, updateProfile }}>
       {children}
     </AuthContext.Provider>
   );
