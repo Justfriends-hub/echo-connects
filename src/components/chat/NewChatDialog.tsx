@@ -23,7 +23,7 @@ export function NewChatDialog({ open, onClose, onChatCreated }: NewChatDialogPro
   useEffect(() => {
     if (!open) { setSearch(''); setResults([]); return; }
     const t = setTimeout(async () => {
-      const term = search.trim();
+      const term = search.trim().replace(/[%_,.()"]/g, '');
       let query = supabase
         .from('profiles')
         .select('*')
@@ -42,7 +42,7 @@ export function NewChatDialog({ open, onClose, onChatCreated }: NewChatDialogPro
   const startChat = async (otherId: string) => {
     if (busy) return;
     setBusy(true);
-    const { data, error } = await (supabase.rpc as any)('get_or_create_direct_chat', { _other_user: otherId });
+    const { data, error } = await supabase.rpc('get_or_create_direct_chat', { _other_user: otherId });
     setBusy(false);
     if (error) { toast.error(error.message); return; }
     onChatCreated?.(data as string);

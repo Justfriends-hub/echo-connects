@@ -15,7 +15,7 @@ export default function Login() {
 
   const validateIdentifier = (value: string) => {
     const trimmed = value.trim();
-    if (!trimmed || /\\s/.test(trimmed)) return false;
+    if (!trimmed || /\s/.test(trimmed)) return false;
     if (trimmed.includes('@')) {
       const parts = trimmed.split('@');
       if (parts.length !== 2) return false;
@@ -25,7 +25,7 @@ export default function Login() {
       if (!domain.includes('.')) return false;
       return true;
     }
-    const digits = trimmed.replace(/\\D/g, '');
+    const digits = trimmed.replace(/\D/g, '');
     return digits.length >= 10 && digits.length <= 11;
   };
 

@@ -20,11 +20,10 @@ export default function AdminDashboard() {
     );
   }
 
-  // For demo purposes, allow access. In production, redirect non-admins.
-  // if (!isSuperAdmin && !isPlatformAdmin) {
-  //   navigate('/');
-  //   return null;
-  // }
+  if (!isSuperAdmin && !isPlatformAdmin) {
+    navigate('/');
+    return null;
+  }
 
   return (
     <div className="min-h-screen bg-background">

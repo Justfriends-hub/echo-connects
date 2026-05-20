@@ -77,7 +77,7 @@ export function ChannelComments({ messageId, chatId, onClose }: ChannelCommentsP
       user_id: user.id,
       channel_id: chatId,
       watch_count: newCount,
-    }, { onConflict: 'user_id,channel_id' } as any);
+    }, { onConflict: 'user_id,channel_id' });
 
     setAdWatchCount(newCount);
     setCanComment(newCount >= REQUIRED_AD_WATCHES);

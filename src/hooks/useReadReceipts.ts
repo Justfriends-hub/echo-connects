@@ -39,7 +39,9 @@ export function useReadReceipts(chatId: string | null, currentUserId: string | u
       .update({ last_read_at: new Date().toISOString() })
       .eq('chat_id', chatId)
       .eq('user_id', currentUserId)
-      .then(() => {});
+      .then(({ error }) => {
+        if (error) console.warn('[ReadReceipts] Failed to update last_read_at:', error.message);
+      });
   }, [chatId, currentUserId, latestMessageAt]);
 
   // Subscribe to chat_members updates for this chat

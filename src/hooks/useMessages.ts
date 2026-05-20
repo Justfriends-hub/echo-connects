@@ -99,16 +99,21 @@ export function useMessages(chatId: string | null) {
       }, (payload) => {
         const r: any = payload.new || payload.old;
         if (!r) return;
-        setMessages(prev => prev.map(msg => {
-          if (msg.id !== r.message_id) return msg;
-          let next = msg.reactions || [];
-          if (payload.eventType === 'DELETE') {
-            next = next.filter(x => x.id !== r.id);
-          } else if (payload.eventType === 'INSERT') {
-            if (!next.some(x => x.id === r.id)) next = [...next, r as Reaction];
-          }
-          return { ...msg, reactions: next };
-        }));
+        // Only process reactions for messages in this chat
+        setMessages(prev => {
+          const belongsToChat = prev.some(msg => msg.id === r.message_id);
+          if (!belongsToChat) return prev;
+          return prev.map(msg => {
+            if (msg.id !== r.message_id) return msg;
+            let next = msg.reactions || [];
+            if (payload.eventType === 'DELETE') {
+              next = next.filter(x => x.id !== r.id);
+            } else if (payload.eventType === 'INSERT') {
+              if (!next.some(x => x.id === r.id)) next = [...next, r as Reaction];
+            }
+            return { ...msg, reactions: next };
+          });
+        });
       })
       .subscribe();
 

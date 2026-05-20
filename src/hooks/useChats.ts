@@ -6,6 +6,8 @@ import type { Chat, Message, UserProfile } from '@/types/chat';
 /**
  * Loads all chats the current user is a member of, plus realtime updates.
  * Computes display name for direct chats using the other member's profile.
+ *
+ * Optimised: fetches all enrichment data in batched queries instead of per-chat N+1.
  */
 export function useChats() {
   const { user } = useAuth();
@@ -15,7 +17,7 @@ export function useChats() {
   const load = useCallback(async () => {
     if (!user) { setChats([]); setLoading(false); return; }
 
-    // Fetch chat ids the user belongs to
+    // 1. Fetch chat ids the user belongs to
     const { data: memberships } = await supabase
       .from('chat_members')
       .select('chat_id')
@@ -24,50 +26,93 @@ export function useChats() {
     const ids = (memberships || []).map((m: any) => m.chat_id);
     if (ids.length === 0) { setChats([]); setLoading(false); return; }
 
+    // 2. Fetch all chat rows in one query
     const { data: chatRows } = await supabase
       .from('chats')
       .select('*')
       .in('id', ids);
+    if (!chatRows || chatRows.length === 0) { setChats([]); setLoading(false); return; }
 
-    // For each chat, get last message, member count, and (for direct) the other user
-    const enriched: Chat[] = await Promise.all(
-      (chatRows || []).map(async (c: any) => {
-        const [{ data: lastMsg }, { count: memberCount }, { data: members }] = await Promise.all([
-          supabase.from('messages').select('*').eq('chat_id', c.id).order('created_at', { ascending: false }).limit(1).maybeSingle(),
-          supabase.from('chat_members').select('*', { count: 'exact', head: true }).eq('chat_id', c.id),
-          supabase.from('chat_members').select('user_id').eq('chat_id', c.id),
-        ]);
+    // 3. Batch: fetch all members for these chats in one query
+    const { data: allMembers } = await supabase
+      .from('chat_members')
+      .select('chat_id, user_id')
+      .in('chat_id', ids);
 
-        let displayName = c.name;
-        let avatar = c.avatar_url;
-        let isOnline = false;
+    // 4. Batch: fetch latest message per chat using a single ordered query
+    //    We fetch more than needed and pick the latest per chat client-side
+    const { data: recentMessages } = await supabase
+      .from('messages')
+      .select('*')
+      .in('chat_id', ids)
+      .order('created_at', { ascending: false })
+      .limit(ids.length * 2); // fetch enough to cover most chats
 
-        if (c.type === 'direct') {
-          const otherId = (members || []).map((m: any) => m.user_id).find((id: string) => id !== user.id);
-          if (otherId) {
-            const { data: prof } = await supabase
-              .from('profiles')
-              .select('display_name, avatar_url, is_online')
-              .eq('id', otherId)
-              .maybeSingle();
-            if (prof) {
-              displayName = (prof as any).display_name;
-              avatar = (prof as any).avatar_url;
-              isOnline = (prof as any).is_online;
-            }
+    // Build a map of chat_id -> latest message
+    const lastMsgMap = new Map<string, Message>();
+    (recentMessages || []).forEach((m: any) => {
+      if (!lastMsgMap.has(m.chat_id)) {
+        lastMsgMap.set(m.chat_id, m as Message);
+      }
+    });
+
+    // Build a map of chat_id -> member user_ids
+    const membersMap = new Map<string, string[]>();
+    (allMembers || []).forEach((m: any) => {
+      const arr = membersMap.get(m.chat_id) || [];
+      arr.push(m.user_id);
+      membersMap.set(m.chat_id, arr);
+    });
+
+    // 5. For direct chats, collect the "other" user ids and batch-fetch their profiles
+    const otherUserIds = new Set<string>();
+    chatRows.forEach((c: any) => {
+      if (c.type === 'direct') {
+        const members = membersMap.get(c.id) || [];
+        const otherId = members.find((id: string) => id !== user.id);
+        if (otherId) otherUserIds.add(otherId);
+      }
+    });
+
+    let profileMap = new Map<string, { display_name: string; avatar_url: string | null; is_online: boolean }>();
+    if (otherUserIds.size > 0) {
+      const { data: profiles } = await supabase
+        .from('profiles')
+        .select('id, display_name, avatar_url, is_online')
+        .in('id', Array.from(otherUserIds));
+      (profiles || []).forEach((p: any) => {
+        profileMap.set(p.id, { display_name: p.display_name, avatar_url: p.avatar_url, is_online: p.is_online });
+      });
+    }
+
+    // 6. Enrich each chat
+    const enriched: Chat[] = chatRows.map((c: any) => {
+      const members = membersMap.get(c.id) || [];
+      let displayName = c.name;
+      let avatar = c.avatar_url;
+      let isOnline = false;
+
+      if (c.type === 'direct') {
+        const otherId = members.find((id: string) => id !== user.id);
+        if (otherId) {
+          const prof = profileMap.get(otherId);
+          if (prof) {
+            displayName = prof.display_name;
+            avatar = prof.avatar_url;
+            isOnline = prof.is_online;
           }
         }
+      }
 
-        return {
-          ...c,
-          name: displayName,
-          avatar_url: avatar,
-          is_online: isOnline,
-          member_count: memberCount || 0,
-          last_message: lastMsg as Message | undefined,
-        } as Chat;
-      })
-    );
+      return {
+        ...c,
+        name: displayName,
+        avatar_url: avatar,
+        is_online: isOnline,
+        member_count: members.length,
+        last_message: lastMsgMap.get(c.id),
+      } as Chat;
+    });
 
     // Sort by last message time desc
     enriched.sort((a, b) => {
@@ -82,12 +127,32 @@ export function useChats() {
 
   useEffect(() => { load(); }, [load]);
 
-  // Realtime: refresh chat list on any new message or membership change
+  // Realtime: update chat list on new messages or membership changes
   useEffect(() => {
     if (!user) return;
     const channel = supabase
       .channel('chats-list')
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, () => load())
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, (payload) => {
+        // Optimistic: update just the affected chat's last_message instead of full reload
+        const msg = payload.new as Message;
+        setChats(prev => {
+          const idx = prev.findIndex(c => c.id === msg.chat_id);
+          if (idx === -1) {
+            // New chat we don't know about yet — do a full reload
+            load();
+            return prev;
+          }
+          const updated = [...prev];
+          updated[idx] = { ...updated[idx], last_message: msg };
+          // Re-sort: move updated chat to top
+          updated.sort((a, b) => {
+            const at = a.last_message?.created_at || a.created_at;
+            const bt = b.last_message?.created_at || b.created_at;
+            return new Date(bt).getTime() - new Date(at).getTime();
+          });
+          return updated;
+        });
+      })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'chat_members', filter: `user_id=eq.${user.id}` }, () => load())
       .subscribe();
     return () => { supabase.removeChannel(channel); };

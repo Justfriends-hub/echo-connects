@@ -54,7 +54,6 @@ export function ChatInput({ onSend, onTyping, disabled, placeholder = "Message" 
           value={text}
           onChange={handleChange}
           onKeyDown={handleKeyDown}
-          onKeyUp={() => onTyping?.()}
           placeholder={placeholder}
           rows={1}
           disabled={disabled}

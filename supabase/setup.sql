@@ -304,6 +304,8 @@ CREATE POLICY "Add members" ON public.chat_members FOR INSERT TO authenticated W
 );
 DROP POLICY IF EXISTS "Remove self" ON public.chat_members;
 CREATE POLICY "Remove self" ON public.chat_members FOR DELETE TO authenticated USING (auth.uid() = user_id);
+DROP POLICY IF EXISTS "Members update own membership" ON public.chat_members;
+CREATE POLICY "Members update own membership" ON public.chat_members FOR UPDATE TO authenticated USING (auth.uid() = user_id);
 
 -- messages
 DROP POLICY IF EXISTS "Members see messages" ON public.messages;

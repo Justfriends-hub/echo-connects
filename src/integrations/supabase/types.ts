@@ -280,6 +280,7 @@ export type Database = {
           email: string
           hide_phone: boolean
           id: string
+          is_bot: boolean
           is_online: boolean
           last_seen: string
           phone: string
@@ -294,6 +295,7 @@ export type Database = {
           email: string
           hide_phone?: boolean
           id: string
+          is_bot?: boolean
           is_online?: boolean
           last_seen?: string
           phone: string
@@ -308,6 +310,7 @@ export type Database = {
           email?: string
           hide_phone?: boolean
           id?: string
+          is_bot?: boolean
           is_online?: boolean
           last_seen?: string
           phone?: string

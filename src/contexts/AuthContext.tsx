@@ -33,7 +33,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
         if (session?.user) {
           setTimeout(async () => {
-            const { data } = await (supabase as any)
+            const { data } = await supabase
               .from('profiles')
               .select('*')
               .eq('id', session.user.id)
@@ -59,37 +59,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signUp = async (identifier: string, username: string, displayName: string, phone: string) => {
     const isEmail = identifier.includes('@');
-    const randomPassword = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+    const randomPassword = crypto.randomUUID();
     const formattedPhone = identifier.startsWith('+') ? identifier : `+234${identifier.replace(/\D/g, '')}`;
-    const payload = isEmail
-      ? {
-          email: identifier,
-          password: randomPassword,
-          options: {
-            data: {
-              username: username.toLowerCase(),
-              display_name: displayName,
-              phone,
-            },
-          },
-        }
-      : {
-          phone: formattedPhone,
-          password: randomPassword,
-          options: {
-            data: {
-              username: username.toLowerCase(),
-              display_name: displayName,
-              phone: formattedPhone,
-            },
-          },
-        };
+    const metadata = {
+      username: username.toLowerCase(),
+      display_name: displayName,
+      phone: isEmail ? phone : formattedPhone,
+    };
 
     if (import.meta.env.DEV) {
-      console.debug('[Auth Debug] signUp payload', payload);
+      console.debug('[Auth Debug] signUp', { isEmail, identifier, metadata });
     }
 
-    const { data, error } = await supabase.auth.signUp(payload as any);
+    const { data, error } = isEmail
+      ? await supabase.auth.signUp({ email: identifier, password: randomPassword, options: { data: metadata } })
+      : await supabase.auth.signUp({ phone: formattedPhone, password: randomPassword, options: { data: metadata } });
 
     if (import.meta.env.DEV) {
       console.debug('[Auth Debug] signUp response', { data, error });
@@ -102,15 +86,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const isEmail = identifier.includes('@');
     const digits = identifier.replace(/\D/g, '');
     const formattedPhone = identifier.startsWith('+') ? identifier : `+234${digits}`;
-    const payload = isEmail
-      ? { email: identifier, password }
-      : { phone: formattedPhone, password };
 
     if (import.meta.env.DEV) {
-      console.debug('[Auth Debug] signIn payload', payload);
+      console.debug('[Auth Debug] signIn', { isEmail, identifier });
     }
 
-    const { data, error } = await supabase.auth.signInWithPassword(payload as any);
+    const { data, error } = isEmail
+      ? await supabase.auth.signInWithPassword({ email: identifier, password })
+      : await supabase.auth.signInWithPassword({ phone: formattedPhone, password });
 
     if (import.meta.env.DEV) {
       console.debug('[Auth Debug] signIn response', { data, error });
@@ -138,7 +121,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     }
 
-    const { error } = await (supabase as any).from('profiles').update(data).eq('id', user.id);
+    const { error } = await supabase.from('profiles').update(data).eq('id', user.id);
     if (error) {
       throw error;
     }
