@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { ArrowLeft, Shield, Users, MessageSquare, TrendingUp, Eye, EyeOff } from 'lucide-react';
+import React from 'react';
+import { ArrowLeft, Shield, Users, MessageSquare, TrendingUp } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useNavigate } from 'react-router-dom';

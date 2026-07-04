@@ -12,7 +12,6 @@ export default function Auth() {
   const [displayName, setDisplayName] = useState('');
   const [phone, setPhone] = useState('');
   const [error, setError] = useState('');
-  const [debugInfo, setDebugInfo] = useState<any>(null);
   const [loading, setLoading] = useState(false);
   const { signUp } = useAuth();
   const navigate = useNavigate();
@@ -77,7 +76,6 @@ export default function Auth() {
       fullPhone
     );
     setLoading(false);
-    setDebugInfo(result);
 
     if (result.error) {
       console.error('[Auth Debug] signup failed', result.error, result.data);
@@ -169,12 +167,6 @@ export default function Auth() {
             <Button onClick={() => navigate('/login')} variant="outline" className="w-full mt-2">
               Already have an account? Login
             </Button>
-            {import.meta.env.DEV && debugInfo && (
-              <div className="bg-slate-950/90 text-white text-xs p-3 rounded-lg mt-4 overflow-auto max-h-48">
-                <p className="font-medium text-sm text-white mb-2">Debug info</p>
-                <pre className="whitespace-pre-wrap break-words">{JSON.stringify(debugInfo, null, 2)}</pre>
-              </div>
-            )}
           </div>
         )}
       </div>
