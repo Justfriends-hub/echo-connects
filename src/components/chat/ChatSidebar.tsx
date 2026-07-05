@@ -1,10 +1,15 @@
 import React, { useState } from 'react';
-import { Search, Menu, Edit, Users, Megaphone, Settings, Shield } from 'lucide-react';
+import { Search, Menu, Edit, Users, Megaphone, Settings, Shield, ChevronDown } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { NavLink } from '@/components/NavLink';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { Skeleton } from '@/components/ui/skeleton';
+import { Separator } from '@/components/ui/separator';
 import type { Chat } from '@/types/chat';
 import { cn } from '@/lib/utils';
 
@@ -15,16 +20,39 @@ interface ChatSidebarProps {
   onNewChat: () => void;
   onNewGroup: () => void;
   onNewChannel: () => void;
+  loading?: boolean;
+  onOpenProfile?: () => void;
 }
 
-export function ChatSidebar({ chats, activeChat, onSelectChat, onNewChat, onNewGroup, onNewChannel }: ChatSidebarProps) {
+function ChatListSkeleton() {
+  return (
+    <div className="space-y-1 p-2">
+      {[...Array(6)].map((_, i) => (
+        <div key={i} className="flex items-center gap-3 px-3 py-2.5">
+          <Skeleton className="w-12 h-12 rounded-full flex-shrink-0" />
+          <div className="flex-1 space-y-2">
+            <Skeleton className="h-4 w-3/4" />
+            <Skeleton className="h-3 w-1/2" />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+export function ChatSidebar({ chats, activeChat, onSelectChat, onNewChat, onNewGroup, onNewChannel, loading, onOpenProfile }: ChatSidebarProps) {
   const [search, setSearch] = useState('');
-  const [showMenu, setShowMenu] = useState(false);
+  const [channelsOpen, setChannelsOpen] = useState(true);
+  const [directsOpen, setDirectsOpen] = useState(true);
   const navigate = useNavigate();
 
   const filtered = chats.filter(c =>
     (c.name || '').toLowerCase().includes(search.toLowerCase())
   );
+
+  const channels = filtered.filter(c => c.type === 'channel');
+  const groups = filtered.filter(c => c.type === 'group');
+  const directs = filtered.filter(c => c.type === 'direct');
 
   const formatTime = (dateStr: string) => {
     const d = new Date(dateStr);
@@ -45,32 +73,78 @@ export function ChatSidebar({ chats, activeChat, onSelectChat, onNewChat, onNewG
     return null;
   };
 
+  const renderChatItem = (chat: Chat) => (
+    <button
+      key={chat.id}
+      onClick={() => onSelectChat(chat.id)}
+      className={cn(
+        "w-full flex items-center gap-3 px-3 py-2.5 transition-colors text-left rounded-lg mx-1",
+        activeChat === chat.id ? "bg-sidebar-accent" : "hover:bg-sidebar-accent/50"
+      )}
+    >
+      <div className="relative">
+        <Avatar className="w-12 h-12">
+          <AvatarImage src={chat.avatar_url} />
+          <AvatarFallback className="bg-primary/20 text-primary text-sm font-medium">
+            {getInitials(chat.name || 'U')}
+          </AvatarFallback>
+        </Avatar>
+        {chat.type === 'direct' && chat.is_online && (
+          <span className="absolute bottom-0 right-0 w-3.5 h-3.5 online-dot rounded-full border-2 border-sidebar" />
+        )}
+      </div>
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-1.5">
+            {getChatIcon(chat.type)}
+            <span className="font-medium text-sm text-sidebar-foreground truncate">
+              {chat.name || 'Unknown'}
+            </span>
+          </div>
+          <span className="text-xs text-muted-foreground flex-shrink-0">
+            {chat.last_message ? formatTime(chat.last_message.created_at) : ''}
+          </span>
+        </div>
+        <div className="flex items-center justify-between mt-0.5">
+          <p className="text-sm text-muted-foreground truncate pr-2">
+            {chat.last_message?.content || 'No messages yet'}
+          </p>
+          {(chat.unread_count ?? 0) > 0 && (
+            <span className="flex-shrink-0 min-w-[20px] h-5 flex items-center justify-center rounded-full bg-unread-badge text-xs font-medium text-primary-foreground px-1.5">
+              {chat.unread_count}
+            </span>
+          )}
+        </div>
+      </div>
+    </button>
+  );
+
   return (
     <div className="flex flex-col h-full bg-sidebar border-r border-sidebar-border">
       {/* Header */}
       <div className="flex items-center gap-2 p-3 border-b border-sidebar-border">
-        <div className="relative">
-          <Button variant="ghost" size="icon" className="text-sidebar-foreground" onClick={() => setShowMenu(!showMenu)}>
-            <Menu className="w-5 h-5" />
-          </Button>
-          {showMenu && (
-            <div className="absolute top-full left-0 mt-1 w-52 bg-popover rounded-lg shadow-lg border border-border z-50 py-1 animate-fade-in">
-              <button onClick={() => { onNewGroup(); setShowMenu(false); }} className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-popover-foreground hover:bg-accent transition-colors">
-                <Users className="w-4 h-4" /> New Group
-              </button>
-              <button onClick={() => { onNewChannel(); setShowMenu(false); }} className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-popover-foreground hover:bg-accent transition-colors">
-                <Megaphone className="w-4 h-4" /> New Channel
-              </button>
-              <button onClick={() => { navigate('/settings'); setShowMenu(false); }} className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-popover-foreground hover:bg-accent transition-colors">
-                <Settings className="w-4 h-4" /> Settings
-              </button>
-              <div className="border-t border-border my-1" />
-              <button onClick={() => { navigate('/admin'); setShowMenu(false); }} className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-popover-foreground hover:bg-accent transition-colors">
-                <Shield className="w-4 h-4 text-primary" /> Admin Panel
-              </button>
-            </div>
-          )}
-        </div>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" size="icon" className="text-sidebar-foreground">
+              <Menu className="w-5 h-5" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent className="w-52 bg-popover border-border" align="start">
+            <DropdownMenuItem onClick={onNewGroup} className="gap-3">
+              <Users className="w-4 h-4" /> New Group
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={onNewChannel} className="gap-3">
+              <Megaphone className="w-4 h-4" /> New Channel
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onClick={() => navigate('/settings')} className="gap-3">
+              <Settings className="w-4 h-4" /> Settings
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => navigate('/admin')} className="gap-3">
+              <Shield className="w-4 h-4 text-primary" /> Admin Panel
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
         <div className="flex-1 relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <Input
@@ -84,57 +158,53 @@ export function ChatSidebar({ chats, activeChat, onSelectChat, onNewChat, onNewG
 
       {/* Chat List */}
       <ScrollArea className="flex-1">
-        {filtered.length === 0 ? (
+        {loading ? (
+          <ChatListSkeleton />
+        ) : filtered.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
             <p className="text-sm">No conversations yet</p>
             <p className="text-xs mt-1">Start a new chat to begin</p>
           </div>
         ) : (
-          filtered.map(chat => (
-            <button
-              key={chat.id}
-              onClick={() => onSelectChat(chat.id)}
-              className={cn(
-                "w-full flex items-center gap-3 px-3 py-2.5 transition-colors text-left",
-                activeChat === chat.id ? "bg-sidebar-accent" : "hover:bg-sidebar-accent/50"
-              )}
-            >
-              <div className="relative">
-                <Avatar className="w-12 h-12">
-                  <AvatarImage src={chat.avatar_url} />
-                  <AvatarFallback className="bg-primary/20 text-primary text-sm font-medium">
-                    {getInitials(chat.name || 'U')}
-                  </AvatarFallback>
-                </Avatar>
-                {chat.type === 'direct' && chat.is_online && (
-                  <span className="absolute bottom-0 right-0 w-3.5 h-3.5 online-dot rounded-full border-2 border-sidebar" />
-                )}
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-1.5">
-                    {getChatIcon(chat.type)}
-                    <span className="font-medium text-sm text-sidebar-foreground truncate">
-                      {chat.name || 'Unknown'}
-                    </span>
-                  </div>
-                  <span className="text-xs text-muted-foreground flex-shrink-0">
-                    {chat.last_message ? formatTime(chat.last_message.created_at) : ''}
-                  </span>
+          <div className="py-1">
+            {/* Channels Section */}
+            {channels.length > 0 && (
+              <>
+                <Collapsible open={channelsOpen} onOpenChange={setChannelsOpen}>
+                  <CollapsibleTrigger className="flex items-center justify-between w-full px-4 py-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wider hover:text-foreground transition-colors">
+                    <span>Channels</span>
+                    <ChevronDown className={cn("w-3.5 h-3.5 transition-transform", channelsOpen && "rotate-180")} />
+                  </CollapsibleTrigger>
+                  <CollapsibleContent>
+                    {channels.map(renderChatItem)}
+                  </CollapsibleContent>
+                </Collapsible>
+                <Separator className="my-1 mx-3" />
+              </>
+            )}
+
+            {/* Groups Section */}
+            {groups.length > 0 && (
+              <>
+                <div className="px-4 py-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                  Groups
                 </div>
-                <div className="flex items-center justify-between mt-0.5">
-                  <p className="text-sm text-muted-foreground truncate pr-2">
-                    {chat.last_message?.content || 'No messages yet'}
-                  </p>
-                  {(chat.unread_count ?? 0) > 0 && (
-                    <span className="flex-shrink-0 min-w-[20px] h-5 flex items-center justify-center rounded-full bg-unread-badge text-xs font-medium text-primary-foreground px-1.5">
-                      {chat.unread_count}
-                    </span>
-                  )}
-                </div>
-              </div>
-            </button>
-          ))
+                {groups.map(renderChatItem)}
+                <Separator className="my-1 mx-3" />
+              </>
+            )}
+
+            {/* Direct Messages Section */}
+            <Collapsible open={directsOpen} onOpenChange={setDirectsOpen}>
+              <CollapsibleTrigger className="flex items-center justify-between w-full px-4 py-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wider hover:text-foreground transition-colors">
+                <span>Direct Messages</span>
+                <ChevronDown className={cn("w-3.5 h-3.5 transition-transform", directsOpen && "rotate-180")} />
+              </CollapsibleTrigger>
+              <CollapsibleContent>
+                {directs.map(renderChatItem)}
+              </CollapsibleContent>
+            </Collapsible>
+          </div>
         )}
       </ScrollArea>
 
