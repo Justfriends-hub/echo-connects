@@ -1,7 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { Eye, EyeOff, Users, TrendingUp, Megaphone } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
+import { Skeleton } from '@/components/ui/skeleton';
+import { ChartConfig, ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, ResponsiveContainer } from 'recharts';
 import { supabase } from '@/integrations/supabase/client';
 
 interface ChannelData {
@@ -12,9 +17,14 @@ interface ChannelData {
   visible_total: number;
 }
 
+const chartConfig: ChartConfig = {
+  real_members: { label: "Real Members", color: "hsl(142 70% 49%)" },
+  boosted_count: { label: "Boosted", color: "hsl(200 80% 55%)" },
+};
+
 export function ChannelOverview({ isSuperAdmin }: { isSuperAdmin: boolean }) {
   const [channels, setChannels] = useState<ChannelData[]>([]);
-  const [showReal, setShowReal] = useState(true);
+  const [viewMode, setViewMode] = useState<string>('total');
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -52,12 +62,19 @@ export function ChannelOverview({ isSuperAdmin }: { isSuperAdmin: boolean }) {
     setLoading(false);
   };
 
-  // Demo data for when no channels exist
   const demoChannels: ChannelData[] = channels.length > 0 ? channels : [
     { id: 'd1', name: 'Tech News', real_members: 1247, boosted_count: 3276, visible_total: 4523 },
     { id: 'd2', name: 'Crypto Alerts', real_members: 892, boosted_count: 5108, visible_total: 6000 },
     { id: 'd3', name: 'Music Vibes', real_members: 340, boosted_count: 1660, visible_total: 2000 },
   ];
+
+  const getDisplayCount = (ch: ChannelData) => {
+    switch (viewMode) {
+      case 'real': return ch.real_members;
+      case 'boosted': return ch.boosted_count;
+      default: return ch.visible_total;
+    }
+  };
 
   return (
     <div className="space-y-4">
@@ -66,79 +83,116 @@ export function ChannelOverview({ isSuperAdmin }: { isSuperAdmin: boolean }) {
         <Card className="bg-card border-border">
           <CardContent className="p-4 text-center">
             <Megaphone className="w-5 h-5 text-primary mx-auto mb-1" />
-            <div className="text-2xl font-bold text-foreground">{demoChannels.length}</div>
+            {loading ? <Skeleton className="h-8 w-12 mx-auto" /> :
+              <div className="text-2xl font-bold text-foreground">{demoChannels.length}</div>
+            }
             <div className="text-xs text-muted-foreground">Channels</div>
           </CardContent>
         </Card>
         <Card className="bg-card border-border">
           <CardContent className="p-4 text-center">
             <Users className="w-5 h-5 text-online mx-auto mb-1" />
-            <div className="text-2xl font-bold text-foreground">
-              {demoChannels.reduce((a, c) => a + c.real_members, 0).toLocaleString()}
-            </div>
+            {loading ? <Skeleton className="h-8 w-16 mx-auto" /> :
+              <div className="text-2xl font-bold text-foreground">
+                {demoChannels.reduce((a, c) => a + c.real_members, 0).toLocaleString()}
+              </div>
+            }
             <div className="text-xs text-muted-foreground">Real Members</div>
           </CardContent>
         </Card>
         <Card className="bg-card border-border">
           <CardContent className="p-4 text-center">
             <TrendingUp className="w-5 h-5 text-primary mx-auto mb-1" />
-            <div className="text-2xl font-bold text-foreground">
-              {demoChannels.reduce((a, c) => a + c.visible_total, 0).toLocaleString()}
-            </div>
+            {loading ? <Skeleton className="h-8 w-16 mx-auto" /> :
+              <div className="text-2xl font-bold text-foreground">
+                {demoChannels.reduce((a, c) => a + c.visible_total, 0).toLocaleString()}
+              </div>
+            }
             <div className="text-xs text-muted-foreground">Visible Total</div>
           </CardContent>
         </Card>
       </div>
 
-      {/* Toggle real vs boosted */}
+      {/* Chart */}
+      <Card className="bg-card border-border">
+        <CardContent className="p-4">
+          <h3 className="text-sm font-medium text-foreground mb-3">Subscriber Breakdown</h3>
+          {loading ? (
+            <Skeleton className="h-48 w-full" />
+          ) : (
+            <ChartContainer config={chartConfig} className="h-48 w-full">
+              <BarChart data={demoChannels} margin={{ top: 5, right: 5, bottom: 5, left: 5 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="hsl(210 11% 25%)" />
+                <XAxis dataKey="name" tick={{ fontSize: 11, fill: 'hsl(210 12% 55%)' }} />
+                <YAxis tick={{ fontSize: 11, fill: 'hsl(210 12% 55%)' }} />
+                <ChartTooltip content={<ChartTooltipContent />} />
+                <Bar dataKey="real_members" fill="hsl(142 70% 49%)" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="boosted_count" fill="hsl(200 80% 55%)" radius={[4, 4, 0, 0]} />
+              </BarChart>
+            </ChartContainer>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* View Toggle */}
       {isSuperAdmin && (
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => setShowReal(!showReal)}
-          className="border-border text-foreground"
-        >
-          {showReal ? <Eye className="w-4 h-4 mr-2" /> : <EyeOff className="w-4 h-4 mr-2" />}
-          {showReal ? 'Showing Real Counts' : 'Showing Public Counts'}
-        </Button>
+        <div className="flex items-center gap-3">
+          <span className="text-xs text-muted-foreground">View:</span>
+          <ToggleGroup type="single" value={viewMode} onValueChange={(v) => v && setViewMode(v)} className="bg-secondary rounded-lg p-0.5">
+            <ToggleGroupItem value="total" className="text-xs h-7 px-3 data-[state=on]:bg-primary data-[state=on]:text-primary-foreground">Total</ToggleGroupItem>
+            <ToggleGroupItem value="real" className="text-xs h-7 px-3 data-[state=on]:bg-primary data-[state=on]:text-primary-foreground">Real</ToggleGroupItem>
+            <ToggleGroupItem value="boosted" className="text-xs h-7 px-3 data-[state=on]:bg-primary data-[state=on]:text-primary-foreground">Boosted</ToggleGroupItem>
+          </ToggleGroup>
+        </div>
       )}
 
-      {/* Channel List */}
-      <div className="space-y-2">
-        {demoChannels.map(channel => (
-          <Card key={channel.id} className="bg-card border-border">
-            <CardContent className="p-4 flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center">
-                  <Megaphone className="w-5 h-5 text-primary" />
+      {/* Data Table */}
+      <Card className="bg-card border-border">
+        <CardContent className="p-0">
+          {loading ? (
+            <div className="p-4 space-y-3">
+              {[...Array(3)].map((_, i) => (
+                <div key={i} className="flex items-center gap-3">
+                  <Skeleton className="w-10 h-10 rounded-full" />
+                  <Skeleton className="h-4 w-24 flex-1" />
+                  <Skeleton className="h-4 w-12" />
+                  <Skeleton className="h-4 w-12" />
                 </div>
-                <div>
-                  <div className="font-medium text-sm text-foreground">{channel.name}</div>
-                  <div className="text-xs text-muted-foreground">
-                    {showReal ? (
-                      <span>
-                        <span className="text-online">{channel.real_members.toLocaleString()} real</span>
-                        {' · '}
-                        <span className="text-primary">+{channel.boosted_count.toLocaleString()} boosted</span>
-                      </span>
-                    ) : (
-                      <span>{channel.visible_total.toLocaleString()} subscribers</span>
-                    )}
-                  </div>
-                </div>
-              </div>
-              <div className="text-right">
-                <div className="text-lg font-bold text-foreground">
-                  {showReal ? channel.real_members.toLocaleString() : channel.visible_total.toLocaleString()}
-                </div>
-                <div className="text-[10px] text-muted-foreground uppercase">
-                  {showReal ? 'actual' : 'public'}
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
+              ))}
+            </div>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow className="border-border hover:bg-transparent">
+                  <TableHead className="text-xs text-muted-foreground">Channel</TableHead>
+                  <TableHead className="text-xs text-muted-foreground text-right">Real</TableHead>
+                  <TableHead className="text-xs text-muted-foreground text-right">Boosted</TableHead>
+                  <TableHead className="text-xs text-muted-foreground text-right">
+                    {viewMode === 'real' ? 'Real' : viewMode === 'boosted' ? 'Boosted' : 'Total'}
+                  </TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {demoChannels.map(channel => (
+                  <TableRow key={channel.id} className="border-border">
+                    <TableCell className="font-medium text-sm">
+                      <div className="flex items-center gap-2">
+                        <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center">
+                          <Megaphone className="w-4 h-4 text-primary" />
+                        </div>
+                        {channel.name}
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-right text-sm text-online">{channel.real_members.toLocaleString()}</TableCell>
+                    <TableCell className="text-right text-sm text-primary">{channel.boosted_count.toLocaleString()}</TableCell>
+                    <TableCell className="text-right text-sm font-bold">{getDisplayCount(channel).toLocaleString()}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }

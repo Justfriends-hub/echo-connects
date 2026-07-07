@@ -1,8 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { X, Send, Play, Eye } from 'lucide-react';
+import { X, Send, Play, Eye, ShieldCheck } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Progress } from '@/components/ui/progress';
+import { InputOTP, InputOTPGroup, InputOTPSlot, InputOTPSeparator } from '@/components/ui/input-otp';
+import { Separator } from '@/components/ui/separator';
+import { Skeleton } from '@/components/ui/skeleton';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
@@ -33,6 +37,9 @@ export function ChannelComments({ messageId, chatId, onClose }: ChannelCommentsP
   const [showAdPrompt, setShowAdPrompt] = useState(false);
   const [watchingAd, setWatchingAd] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [showVerification, setShowVerification] = useState(false);
+  const [otpValue, setOtpValue] = useState('');
+  const [verified, setVerified] = useState(false);
 
   useEffect(() => {
     fetchComments();
@@ -91,6 +98,16 @@ export function ChannelComments({ messageId, chatId, onClose }: ChannelCommentsP
     }
   };
 
+  const handleVerifyOTP = () => {
+    if (otpValue === '123456') {
+      setVerified(true);
+      setShowVerification(false);
+      toast.success('Phone verified! You can now comment.');
+    } else {
+      toast.error('Invalid code. Try 123456 for demo.');
+    }
+  };
+
   const submitComment = async () => {
     if (!user || !newComment.trim()) return;
     
@@ -103,7 +120,7 @@ export function ChannelComments({ messageId, chatId, onClose }: ChannelCommentsP
       message_id: messageId,
       user_id: user.id,
       content: newComment.trim(),
-      status: 'pending', // Always pending - hidden from user
+      status: 'pending',
     });
 
     if (error) {
@@ -111,7 +128,6 @@ export function ChannelComments({ messageId, chatId, onClose }: ChannelCommentsP
       return;
     }
 
-    // User sees their own comment as if it's posted (but it's actually pending approval)
     setComments(prev => [...prev, {
       id: `temp-${Date.now()}`,
       content: newComment.trim(),
@@ -121,51 +137,105 @@ export function ChannelComments({ messageId, chatId, onClose }: ChannelCommentsP
       display_name: 'You',
     }]);
     setNewComment('');
-    toast.success('Comment posted!'); // Users think it's live, but it's pending
+    toast.success('Comment posted!');
   };
 
-  // Demo comments
   const displayComments = comments.length > 0 ? comments : [
     { id: 'dc1', content: 'Great article! 🔥', user_id: 'u1', created_at: new Date(Date.now() - 3600000).toISOString(), status: 'approved', display_name: 'Chidi N.' },
     { id: 'dc2', content: 'Thanks for sharing this', user_id: 'u2', created_at: new Date(Date.now() - 1800000).toISOString(), status: 'approved', display_name: 'Amaka O.' },
   ];
 
+  const progressPct = (adWatchCount / REQUIRED_AD_WATCHES) * 100;
+
   return (
     <div className="fixed inset-0 z-50 flex justify-end md:relative md:inset-auto md:w-80 md:border-l md:border-border">
-      {/* Overlay on mobile */}
       <div className="absolute inset-0 bg-background/80 md:hidden" onClick={onClose} />
 
       <div className="relative w-80 h-full bg-card flex flex-col z-10">
         {/* Header */}
         <div className="flex items-center justify-between px-4 py-3 border-b border-border">
           <h3 className="text-sm font-semibold text-foreground">Comments</h3>
-          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={onClose}>
-            <X className="w-4 h-4" />
-          </Button>
+          <div className="flex items-center gap-1">
+            {!verified && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-xs text-primary gap-1"
+                onClick={() => setShowVerification(true)}
+              >
+                <ShieldCheck className="w-3.5 h-3.5" /> Verify
+              </Button>
+            )}
+            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={onClose}>
+              <X className="w-4 h-4" />
+            </Button>
+          </div>
         </div>
+
+        {/* Phone Verification with OTP */}
+        {showVerification && (
+          <div className="p-4 bg-muted/30 border-b border-border animate-fade-in">
+            <p className="text-xs font-medium text-foreground mb-1">Verify your phone</p>
+            <p className="text-[10px] text-muted-foreground mb-3">
+              Enter the 6-digit code sent to your phone. (Demo: use 123456)
+            </p>
+            <div className="flex justify-center mb-3">
+              <InputOTP value={otpValue} onChange={setOtpValue} maxLength={6}>
+                <InputOTPGroup>
+                  <InputOTPSlot index={0} />
+                  <InputOTPSlot index={1} />
+                  <InputOTPSlot index={2} />
+                </InputOTPGroup>
+                <InputOTPSeparator />
+                <InputOTPGroup>
+                  <InputOTPSlot index={3} />
+                  <InputOTPSlot index={4} />
+                  <InputOTPSlot index={5} />
+                </InputOTPGroup>
+              </InputOTP>
+            </div>
+            <Button size="sm" className="w-full h-7 text-xs" onClick={handleVerifyOTP} disabled={otpValue.length < 6}>
+              Verify Code
+            </Button>
+          </div>
+        )}
 
         {/* Comments List */}
         <ScrollArea className="flex-1 px-3 py-2">
-          {displayComments
-            .filter(c => c.status === 'approved' || c.user_id === user?.id)
-            .map(comment => (
-              <div key={comment.id} className="flex gap-2 mb-3">
-                <Avatar className="w-7 h-7 flex-shrink-0">
-                  <AvatarFallback className="bg-primary/20 text-primary text-[10px]">
-                    {(comment.display_name || 'U')[0]}
-                  </AvatarFallback>
-                </Avatar>
-                <div>
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-xs font-medium text-foreground">{comment.display_name || 'User'}</span>
-                    <span className="text-[10px] text-muted-foreground">
-                      {new Date(comment.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                    </span>
+          {loading ? (
+            <div className="space-y-3">
+              {[...Array(3)].map((_, i) => (
+                <div key={i} className="flex gap-2">
+                  <Skeleton className="w-7 h-7 rounded-full flex-shrink-0" />
+                  <div className="space-y-1 flex-1">
+                    <Skeleton className="h-3 w-20" />
+                    <Skeleton className="h-3 w-40" />
                   </div>
-                  <p className="text-xs text-foreground/80 mt-0.5">{comment.content}</p>
                 </div>
-              </div>
-            ))}
+              ))}
+            </div>
+          ) : (
+            displayComments
+              .filter(c => c.status === 'approved' || c.user_id === user?.id)
+              .map(comment => (
+                <div key={comment.id} className="flex gap-2 mb-3">
+                  <Avatar className="w-7 h-7 flex-shrink-0">
+                    <AvatarFallback className="bg-primary/20 text-primary text-[10px]">
+                      {(comment.display_name || 'U')[0]}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div>
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-xs font-medium text-foreground">{comment.display_name || 'User'}</span>
+                      <span className="text-[10px] text-muted-foreground">
+                        {new Date(comment.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      </span>
+                    </div>
+                    <p className="text-xs text-foreground/80 mt-0.5">{comment.content}</p>
+                  </div>
+                </div>
+              ))
+          )}
         </ScrollArea>
 
         {/* Ad Gate Prompt */}
@@ -173,17 +243,13 @@ export function ChannelComments({ messageId, chatId, onClose }: ChannelCommentsP
           <div className="p-3 bg-muted/50 border-t border-border animate-fade-in">
             <div className="flex items-start gap-2">
               <Eye className="w-4 h-4 text-primary mt-0.5 flex-shrink-0" />
-              <div>
+              <div className="flex-1">
                 <p className="text-xs font-medium text-foreground">Watch ads to comment</p>
                 <p className="text-[10px] text-muted-foreground mt-0.5">
                   {REQUIRED_AD_WATCHES - adWatchCount} more ads needed
                 </p>
-                <div className="w-full bg-secondary rounded-full h-1.5 mt-2">
-                  <div
-                    className="bg-primary h-1.5 rounded-full transition-all"
-                    style={{ width: `${(adWatchCount / REQUIRED_AD_WATCHES) * 100}%` }}
-                  />
-                </div>
+                <Progress value={progressPct} className="h-1.5 mt-2" />
+                <p className="text-[10px] text-muted-foreground mt-1 text-right">{adWatchCount}/{REQUIRED_AD_WATCHES}</p>
                 <Button
                   size="sm"
                   className="mt-2 h-7 text-xs w-full"
@@ -203,6 +269,8 @@ export function ChannelComments({ messageId, chatId, onClose }: ChannelCommentsP
             </div>
           </div>
         )}
+
+        <Separator />
 
         {/* Comment Input */}
         <div className="flex items-center gap-2 p-3 border-t border-border">

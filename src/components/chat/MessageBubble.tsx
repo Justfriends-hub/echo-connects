@@ -3,6 +3,7 @@ import { Check, CheckCheck, Copy, Reply, Forward, Trash2, SmilePlus, MoreHorizon
 import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuSeparator, ContextMenuTrigger } from '@/components/ui/context-menu';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Button } from '@/components/ui/button';
+import { ImageCarousel } from './ImageCarousel';
 import type { Message } from '@/types/chat';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
@@ -103,9 +104,13 @@ export function MessageBubble({ message, isOwn, showAvatar, senderName, seen }: 
       {!isOwn && senderName && (
         <p className="text-xs font-medium text-primary mb-0.5">{senderName}</p>
       )}
-      <p className="text-sm text-foreground whitespace-pre-wrap break-words leading-relaxed">
-        {message.content}
-      </p>
+      {message.type === 'image' ? (
+        <ImageCarousel images={message.content.split(',').map(s => s.trim())} />
+      ) : (
+        <p className="text-sm text-foreground whitespace-pre-wrap break-words leading-relaxed">
+          {message.content}
+        </p>
+      )}
       <div className={cn("flex items-center gap-1 mt-0.5", isOwn ? "justify-end" : "justify-end")}>
         <span className="text-[10px] text-muted-foreground/70">{time}</span>
         {statusIcon()}

@@ -1,1 +1,33 @@
-/* App-level styles — intentionally minimal; all design tokens live in index.css */
+/* App-level styles — mobile keyboard and viewport handling */
+
+/* Use dynamic viewport height for mobile keyboard behavior */
+html, body, #root {
+  height: 100%;
+  height: 100dvh;
+  overflow: hidden;
+}
+
+/* Prevent iOS bounce/rubber-band scrolling on body */
+body {
+  overscroll-behavior: none;
+  position: fixed;
+  width: 100%;
+}
+
+/*
+ * Mobile keyboard fix:
+ * When the virtual keyboard opens, only the input bar should stay
+ * at the keyboard top — chat messages should NOT be pushed up.
+ * This uses the VisualViewport API (handled in JS) plus CSS.
+ */
+.chat-input-wrapper {
+  /* On mobile, this element uses visualViewport to position itself */
+  transition: transform 0.1s ease-out;
+}
+
+/* Smooth scroll behavior for chat messages */
+.chat-messages-scroll {
+  scroll-behavior: smooth;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-y: contain;
+}

@@ -1,4 +1,4 @@
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useState } from 'react';
 import { ArrowLeft, MoreVertical, Users, Info } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
@@ -68,7 +68,30 @@ function SenderHoverCard({ name, userId, children }: { name: string; userId: str
 export function ChatArea({ chat, messages, currentUserId, onSendMessage, onBack, typingUsers = [], onTyping, onLoadOlder, hasMore, loadingOlder, othersLastReadAt, onOpenInfo }: ChatAreaProps) {
   const bottomRef = useRef<HTMLDivElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
   const prevFirstIdRef = useRef<string | null>(null);
+  const [keyboardOffset, setKeyboardOffset] = useState(0);
+
+  // Handle mobile keyboard: scroll to bottom, don't push messages
+  useEffect(() => {
+    const vv = window.visualViewport;
+    if (!vv) return;
+
+    const handleResize = () => {
+      // Calculate how much the keyboard is covering
+      const offset = window.innerHeight - vv.height;
+      setKeyboardOffset(offset > 50 ? offset : 0);
+      // When keyboard opens, scroll to bottom so user sees latest messages
+      if (offset > 50) {
+        requestAnimationFrame(() => {
+          bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+        });
+      }
+    };
+
+    vv.addEventListener('resize', handleResize);
+    return () => vv.removeEventListener('resize', handleResize);
+  }, []);
 
   useEffect(() => {
     const first = messages[0]?.id || null;
@@ -91,7 +114,14 @@ export function ChatArea({ chat, messages, currentUserId, onSendMessage, onBack,
   const isGroup = chat.type === 'group' || chat.type === 'channel';
 
   return (
-    <div className="flex flex-col h-full chat-bg">
+    <div
+      ref={containerRef}
+      className="flex flex-col h-full chat-bg"
+      style={{
+        // When keyboard is open, shrink the container so input stays visible
+        paddingBottom: keyboardOffset > 0 ? `${keyboardOffset}px` : undefined,
+      }}
+    >
       {/* Header */}
       <div className="flex items-center gap-3 px-4 py-2.5 bg-card border-b border-border">
         <Button variant="ghost" size="icon" className="md:hidden text-foreground" onClick={onBack}>

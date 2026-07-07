@@ -5,8 +5,15 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Slider } from '@/components/ui/slider';
+import { Progress } from '@/components/ui/progress';
+import { Calendar } from '@/components/ui/calendar';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Separator } from '@/components/ui/separator';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { format } from 'date-fns';
 
 interface BoostConfig {
   channelId: string;
@@ -22,11 +29,17 @@ export function BoostControlPanel() {
   const [selectedChannel, setSelectedChannel] = useState('');
   const [targetCount, setTargetCount] = useState('');
   const [boostMode, setBoostMode] = useState<'instant' | 'gradual'>('gradual');
-  const [durationHours, setDurationHours] = useState('24');
+  const [durationHours, setDurationHours] = useState([24]);
   const [applying, setApplying] = useState(false);
+  const [scheduleDate, setScheduleDate] = useState<Date | undefined>(undefined);
+  const [activeBoost, setActiveBoost] = useState(false);
+  const [boostProgress, setBoostProgress] = useState(0);
 
   useEffect(() => {
     fetchChannels();
+    // Simulate an active boost for demo
+    setActiveBoost(true);
+    setBoostProgress(62);
   }, []);
 
   const fetchChannels = async () => {
@@ -44,8 +57,8 @@ export function BoostControlPanel() {
     }
 
     setApplying(true);
-    const now = new Date();
-    const endTime = new Date(now.getTime() + parseInt(durationHours) * 3600000);
+    const now = scheduleDate || new Date();
+    const endTime = new Date(now.getTime() + durationHours[0] * 3600000);
 
     const { error } = await supabase
       .from('channel_settings')
@@ -61,11 +74,11 @@ export function BoostControlPanel() {
     if (error) {
       toast.error('Failed to apply boost');
     } else {
-      toast.success(`Boost applied: +${targetCount} subscribers ${boostMode === 'gradual' ? `over ${durationHours}h` : 'instantly'}`);
+      toast.success(`Boost applied: +${targetCount} subscribers ${boostMode === 'gradual' ? `over ${durationHours[0]}h` : 'instantly'}`);
+      setActiveBoost(true);
     }
   };
 
-  // Demo channels if empty
   const displayChannels = channels.length > 0 ? channels : [
     { id: 'demo1', name: 'Tech News' },
     { id: 'demo2', name: 'Crypto Alerts' },
@@ -74,6 +87,18 @@ export function BoostControlPanel() {
 
   return (
     <div className="space-y-4">
+      {/* Active Boost Alert */}
+      {activeBoost && (
+        <Alert className="border-primary/30 bg-primary/5">
+          <TrendingUp className="h-4 w-4 text-primary" />
+          <AlertTitle className="text-sm">Boost Active</AlertTitle>
+          <AlertDescription className="text-xs text-muted-foreground">
+            <span>Gradual boost is in progress. {boostProgress}% complete.</span>
+            <Progress value={boostProgress} className="h-1.5 mt-2" />
+          </AlertDescription>
+        </Alert>
+      )}
+
       {/* Info Banner */}
       <Card className="bg-primary/5 border-primary/20">
         <CardContent className="p-4 flex items-start gap-3">
@@ -81,8 +106,7 @@ export function BoostControlPanel() {
           <div>
             <p className="text-sm font-medium text-foreground">Subscriber Boost</p>
             <p className="text-xs text-muted-foreground mt-0.5">
-              Inflate visible subscriber counts. Boosted users are never detectable by normal users or channel admins. 
-              Gradual mode uses a natural cubic ease-out curve for realistic growth.
+              Inflate visible subscriber counts. Gradual mode uses a natural cubic ease-out curve for realistic growth.
             </p>
           </div>
         </CardContent>
@@ -158,23 +182,47 @@ export function BoostControlPanel() {
             </div>
           </div>
 
-          {/* Duration (gradual only) */}
+          {/* Duration Slider (gradual only) */}
           {boostMode === 'gradual' && (
-            <div className="space-y-1.5 animate-fade-in">
-              <Label className="text-xs text-muted-foreground">Duration (hours)</Label>
-              <Input
-                type="number"
+            <div className="space-y-2 animate-fade-in">
+              <Label className="text-xs text-muted-foreground">Duration: {durationHours[0]} hours</Label>
+              <Slider
                 value={durationHours}
-                onChange={e => setDurationHours(e.target.value)}
-                className="bg-secondary border-border"
-                min="1"
-                max="720"
+                onValueChange={setDurationHours}
+                min={1}
+                max={720}
+                step={1}
               />
-              <p className="text-[10px] text-muted-foreground">
-                ~{Math.round(parseInt(targetCount || '0') / Math.max(1, parseInt(durationHours || '1')))} subscribers/hour average
-              </p>
+              <div className="flex justify-between text-[10px] text-muted-foreground">
+                <span>1h</span>
+                <span>~{Math.round(parseInt(targetCount || '0') / Math.max(1, durationHours[0]))} subs/hour</span>
+                <span>30 days</span>
+              </div>
             </div>
           )}
+
+          <Separator />
+
+          {/* Schedule Date */}
+          <div className="space-y-1.5">
+            <Label className="text-xs text-muted-foreground">Schedule Start (optional)</Label>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="outline" className="w-full justify-start text-sm border-border bg-secondary">
+                  {scheduleDate ? format(scheduleDate, 'PPP') : 'Start immediately'}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0 bg-card border-border" align="start">
+                <Calendar
+                  mode="single"
+                  selected={scheduleDate}
+                  onSelect={setScheduleDate}
+                  initialFocus
+                  className="pointer-events-auto"
+                />
+              </PopoverContent>
+            </Popover>
+          </div>
 
           <Button onClick={applyBoost} className="w-full" disabled={applying}>
             {applying ? 'Applying...' : `Apply ${boostMode === 'instant' ? 'Instant' : 'Gradual'} Boost`}

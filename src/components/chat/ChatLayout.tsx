@@ -4,7 +4,11 @@ import { ChatSidebar } from './ChatSidebar';
 import { ChatArea } from './ChatArea';
 import { EmptyState } from './EmptyState';
 import { NewChatDialog } from './NewChatDialog';
+import { ChatInfoSheet } from './ChatInfoSheet';
+import { ProfileDrawer } from '@/components/ProfileDrawer';
 import { ChannelView } from '@/components/channel/ChannelView';
+import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useAuth } from '@/contexts/AuthContext';
 import { useChats } from '@/hooks/useChats';
@@ -29,12 +33,24 @@ export function ChatLayout() {
   const latestMessageAt = messages[messages.length - 1]?.created_at;
   const { othersLastReadAt } = useReadReceipts(activeChat, user?.id, latestMessageAt);
   const [showNewChat, setShowNewChat] = useState(false);
+  const [showChatInfo, setShowChatInfo] = useState(false);
+  const [showProfileDrawer, setShowProfileDrawer] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
   const isMobile = useIsMobile();
 
   // Redirect to auth if signed out
   useEffect(() => {
     if (!authLoading && !user) navigate('/auth');
   }, [authLoading, user, navigate]);
+
+  // Listen for command palette events
+  useEffect(() => {
+    const handler = (e: Event) => {
+      setShowNewChat(true);
+    };
+    window.addEventListener('open-new-chat', handler);
+    return () => window.removeEventListener('open-new-chat', handler);
+  }, []);
 
   const handleSendMessage = useCallback(async (content: string) => {
     if (!activeChat || !user) return;
@@ -54,55 +70,128 @@ export function ChatLayout() {
     reloadChats();
   }, [reloadChats]);
 
+  const handleDeleteChat = async () => {
+    if (!deleteTarget) return;
+    // Remove membership (soft delete for user)
+    const { error } = await supabase
+      .from('chat_members')
+      .delete()
+      .eq('chat_id', deleteTarget)
+      .eq('user_id', user?.id || '');
+    if (error) {
+      toast.error('Failed to leave chat');
+    } else {
+      toast.success('Chat removed');
+      if (activeChat === deleteTarget) setActiveChat(null);
+      reloadChats();
+    }
+    setDeleteTarget(null);
+  };
+
   const showSidebar = !isMobile || !activeChat;
   const showChat = !isMobile || !!activeChat;
 
+  const chatContent = currentChat ? (
+    currentChat.type === 'channel' ? (
+      <ChannelView
+        chat={currentChat}
+        messages={messages}
+        currentUserId={user?.id || ''}
+        onSendMessage={handleSendMessage}
+        onBack={() => setActiveChat(null)}
+      />
+    ) : (
+      <ChatArea
+        chat={currentChat}
+        messages={messages}
+        currentUserId={user?.id || ''}
+        onSendMessage={handleSendMessage}
+        onBack={() => setActiveChat(null)}
+        typingUsers={typingUsers}
+        onTyping={notifyTyping}
+        onLoadOlder={loadOlder}
+        hasMore={hasMore}
+        loadingOlder={loadingOlder}
+        othersLastReadAt={othersLastReadAt}
+        onOpenInfo={() => setShowChatInfo(true)}
+      />
+    )
+  ) : (
+    <EmptyState />
+  );
+
   return (
-    <div className="flex h-screen w-full overflow-hidden">
-      {showSidebar && (
-        <div className={cn("h-full flex-shrink-0 relative", isMobile ? "w-full" : "w-[320px] lg:w-[380px]")}>
-          <ChatSidebar
-            chats={chats}
-            activeChat={activeChat}
-            onSelectChat={setActiveChat}
-            onNewChat={() => setShowNewChat(true)}
-            onNewGroup={() => {}}
-            onNewChannel={() => {}}
-          />
-        </div>
-      )}
-      {showChat && (
-        <div className="flex-1 h-full">
-          {currentChat ? (
-            currentChat.type === 'channel' ? (
-              <ChannelView
-                chat={currentChat}
-                messages={messages}
-                currentUserId={user?.id || ''}
-                onSendMessage={handleSendMessage}
-                onBack={() => setActiveChat(null)}
+    <>
+      {isMobile ? (
+        // Mobile: stacked views (no resizable)
+        <div className="flex h-screen w-full overflow-hidden">
+          {showSidebar && (
+            <div className="w-full h-full relative">
+              <ChatSidebar
+                chats={chats}
+                activeChat={activeChat}
+                onSelectChat={setActiveChat}
+                onNewChat={() => setShowNewChat(true)}
+                onNewGroup={() => setShowNewChat(true)}
+                onNewChannel={() => {}}
+                onOpenProfile={() => setShowProfileDrawer(true)}
               />
-            ) : (
-              <ChatArea
-                chat={currentChat}
-                messages={messages}
-                currentUserId={user?.id || ''}
-                onSendMessage={handleSendMessage}
-                onBack={() => setActiveChat(null)}
-                typingUsers={typingUsers}
-                onTyping={notifyTyping}
-                onLoadOlder={loadOlder}
-                hasMore={hasMore}
-                loadingOlder={loadingOlder}
-                othersLastReadAt={othersLastReadAt}
-              />
-            )
-          ) : (
-            <EmptyState />
+            </div>
+          )}
+          {showChat && (
+            <div className="w-full h-full">
+              {chatContent}
+            </div>
           )}
         </div>
+      ) : (
+        // Desktop: resizable panels
+        <ResizablePanelGroup direction="horizontal" className="h-screen w-full">
+          <ResizablePanel defaultSize={28} minSize={20} maxSize={40}>
+            <div className="h-full relative">
+              <ChatSidebar
+                chats={chats}
+                activeChat={activeChat}
+                onSelectChat={setActiveChat}
+                onNewChat={() => setShowNewChat(true)}
+                onNewGroup={() => setShowNewChat(true)}
+                onNewChannel={() => {}}
+                onOpenProfile={() => setShowProfileDrawer(true)}
+              />
+            </div>
+          </ResizablePanel>
+          <ResizableHandle withHandle className="bg-border hover:bg-primary/30 transition-colors" />
+          <ResizablePanel defaultSize={72}>
+            {chatContent}
+          </ResizablePanel>
+        </ResizablePanelGroup>
       )}
+
       <NewChatDialog open={showNewChat} onClose={() => setShowNewChat(false)} onChatCreated={handleChatCreated} />
-    </div>
+
+      {currentChat && (
+        <ChatInfoSheet open={showChatInfo} onClose={() => setShowChatInfo(false)} chat={currentChat} />
+      )}
+
+      <ProfileDrawer open={showProfileDrawer} onClose={() => setShowProfileDrawer(false)} />
+
+      {/* Delete Chat Confirmation */}
+      <AlertDialog open={!!deleteTarget} onOpenChange={() => setDeleteTarget(null)}>
+        <AlertDialogContent className="bg-card border-border">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Leave this chat?</AlertDialogTitle>
+            <AlertDialogDescription>
+              You will be removed from this chat. You can rejoin later if invited.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="border-border">Cancel</AlertDialogCancel>
+            <AlertDialogAction className="bg-destructive hover:bg-destructive/90" onClick={handleDeleteChat}>
+              Leave Chat
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   );
 }
