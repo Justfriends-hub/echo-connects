@@ -53,6 +53,26 @@ export function ChannelView({ chat, messages, currentUserId, onSendMessage, onBa
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
+  // Keep messages anchored above keyboard / visual viewport changes
+  useEffect(() => {
+    const onVV = () => bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+    const vv = window.visualViewport;
+    if (vv) {
+      vv.addEventListener('resize', onVV);
+      vv.addEventListener('scroll', onVV);
+      return () => {
+        vv.removeEventListener('resize', onVV);
+        vv.removeEventListener('scroll', onVV);
+      };
+    }
+    window.addEventListener('chat-visual-viewport', onVV as EventListener);
+    window.addEventListener('resize', onVV);
+    return () => {
+      window.removeEventListener('chat-visual-viewport', onVV as EventListener);
+      window.removeEventListener('resize', onVV);
+    };
+  }, []);
+
   useEffect(() => {
     if (!user || !chat.id) return;
     setLoading(true);

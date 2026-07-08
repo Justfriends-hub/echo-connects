@@ -99,6 +99,33 @@ export function ChatArea({
     prevFirstIdRef.current = first;
   }, [messages]);
 
+  // Keep messages anchored above keyboard: when visual viewport changes (keyboard open/close)
+  useEffect(() => {
+    const onVV = () => {
+      // Ensure the last message stays visible above the input bar
+      bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+    };
+
+    // Listen to visualViewport if available
+    const vv = window.visualViewport;
+    if (vv) {
+      vv.addEventListener('resize', onVV);
+      vv.addEventListener('scroll', onVV);
+      return () => {
+        vv.removeEventListener('resize', onVV);
+        vv.removeEventListener('scroll', onVV);
+      };
+    }
+
+    // Fallback: listen to our custom event dispatched by ChatInput and window resize
+    window.addEventListener('chat-visual-viewport', onVV as EventListener);
+    window.addEventListener('resize', onVV);
+    return () => {
+      window.removeEventListener('chat-visual-viewport', onVV as EventListener);
+      window.removeEventListener('resize', onVV);
+    };
+  }, []);
+
   const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
     if (!onLoadOlder || !hasMore || loadingOlder) return;
     if (e.currentTarget.scrollTop < 80) onLoadOlder();

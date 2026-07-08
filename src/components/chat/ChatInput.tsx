@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { Send, Paperclip, Smile, Mic } from 'lucide-react';
+import { Send, Paperclip, Smile, Mic, Globe } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
@@ -34,6 +34,14 @@ export function ChatInput({
 }: ChatInputProps) {
   const [text, setText] = useState('');
   const [emojiOpen, setEmojiOpen] = useState(false);
+  const [prefersNativeEmoji, setPrefersNativeEmoji] = useState<boolean>(() => {
+    try {
+      const v = localStorage.getItem('prefersNativeEmoji');
+      return v === '1';
+    } catch (_) {
+      return false;
+    }
+  });
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const wrapperRef = useRef<HTMLDivElement>(null);
 
@@ -73,24 +81,45 @@ export function ChatInput({
   //     used by WhatsApp Web, Telegram Web, and iMessage PWAs.
   useEffect(() => {
     const vv = window.visualViewport;
-    if (!vv) return;
 
-    const update = () => {
-      // Bottom of the visual viewport relative to the layout viewport
-      const vvBottom = window.innerHeight - (vv.offsetTop + vv.height);
-      document.documentElement.style.setProperty(
-        '--vv-bottom',
-        `${Math.max(0, vvBottom)}px`
-      );
+    const dispatchViewportEvent = (bottom: number) => {
+      // Keep CSS var in sync so `.chat-input-fixed` sits above keyboard
+      document.documentElement.style.setProperty('--vv-bottom', `${Math.max(0, bottom)}px`);
+      // Emit an event other parts of the app can listen to
+      try {
+        window.dispatchEvent(new CustomEvent('chat-visual-viewport', { detail: { bottom } }));
+      } catch (_) {}
     };
 
-    update();
-    vv.addEventListener('resize', update);
-    vv.addEventListener('scroll', update);
+    if (vv) {
+      const update = () => {
+        const vvBottom = window.innerHeight - (vv.offsetTop + vv.height);
+        dispatchViewportEvent(Math.max(0, vvBottom));
+      };
+      update();
+      vv.addEventListener('resize', update);
+      vv.addEventListener('scroll', update);
+      return () => {
+        vv.removeEventListener('resize', update);
+        vv.removeEventListener('scroll', update);
+        document.documentElement.style.removeProperty('--vv-bottom');
+      };
+    }
+
+    // Fallback for environments without visualViewport (older browsers / webviews)
+    let lastInner = window.innerHeight;
+    const onResize = () => {
+      const diff = lastInner - window.innerHeight;
+      lastInner = window.innerHeight;
+      // If window.innerHeight dropped, assume keyboard appeared and use diff
+      const bottom = diff > 0 ? diff : 0;
+      dispatchViewportEvent(bottom);
+    };
+    window.addEventListener('resize', onResize);
+    // initial check
+    onResize();
     return () => {
-      vv.removeEventListener('resize', update);
-      vv.removeEventListener('scroll', update);
-      // Clean up when unmounting
+      window.removeEventListener('resize', onResize);
       document.documentElement.style.removeProperty('--vv-bottom');
     };
   }, []);
@@ -135,8 +164,26 @@ export function ChatInput({
 
   // On mobile: focus textarea first so the keyboard with the emoji key appears
   const handleEmojiClick = () => {
+    // Focus first to reliably open the keyboard on mobile devices.
     textareaRef.current?.focus();
-    setEmojiOpen(prev => !prev);
+    // If user prefers native emoji keyboard, do not open the in-app picker.
+    if (prefersNativeEmoji) {
+      // Keep popover closed; focusing usually exposes the keyboard where user can switch to emoji.
+      setEmojiOpen(false);
+      return;
+    }
+    // Small timeout to ensure keyboard is visible before toggling the popover state
+    setTimeout(() => setEmojiOpen(prev => !prev), 120);
+  };
+
+  const togglePrefersNative = () => {
+    setPrefersNativeEmoji(v => {
+      const next = !v;
+      try {
+        localStorage.setItem('prefersNativeEmoji', next ? '1' : '0');
+      } catch (_) {}
+      return next;
+    });
   };
 
   return (
@@ -211,6 +258,24 @@ export function ChatInput({
             </div>
           </PopoverContent>
         </Popover>
+      </div>
+
+      {/* Native / in-app emoji toggle */}
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={togglePrefersNative}
+            className={cn('flex-shrink-0 mb-0.5', prefersNativeEmoji ? 'text-primary' : 'text-muted-foreground')}
+            aria-label="Toggle native emoji keyboard"
+            id="emoji-toggle-btn"
+          >
+            <Globe className="w-5 h-5" />
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent>{prefersNativeEmoji ? 'Using system emoji keyboard' : 'Use in-app emoji picker'}</TooltipContent>
+      </Tooltip>
       </div>
 
       {/* Send / Mic */}
