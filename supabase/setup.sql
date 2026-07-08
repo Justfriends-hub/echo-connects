@@ -237,6 +237,80 @@ BEGIN
   RETURN _chat_id;
 END; $$;
 
+CREATE OR REPLACE FUNCTION public.create_group_chat(
+  _name text,
+  _member_ids uuid[]
+) RETURNS uuid LANGUAGE plpgsql SECURITY DEFINER SET search_path=public AS $$
+DECLARE
+  _me uuid := auth.uid();
+  _chat_id uuid;
+  _member_id uuid;
+BEGIN
+  IF _me IS NULL THEN RAISE EXCEPTION 'Not authenticated'; END IF;
+  IF _name IS NULL OR _name = '' THEN RAISE EXCEPTION 'Group name is required'; END IF;
+  IF array_length(_member_ids, 1) IS NULL OR array_length(_member_ids, 1) = 0 THEN 
+    RAISE EXCEPTION 'At least one member is required'; 
+  END IF;
+
+  -- Create the group chat
+  INSERT INTO public.chats (type, name, created_by) 
+  VALUES ('group', _name, _me) 
+  RETURNING id INTO _chat_id;
+
+  -- Add creator as owner
+  INSERT INTO public.chat_members (chat_id, user_id, role) 
+  VALUES (_chat_id, _me, 'owner');
+
+  -- Add other members
+  FOREACH _member_id IN ARRAY _member_ids
+  LOOP
+    IF _member_id != _me THEN
+      INSERT INTO public.chat_members (chat_id, user_id, role) 
+      VALUES (_chat_id, _member_id, 'member')
+      ON CONFLICT (chat_id, user_id) DO NOTHING;
+    END IF;
+  END LOOP;
+
+  RETURN _chat_id;
+END; $$;
+
+CREATE OR REPLACE FUNCTION public.create_channel(
+  _name text
+) RETURNS uuid LANGUAGE plpgsql SECURITY DEFINER SET search_path=public AS $$
+DECLARE
+  _me uuid := auth.uid();
+  _chat_id uuid;
+  _is_platform_admin boolean;
+BEGIN
+  IF _me IS NULL THEN RAISE EXCEPTION 'Not authenticated'; END IF;
+  IF _name IS NULL OR _name = '' THEN RAISE EXCEPTION 'Channel name is required'; END IF;
+
+  -- Check if user is platform_admin
+  SELECT EXISTS(
+    SELECT 1 FROM public.user_roles 
+    WHERE user_id = _me AND role = 'platform_admin'
+  ) INTO _is_platform_admin;
+
+  IF NOT _is_platform_admin THEN 
+    RAISE EXCEPTION 'Only platform admins can create channels'; 
+  END IF;
+
+  -- Create the channel
+  INSERT INTO public.chats (type, name, created_by) 
+  VALUES ('channel', _name, _me) 
+  RETURNING id INTO _chat_id;
+
+  -- Add creator as admin
+  INSERT INTO public.chat_members (chat_id, user_id, role) 
+  VALUES (_chat_id, _me, 'admin');
+
+  -- Initialize channel settings
+  INSERT INTO public.channel_settings (chat_id) 
+  VALUES (_chat_id);
+
+  RETURN _chat_id;
+END; $$;
+
 -- --------------------------- TRIGGERS --------------------------------
 DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
 CREATE TRIGGER on_auth_user_created

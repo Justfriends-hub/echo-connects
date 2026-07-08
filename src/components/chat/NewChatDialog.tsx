@@ -89,113 +89,51 @@ export function NewChatDialog({ open, onClose, onChatCreated, mode }: NewChatDia
 
     setBusy(true);
 
-    if (!user) {
-      console.debug('[NewChatDialog] createChat: no authenticated user', await supabase.auth.getSession().catch(() => null));
-      toast.error('You must be signed in to create this chat');
-      setBusy(false);
-      return;
-    }
-
-    let { data: sessionData, error: sessionError } = await supabase.auth.getSession();
-    if (sessionError || !sessionData?.session?.user?.id || !sessionData.session.access_token) {
-      console.warn('[NewChatDialog] createChat: session missing or incomplete, attempting refresh', { sessionError, sessionData });
-      const refreshResult = await (supabase.auth as any).refreshSession?.();
-      if (refreshResult?.error) {
-        console.error('[NewChatDialog] refreshSession failed', refreshResult.error);
-        toast.error('Unable to refresh your session. Please sign in again.');
-        setBusy(false);
-        return;
-      }
-      sessionData = refreshResult?.data ?? sessionData;
-    }
-
-    if (!sessionData?.session?.user?.id) {
-      console.error('[NewChatDialog] createChat: missing auth session after refresh', sessionData);
-      toast.error('Unable to verify your session. Please sign in again.');
-      setBusy(false);
-      return;
-    }
-
-    const currentUserId = sessionData.session.user.id;
-    console.debug('[NewChatDialog] auth session verified', {
-      currentUserId,
-      hasToken: !!sessionData.session.access_token,
-      expiresAt: sessionData.session.expires_at,
-      refreshTokenPresent: !!sessionData.session.refresh_token,
-    });
-    if (user.id !== currentUserId) {
-      console.warn('[NewChatDialog] auth mismatch', { contextUserId: user.id, sessionUserId: currentUserId });
-    }
-
-    const authAny = supabase.auth as any;
-    if (typeof authAny.setSession === 'function' && sessionData.session.access_token) {
-      const { error: setSessionError } = await authAny.setSession({
-        access_token: sessionData.session.access_token,
-        refresh_token: sessionData.session.refresh_token,
-      });
-      if (setSessionError) {
-        console.warn('[NewChatDialog] failed to reapply session', setSessionError);
-      }
-    }
-
-    const accessTokenPreview = sessionData.session.access_token ? `${sessionData.session.access_token.slice(0, 8)}...` : null;
-    const payload = { type, name: groupName.trim(), created_by: currentUserId };
-    console.debug('[NewChatDialog] createChat payload', payload);
-    console.debug('[NewChatDialog] supabase session token state', {
-      currentUserId,
-      accessTokenPreview,
-      hasAccessToken: !!sessionData.session.access_token,
-      hasRefreshToken: !!sessionData.session.refresh_token,
-      expiresAt: sessionData.session.expires_at,
-    });
-
-    let chat: any = null;
     try {
-      const resp = await supabase
-        .from('chats')
-        .insert(payload)
-        .select('id')
-        .single();
-      if (resp.error) {
-        console.error('[NewChatDialog] createChat error', resp.error, { currentUserId, type, payload });
-        const isRlsError = resp.error.code === '42501' || /row-level security/i.test(resp.error.message || '');
-        toast.error(
-          isRlsError
-            ? 'Permission denied. Supabase row-level security is blocking chat creation. Allow authenticated insert into chats.'
-            : resp.error.message || 'Failed to create chat'
-        );
+      let chatId: string | null = null;
+      let error: any = null;
+
+      if (type === 'group') {
+        // Use RPC to create group chat
+        const memberIds = [user?.id, ...selectedUsers.map(u => u.id)].filter(Boolean) as string[];
+        const { data, error: rpcError } = await supabase.rpc('create_group_chat', {
+          _name: groupName.trim(),
+          _member_ids: memberIds,
+        });
+        chatId = data as string | null;
+        error = rpcError;
+      } else if (type === 'channel') {
+        // Use RPC to create channel
+        const { data, error: rpcError } = await supabase.rpc('create_channel', {
+          _name: groupName.trim(),
+        });
+        chatId = data as string | null;
+        error = rpcError;
+      }
+
+      if (error) {
+        console.error('[NewChatDialog] createChat RPC error', error, { type, name: groupName });
+        toast.error(error.message || `Failed to create ${type}`);
         setBusy(false);
         return null;
       }
-      chat = resp.data;
+
+      if (!chatId) {
+        console.error('[NewChatDialog] createChat: no chat ID returned', { type, name: groupName });
+        toast.error(`Failed to create ${type}`);
+        setBusy(false);
+        return null;
+      }
+
+      console.debug('[NewChatDialog] createChat success', { type, name: groupName, chatId });
+      setBusy(false);
+      return chatId;
     } catch (err) {
       console.error('[NewChatDialog] createChat exception', err);
-      try {
-        const sess = await supabase.auth.getSession();
-        console.debug('[NewChatDialog] session after exception', sess);
-      } catch (_) {}
       toast.error('Failed to create chat (check console for details)');
       setBusy(false);
       return null;
     }
-
-    const members = [
-      { chat_id: chat.id, user_id: currentUserId, role: 'owner' },
-      ...(type === 'group'
-        ? selectedUsers.map(u => ({ chat_id: chat.id, user_id: u.id, role: 'member' }))
-        : []),
-    ];
-
-    const { error: membersError } = await supabase.from('chat_members').insert(members);
-    if (membersError) {
-      console.error('[NewChatDialog] createChat members insert error', membersError, { chatId: chat.id });
-      toast.error('Chat created, but failed to add members.');
-      setBusy(false);
-      return chat.id;
-    }
-
-    setBusy(false);
-    return chat.id;
   };
 
   const createGroup = async () => {
