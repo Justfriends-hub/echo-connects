@@ -276,7 +276,6 @@ export function ChatInput({
         </TooltipTrigger>
         <TooltipContent>{prefersNativeEmoji ? 'Using system emoji keyboard' : 'Use in-app emoji picker'}</TooltipContent>
       </Tooltip>
-      </div>
 
       {/* Send / Mic */}
       {text.trim() ? (
