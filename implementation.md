@@ -20,6 +20,11 @@ This document explains how to set up channels (server-side) and how the chat inp
   - `chats` — unified table for `direct`, `group`, and `channel` types
   - `chat_members` — membership, roles (`owner|admin|member`)
   - `messages`, `reactions`, `comments`
+
+- If you see `new row violates row-level security policy for table "chats"`, your Supabase RLS policies are blocking inserts.
+  - The repo expects a policy like:
+    `CREATE POLICY "Authenticated create chats" ON public.chats FOR INSERT TO authenticated WITH CHECK (auth.uid() = created_by);`
+  - This is the likely root cause if the app is authenticated but `POST /rest/v1/chats` still returns 403.
   - `channel_settings` — per-channel settings:
     - `comments_enabled` (BOOLEAN)
     - `allowed_reactions` (TEXT[])

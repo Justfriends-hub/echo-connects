@@ -118,7 +118,12 @@ export function NewChatDialog({ open, onClose, onChatCreated, mode }: NewChatDia
         .single();
       if (resp.error) {
         console.error('[NewChatDialog] createChat error', resp.error, { currentUserId, type });
-        toast.error(resp.error.message || 'Failed to create chat');
+        const isRlsError = resp.error.code === '42501' || /row-level security/i.test(resp.error.message || '');
+        toast.error(
+          isRlsError
+            ? 'Permission denied. Supabase row-level security is blocking chat creation. Allow authenticated insert into chats.'
+            : resp.error.message || 'Failed to create chat'
+        );
         setBusy(false);
         return null;
       }
