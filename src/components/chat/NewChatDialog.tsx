@@ -105,8 +105,25 @@ export function NewChatDialog({ open, onClose, onChatCreated, mode }: NewChatDia
     }
 
     const currentUserId = sessionData.session.user.id;
+    console.debug('[NewChatDialog] auth session verified', {
+      currentUserId,
+      hasToken: !!sessionData.session.access_token,
+      expiresAt: sessionData.session.expires_at,
+      refreshTokenPresent: !!sessionData.session.refresh_token,
+    });
     if (user.id !== currentUserId) {
       console.warn('[NewChatDialog] auth mismatch', { contextUserId: user.id, sessionUserId: currentUserId });
+    }
+
+    const authAny = supabase.auth as any;
+    if (typeof authAny.setSession === 'function' && sessionData.session.access_token) {
+      const { error: setSessionError } = await authAny.setSession({
+        access_token: sessionData.session.access_token,
+        refresh_token: sessionData.session.refresh_token,
+      });
+      if (setSessionError) {
+        console.warn('[NewChatDialog] failed to reapply session', setSessionError);
+      }
     }
 
     let chat: any = null;
