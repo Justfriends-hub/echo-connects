@@ -96,9 +96,21 @@ export function NewChatDialog({ open, onClose, onChatCreated, mode }: NewChatDia
       return;
     }
 
-    const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
-    if (sessionError || !sessionData?.session?.user?.id) {
-      console.error('[NewChatDialog] createChat: missing auth session', sessionError, sessionData);
+    let { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+    if (sessionError || !sessionData?.session?.user?.id || !sessionData.session.access_token) {
+      console.warn('[NewChatDialog] createChat: session missing or incomplete, attempting refresh', { sessionError, sessionData });
+      const refreshResult = await (supabase.auth as any).refreshSession?.();
+      if (refreshResult?.error) {
+        console.error('[NewChatDialog] refreshSession failed', refreshResult.error);
+        toast.error('Unable to refresh your session. Please sign in again.');
+        setBusy(false);
+        return;
+      }
+      sessionData = refreshResult?.data ?? sessionData;
+    }
+
+    if (!sessionData?.session?.user?.id) {
+      console.error('[NewChatDialog] createChat: missing auth session after refresh', sessionData);
       toast.error('Unable to verify your session. Please sign in again.');
       setBusy(false);
       return;
