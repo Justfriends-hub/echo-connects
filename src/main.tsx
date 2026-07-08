@@ -2,6 +2,12 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import App from "./App.tsx";
 import "./index.css";
+import { supabase } from "./integrations/supabase/client";
+
+// Expose supabase to console for debugging
+if (typeof window !== 'undefined') {
+  (window as any).supabase = supabase;
+}
 
 if (typeof window !== 'undefined' && typeof window.fetch === 'function') {
   const originalFetch = window.fetch.bind(window);
