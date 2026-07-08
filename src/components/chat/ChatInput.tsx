@@ -17,17 +17,12 @@ interface ChatInputProps {
   onTyping?: () => void;
   disabled?: boolean;
   placeholder?: string;
-  /** Called whenever the input bar changes height (px) so parent can adjust spacer */
+  /**
+   * Called with the current pixel height of the input bar whenever it changes.
+   * The parent uses this to keep a matching bottom padding on the scroll area
+   * so the last message is never hidden behind the floating bar.
+   */
   onHeightChange?: (height: number) => void;
-  /** Called when the keyboard opens so parent can scroll to bottom */
-  onKeyboardOpen?: () => void;
-}
-
-/**
- * Detects whether we're likely on a mobile device where a virtual keyboard appears.
- */
-function isMobileDevice() {
-  return typeof window !== 'undefined' && window.matchMedia('(hover: none) and (pointer: coarse)').matches;
 }
 
 export function ChatInput({
@@ -36,15 +31,13 @@ export function ChatInput({
   disabled,
   placeholder = 'Message',
   onHeightChange,
-  onKeyboardOpen,
 }: ChatInputProps) {
   const [text, setText] = useState('');
   const [emojiOpen, setEmojiOpen] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const wrapperRef = useRef<HTMLDivElement>(null);
-  const isMobile = isMobileDevice();
 
-  // ─── Resize textarea height as text grows ───────────────────────────────────
+  // ─── Auto-resize textarea ────────────────────────────────────────────────────
   useEffect(() => {
     const ta = textareaRef.current;
     if (!ta) return;
@@ -52,56 +45,57 @@ export function ChatInput({
     ta.style.height = Math.min(ta.scrollHeight, 120) + 'px';
   }, [text]);
 
-  // ─── Notify parent of bar height changes ────────────────────────────────────
+  // ─── Report bar height to parent (for bottom spacer) ────────────────────────
   useEffect(() => {
     if (!onHeightChange || !wrapperRef.current) return;
-    const ro = new ResizeObserver(entries => {
-      for (const entry of entries) {
-        onHeightChange(entry.contentRect.height);
+    const ro = new ResizeObserver(() => {
+      if (wrapperRef.current) {
+        onHeightChange(wrapperRef.current.getBoundingClientRect().height);
       }
     });
     ro.observe(wrapperRef.current);
+    // Report initial height
+    onHeightChange(wrapperRef.current.getBoundingClientRect().height);
     return () => ro.disconnect();
   }, [onHeightChange]);
 
-  // ─── visualViewport: float the input bar above the keyboard ─────────────────
-  // The bar sits as a normal flex child, but on mobile we translate it so only
-  // IT moves up with the keyboard — the messages area behind it is untouched.
+  // ─── visualViewport: update CSS variable so bar floats above keyboard ────────
+  //
+  // The bar has `position: fixed` via the `.chat-input-fixed` class.
+  // We set `--vv-bottom` on <html> so the CSS rule `bottom: var(--vv-bottom)`
+  // keeps the bar flush with the top of the keyboard at all times.
+  // The transition in App.css makes this smooth.
+  //
+  // Why this works and translateY didn't:
+  //   - translateY on a non-fixed element still causes the element to visually
+  //     move, but the *layout* (flex column) still positions everything below it.
+  //   - `position: fixed` with an updated `bottom` value is the canonical approach
+  //     used by WhatsApp Web, Telegram Web, and iMessage PWAs.
   useEffect(() => {
     const vv = window.visualViewport;
-    const wrapper = wrapperRef.current;
-    if (!vv || !wrapper) return;
-
-    let lastKeyboardOpen = false;
+    if (!vv) return;
 
     const update = () => {
-      const vvBottom = vv.offsetTop + vv.height;
-      const windowBottom = window.innerHeight;
-      const keyboardHeight = windowBottom - vvBottom;
-      const isOpen = keyboardHeight > 50;
-
-      // Apply CSS variable so the bar can translate itself
-      wrapper.style.transform = isOpen
-        ? `translateY(-${keyboardHeight}px)`
-        : 'translateY(0)';
-      wrapper.style.transition = 'transform 0.28s cubic-bezier(0.4, 0, 0.2, 1)';
-
-      if (isOpen && !lastKeyboardOpen) {
-        // Keyboard just opened — notify parent to scroll to bottom
-        requestAnimationFrame(() => onKeyboardOpen?.());
-      }
-      lastKeyboardOpen = isOpen;
+      // Bottom of the visual viewport relative to the layout viewport
+      const vvBottom = window.innerHeight - (vv.offsetTop + vv.height);
+      document.documentElement.style.setProperty(
+        '--vv-bottom',
+        `${Math.max(0, vvBottom)}px`
+      );
     };
 
+    update();
     vv.addEventListener('resize', update);
     vv.addEventListener('scroll', update);
     return () => {
       vv.removeEventListener('resize', update);
       vv.removeEventListener('scroll', update);
+      // Clean up when unmounting
+      document.documentElement.style.removeProperty('--vv-bottom');
     };
-  }, [onKeyboardOpen]);
+  }, []);
 
-  // ─── Send ────────────────────────────────────────────────────────────────────
+  // ─── Handlers ────────────────────────────────────────────────────────────────
   const handleSend = useCallback(() => {
     const trimmed = text.trim();
     if (!trimmed || disabled) return;
@@ -122,7 +116,6 @@ export function ChatInput({
     onTyping?.();
   };
 
-  // ─── Emoji ───────────────────────────────────────────────────────────────────
   const insertEmoji = (emoji: string) => {
     const ta = textareaRef.current;
     if (ta) {
@@ -130,7 +123,6 @@ export function ChatInput({
       const end = ta.selectionEnd ?? text.length;
       const newText = text.slice(0, start) + emoji + text.slice(end);
       setText(newText);
-      // Restore cursor after emoji
       requestAnimationFrame(() => {
         ta.selectionStart = ta.selectionEnd = start + emoji.length;
         ta.focus();
@@ -141,39 +133,18 @@ export function ChatInput({
     setEmojiOpen(false);
   };
 
-  /**
-   * On mobile: try to open the native emoji keyboard.
-   * iOS Safari / Android Chrome both respond to focusing an input and then
-   * programmatically triggering selection via the emoji mode trick.
-   * We do this by focusing the textarea and dispatching a keydown for the emoji
-   * shortcut — but since that's not reliable cross-platform, the safest approach
-   * is to focus the textarea (which opens the keyboard) and then let the user
-   * tap the emoji key on their keyboard. We also open our fallback picker.
-   */
-  const handleEmojiButtonClick = () => {
-    if (isMobile) {
-      // Focus the textarea so the keyboard appears with the emoji key visible
-      textareaRef.current?.focus();
-      // Also show our emoji picker as a supplement
-      setEmojiOpen(prev => !prev);
-    } else {
-      setEmojiOpen(prev => !prev);
-    }
+  // On mobile: focus textarea first so the keyboard with the emoji key appears
+  const handleEmojiClick = () => {
+    textareaRef.current?.focus();
+    setEmojiOpen(prev => !prev);
   };
 
   return (
     <div
       ref={wrapperRef}
-      className="chat-input-wrapper flex items-end gap-2 p-3 bg-chat-input-bg border-t border-border"
-      style={{
-        // Ensure the bar has a proper stacking context so the translateY works
-        // correctly relative to the scroll container.
-        willChange: 'transform',
-        position: 'relative',
-        zIndex: 10,
-      }}
+      className="chat-input-fixed flex items-end gap-2 p-3 bg-chat-input-bg border-t border-border"
     >
-      {/* Attach file */}
+      {/* Attach */}
       <Tooltip>
         <TooltipTrigger asChild>
           <Button
@@ -187,7 +158,7 @@ export function ChatInput({
         <TooltipContent>Attach file</TooltipContent>
       </Tooltip>
 
-      {/* Text area + emoji trigger */}
+      {/* Textarea + emoji picker */}
       <div className="flex-1 relative">
         <textarea
           ref={textareaRef}
@@ -197,24 +168,21 @@ export function ChatInput({
           placeholder={placeholder}
           rows={1}
           disabled={disabled}
-          inputMode="text"
           className={cn(
-            'w-full resize-none bg-secondary rounded-2xl px-4 py-2.5 text-sm text-foreground',
+            'w-full resize-none bg-secondary rounded-2xl px-4 py-2.5 pr-10 text-sm text-foreground',
             'placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring',
             'max-h-[120px] transition-colors'
           )}
         />
-
-        {/* Emoji button — opens native keyboard emoji panel on mobile, custom picker on desktop */}
         <Popover open={emojiOpen} onOpenChange={setEmojiOpen}>
           <PopoverTrigger asChild>
             <Button
               variant="ghost"
               size="icon"
               className="absolute right-1 bottom-0.5 text-muted-foreground hover:text-foreground h-8 w-8"
-              onClick={handleEmojiButtonClick}
-              aria-label="Open emoji picker"
-              id="emoji-picker-trigger"
+              onClick={handleEmojiClick}
+              aria-label="Emoji"
+              id="emoji-picker-btn"
             >
               <Smile className="w-5 h-5" />
             </Button>
@@ -223,19 +191,18 @@ export function ChatInput({
             className="w-72 bg-card border-border p-2"
             align="end"
             side="top"
-            // Prevent the popover from stealing focus from the textarea on mobile
-            onOpenAutoFocus={e => { if (isMobile) e.preventDefault(); }}
+            // Don't steal focus from textarea on mobile
+            onOpenAutoFocus={e => e.preventDefault()}
           >
-            {isMobile && (
-              <p className="text-xs text-muted-foreground text-center pb-2 border-b border-border mb-2">
-                Tap emoji key 😊 on your keyboard, or pick one below
-              </p>
-            )}
             <div className="grid grid-cols-8 gap-1">
               {EMOJI_LIST.map(emoji => (
                 <button
                   key={emoji}
-                  onClick={() => insertEmoji(emoji)}
+                  onMouseDown={e => {
+                    // Prevent blur on textarea before we insert
+                    e.preventDefault();
+                    insertEmoji(emoji);
+                  }}
                   className="w-8 h-8 flex items-center justify-center text-lg hover:bg-accent rounded-md transition-colors active:scale-90"
                 >
                   {emoji}
@@ -260,7 +227,7 @@ export function ChatInput({
               <Send className="w-4 h-4" />
             </Button>
           </TooltipTrigger>
-          <TooltipContent>Send message</TooltipContent>
+          <TooltipContent>Send</TooltipContent>
         </Tooltip>
       ) : (
         <Tooltip>

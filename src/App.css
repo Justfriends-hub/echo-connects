@@ -1,43 +1,56 @@
 /* App-level styles — mobile keyboard and viewport handling */
 
-/* Use dynamic viewport height for mobile keyboard behavior */
-html, body, #root {
+/*
+ * Use dynamic viewport height (dvh) so the app fills visible area on mobile.
+ * We do NOT use position:fixed on body because that breaks visualViewport
+ * scroll offset calculations on iOS Safari.
+ */
+html {
   height: 100%;
   height: 100dvh;
   overflow: hidden;
 }
 
-/* Prevent iOS bounce/rubber-band scrolling on body */
 body {
+  height: 100%;
+  height: 100dvh;
+  overflow: hidden;
   overscroll-behavior: none;
-  position: fixed;
+  /* Do NOT use position:fixed here — it breaks keyboard layout on iOS */
   width: 100%;
 }
 
-/*
- * Mobile keyboard behaviour — chat input bar only floats up.
- *
- * The chat layout is a flex column:
- *   [header][messages scroll area][input bar]
- *
- * When the virtual keyboard opens:
- *   - The input bar translates itself UP by the keyboard height
- *     (handled via JS + visualViewport in ChatInput.tsx).
- *   - The messages area is NOT pushed — it keeps its natural height.
- *   - A spacer div inside the messages scroll area reserves the
- *     input bar height so the last message is never obscured.
- *
- * translateY transition gives the smooth "follow the keyboard" effect.
- */
-.chat-input-wrapper {
-  /* GPU-accelerated transition for smooth keyboard animation */
-  transition: transform 0.28s cubic-bezier(0.4, 0, 0.2, 1);
-  will-change: transform;
+#root {
+  height: 100%;
+  height: 100dvh;
+  overflow: hidden;
 }
 
-/* Smooth scroll behaviour for the messages list */
+/*
+ * The chat container fills the whole screen.
+ * The input bar is pulled OUT of normal flow with position:fixed
+ * so it can sit right above the keyboard independently.
+ * The messages scroll area fills from header to bottom of screen.
+ */
+
+/* Smooth scroll for message list */
 .chat-messages-scroll {
   scroll-behavior: smooth;
   -webkit-overflow-scrolling: touch;
   overscroll-behavior-y: contain;
+}
+
+/*
+ * The input wrapper is fixed to the bottom of the visual viewport.
+ * JS in ChatInput.tsx updates --vv-bottom so it sits above the keyboard.
+ * Transition gives the smooth slide animation.
+ */
+.chat-input-fixed {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: var(--vv-bottom, 0px);
+  z-index: 50;
+  transition: bottom 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  will-change: bottom;
 }

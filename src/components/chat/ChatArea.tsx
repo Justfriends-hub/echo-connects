@@ -1,8 +1,7 @@
-import React, { useRef, useEffect, useState, useCallback } from 'react';
+import React, { useRef, useEffect, useState } from 'react';
 import { ArrowLeft, MoreVertical, Users, Info } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { Skeleton } from '@/components/ui/skeleton';
 import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/ui/hover-card';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
@@ -65,17 +64,35 @@ function SenderHoverCard({ name, userId, children }: { name: string; userId: str
   );
 }
 
-export function ChatArea({ chat, messages, currentUserId, onSendMessage, onBack, typingUsers = [], onTyping, onLoadOlder, hasMore, loadingOlder, othersLastReadAt, onOpenInfo }: ChatAreaProps) {
+export function ChatArea({
+  chat,
+  messages,
+  currentUserId,
+  onSendMessage,
+  onBack,
+  typingUsers = [],
+  onTyping,
+  onLoadOlder,
+  hasMore,
+  loadingOlder,
+  othersLastReadAt,
+  onOpenInfo,
+}: ChatAreaProps) {
   const bottomRef = useRef<HTMLDivElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
-  const containerRef = useRef<HTMLDivElement>(null);
   const prevFirstIdRef = useRef<string | null>(null);
-  const [inputBarHeight, setInputBarHeight] = useState(64); // Track input bar height for spacer
+  /**
+   * Height of the fixed input bar reported by ChatInput.
+   * We pad the bottom of the scroll area by this amount so the last message
+   * is never hidden behind the bar.
+   */
+  const [inputBarHeight, setInputBarHeight] = useState(68);
 
+  // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
     const first = messages[0]?.id || null;
     if (prevFirstIdRef.current && first !== prevFirstIdRef.current) {
-      // older messages were prepended — don't auto-scroll
+      // Older messages prepended — keep position, don't scroll
     } else {
       bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
     }
@@ -93,12 +110,14 @@ export function ChatArea({ chat, messages, currentUserId, onSendMessage, onBack,
   const isGroup = chat.type === 'group' || chat.type === 'channel';
 
   return (
-    <div
-      ref={containerRef}
-      className="flex flex-col h-full chat-bg"
-    >
+    /*
+     * The container fills the screen. The input bar is position:fixed so it
+     * floats independently above the keyboard. The messages scroll area fills
+     * the remaining space (below header, above the fixed bar gap).
+     */
+    <div className="flex flex-col h-full chat-bg">
       {/* Header */}
-      <div className="flex items-center gap-3 px-4 py-2.5 bg-card border-b border-border">
+      <div className="flex items-center gap-3 px-4 py-2.5 bg-card border-b border-border flex-shrink-0">
         <Button variant="ghost" size="icon" className="md:hidden text-foreground" onClick={onBack}>
           <ArrowLeft className="w-5 h-5" />
         </Button>
@@ -151,12 +170,24 @@ export function ChatArea({ chat, messages, currentUserId, onSendMessage, onBack,
         </div>
       </div>
 
-      {/* Messages — scrolls independently; a dynamic spacer reserves room for the floating input bar */}
-      <div ref={scrollRef} onScroll={handleScroll} className="flex-1 px-3 py-2 overflow-y-auto chat-messages-scroll">
+      {/*
+        Messages scroll area.
+        - flex-1 so it fills from header to bottom
+        - paddingBottom keeps last message visible above the fixed input bar
+          (we also use a ref div at the bottom for scrollIntoView)
+      */}
+      <div
+        ref={scrollRef}
+        onScroll={handleScroll}
+        className="flex-1 overflow-y-auto chat-messages-scroll px-3 py-2"
+        style={{ paddingBottom: inputBarHeight + 8 }}
+      >
         <div className="max-w-3xl mx-auto space-y-0.5">
           {hasMore && (
             <div className="flex justify-center py-2">
-              <span className="text-xs text-muted-foreground">{loadingOlder ? 'Loading…' : 'Scroll up for older messages'}</span>
+              <span className="text-xs text-muted-foreground">
+                {loadingOlder ? 'Loading…' : 'Scroll up for older messages'}
+              </span>
             </div>
           )}
           {messages.length === 0 ? (
@@ -204,16 +235,17 @@ export function ChatArea({ chat, messages, currentUserId, onSendMessage, onBack,
           )}
           <div ref={bottomRef} />
         </div>
-        {/* Spacer so last message is never hidden behind the floating input bar */}
-        <div style={{ height: inputBarHeight }} aria-hidden="true" />
       </div>
 
-      {/* Input — floats above keyboard using visualViewport; messages scroll independently */}
+      {/*
+        ChatInput is position:fixed (via .chat-input-fixed class).
+        It sits above the keyboard by updating --vv-bottom on <html> via visualViewport.
+        We pass onHeightChange so the scroll area paddingBottom matches the bar height.
+      */}
       <ChatInput
         onSend={onSendMessage}
         onTyping={onTyping}
         onHeightChange={setInputBarHeight}
-        onKeyboardOpen={() => bottomRef.current?.scrollIntoView({ behavior: 'smooth' })}
       />
     </div>
   );
