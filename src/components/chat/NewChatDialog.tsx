@@ -138,15 +138,26 @@ export function NewChatDialog({ open, onClose, onChatCreated, mode }: NewChatDia
       }
     }
 
+    const accessTokenPreview = sessionData.session.access_token ? `${sessionData.session.access_token.slice(0, 8)}...` : null;
+    const payload = { type, name: groupName.trim(), created_by: currentUserId };
+    console.debug('[NewChatDialog] createChat payload', payload);
+    console.debug('[NewChatDialog] supabase session token state', {
+      currentUserId,
+      accessTokenPreview,
+      hasAccessToken: !!sessionData.session.access_token,
+      hasRefreshToken: !!sessionData.session.refresh_token,
+      expiresAt: sessionData.session.expires_at,
+    });
+
     let chat: any = null;
     try {
       const resp = await supabase
         .from('chats')
-        .insert({ type, name: groupName.trim(), created_by: currentUserId })
+        .insert(payload)
         .select('id')
         .single();
       if (resp.error) {
-        console.error('[NewChatDialog] createChat error', resp.error, { currentUserId, type });
+        console.error('[NewChatDialog] createChat error', resp.error, { currentUserId, type, payload });
         const isRlsError = resp.error.code === '42501' || /row-level security/i.test(resp.error.message || '');
         toast.error(
           isRlsError
@@ -161,7 +172,7 @@ export function NewChatDialog({ open, onClose, onChatCreated, mode }: NewChatDia
       console.error('[NewChatDialog] createChat exception', err);
       try {
         const sess = await supabase.auth.getSession();
-        console.debug('[NewChatDialog] session', sess);
+        console.debug('[NewChatDialog] session after exception', sess);
       } catch (_) {}
       toast.error('Failed to create chat (check console for details)');
       setBusy(false);
