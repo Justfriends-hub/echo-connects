@@ -1,4 +1,4 @@
-import React, { useRef, useEffect, useState } from 'react';
+import React, { useRef, useEffect, useState, useCallback } from 'react';
 import { ArrowLeft, MoreVertical, Users, Info } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
@@ -70,28 +70,7 @@ export function ChatArea({ chat, messages, currentUserId, onSendMessage, onBack,
   const scrollRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const prevFirstIdRef = useRef<string | null>(null);
-  const [keyboardOffset, setKeyboardOffset] = useState(0);
-
-  // Handle mobile keyboard: scroll to bottom, don't push messages
-  useEffect(() => {
-    const vv = window.visualViewport;
-    if (!vv) return;
-
-    const handleResize = () => {
-      // Calculate how much the keyboard is covering
-      const offset = window.innerHeight - vv.height;
-      setKeyboardOffset(offset > 50 ? offset : 0);
-      // When keyboard opens, scroll to bottom so user sees latest messages
-      if (offset > 50) {
-        requestAnimationFrame(() => {
-          bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
-        });
-      }
-    };
-
-    vv.addEventListener('resize', handleResize);
-    return () => vv.removeEventListener('resize', handleResize);
-  }, []);
+  const [inputBarHeight, setInputBarHeight] = useState(64); // Track input bar height for spacer
 
   useEffect(() => {
     const first = messages[0]?.id || null;
@@ -117,10 +96,6 @@ export function ChatArea({ chat, messages, currentUserId, onSendMessage, onBack,
     <div
       ref={containerRef}
       className="flex flex-col h-full chat-bg"
-      style={{
-        // When keyboard is open, shrink the container so input stays visible
-        paddingBottom: keyboardOffset > 0 ? `${keyboardOffset}px` : undefined,
-      }}
     >
       {/* Header */}
       <div className="flex items-center gap-3 px-4 py-2.5 bg-card border-b border-border">
@@ -176,8 +151,8 @@ export function ChatArea({ chat, messages, currentUserId, onSendMessage, onBack,
         </div>
       </div>
 
-      {/* Messages */}
-      <div ref={scrollRef} onScroll={handleScroll} className="flex-1 px-3 py-2 overflow-y-auto">
+      {/* Messages — scrolls independently; a dynamic spacer reserves room for the floating input bar */}
+      <div ref={scrollRef} onScroll={handleScroll} className="flex-1 px-3 py-2 overflow-y-auto chat-messages-scroll">
         <div className="max-w-3xl mx-auto space-y-0.5">
           {hasMore && (
             <div className="flex justify-center py-2">
@@ -229,10 +204,17 @@ export function ChatArea({ chat, messages, currentUserId, onSendMessage, onBack,
           )}
           <div ref={bottomRef} />
         </div>
+        {/* Spacer so last message is never hidden behind the floating input bar */}
+        <div style={{ height: inputBarHeight }} aria-hidden="true" />
       </div>
 
-      {/* Input */}
-      <ChatInput onSend={onSendMessage} onTyping={onTyping} />
+      {/* Input — floats above keyboard using visualViewport; messages scroll independently */}
+      <ChatInput
+        onSend={onSendMessage}
+        onTyping={onTyping}
+        onHeightChange={setInputBarHeight}
+        onKeyboardOpen={() => bottomRef.current?.scrollIntoView({ behavior: 'smooth' })}
+      />
     </div>
   );
 }

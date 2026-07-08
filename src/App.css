@@ -15,17 +15,27 @@ body {
 }
 
 /*
- * Mobile keyboard fix:
- * When the virtual keyboard opens, only the input bar should stay
- * at the keyboard top — chat messages should NOT be pushed up.
- * This uses the VisualViewport API (handled in JS) plus CSS.
+ * Mobile keyboard behaviour — chat input bar only floats up.
+ *
+ * The chat layout is a flex column:
+ *   [header][messages scroll area][input bar]
+ *
+ * When the virtual keyboard opens:
+ *   - The input bar translates itself UP by the keyboard height
+ *     (handled via JS + visualViewport in ChatInput.tsx).
+ *   - The messages area is NOT pushed — it keeps its natural height.
+ *   - A spacer div inside the messages scroll area reserves the
+ *     input bar height so the last message is never obscured.
+ *
+ * translateY transition gives the smooth "follow the keyboard" effect.
  */
 .chat-input-wrapper {
-  /* On mobile, this element uses visualViewport to position itself */
-  transition: transform 0.1s ease-out;
+  /* GPU-accelerated transition for smooth keyboard animation */
+  transition: transform 0.28s cubic-bezier(0.4, 0, 0.2, 1);
+  will-change: transform;
 }
 
-/* Smooth scroll behavior for chat messages */
+/* Smooth scroll behaviour for the messages list */
 .chat-messages-scroll {
   scroll-behavior: smooth;
   -webkit-overflow-scrolling: touch;
