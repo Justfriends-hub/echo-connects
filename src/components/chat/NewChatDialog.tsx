@@ -17,20 +17,30 @@ interface NewChatDialogProps {
   open: boolean;
   onClose: () => void;
   onChatCreated?: (chatId: string) => void;
+  mode?: 'direct' | 'group' | 'channel';
 }
 
-export function NewChatDialog({ open, onClose, onChatCreated }: NewChatDialogProps) {
+export function NewChatDialog({ open, onClose, onChatCreated, mode }: NewChatDialogProps) {
   const { user } = useAuth();
   const [search, setSearch] = useState('');
   const [results, setResults] = useState<UserProfile[]>([]);
   const [busy, setBusy] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [groupMode, setGroupMode] = useState(false);
+  const [dialogMode, setDialogMode] = useState<'direct' | 'group' | 'channel'>(mode ?? 'direct');
   const [selectedUsers, setSelectedUsers] = useState<UserProfile[]>([]);
   const [groupName, setGroupName] = useState('');
 
   useEffect(() => {
-    if (!open) { setSearch(''); setResults([]); setGroupMode(false); setSelectedUsers([]); setGroupName(''); return; }
+    if (!open) {
+      setSearch('');
+      setResults([]);
+      setDialogMode(mode ?? 'direct');
+      setSelectedUsers([]);
+      setGroupName('');
+      return;
+    }
+
+    setDialogMode(mode ?? 'direct');
     setLoading(true);
     const t = setTimeout(async () => {
       const term = search.trim().replace(/[%_,.()\"]/g, '');
@@ -48,7 +58,7 @@ export function NewChatDialog({ open, onClose, onChatCreated }: NewChatDialogPro
       setLoading(false);
     }, 250);
     return () => clearTimeout(t);
-  }, [search, open, user]);
+  }, [search, open, user, mode]);
 
   const startDirectChat = async (otherId: string) => {
     if (busy) return;
@@ -67,68 +77,90 @@ export function NewChatDialog({ open, onClose, onChatCreated }: NewChatDialogPro
     });
   };
 
-  const createGroup = async () => {
-    if (selectedUsers.length < 1) { toast.error('Select at least 1 member'); return; }
-    if (!groupName.trim()) { toast.error('Enter a group name'); return; }
+  const createChat = async (type: 'group' | 'channel') => {
+    if (!groupName.trim()) {
+      toast.error(type === 'channel' ? 'Enter a channel name' : 'Enter a group name');
+      return;
+    }
+    if (type === 'group' && selectedUsers.length < 1) {
+      toast.error('Select at least 1 member');
+      return;
+    }
+
     setBusy(true);
 
-    // Sanity: ensure user is authenticated before attempting DB write
     if (!user) {
-      console.debug('[NewChatDialog] createGroup: no authenticated user', await supabase.auth.getSession().catch(() => null));
-      toast.error('You must be signed in to create a group');
+      console.debug('[NewChatDialog] createChat: no authenticated user', await supabase.auth.getSession().catch(() => null));
+      toast.error('You must be signed in to create this chat');
       setBusy(false);
       return;
     }
 
-    // Ensure we have the active auth session and the correct current user ID.
     const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
     if (sessionError || !sessionData?.session?.user?.id) {
-      console.error('[NewChatDialog] createGroup: missing auth session', sessionError, sessionData);
+      console.error('[NewChatDialog] createChat: missing auth session', sessionError, sessionData);
       toast.error('Unable to verify your session. Please sign in again.');
       setBusy(false);
       return;
     }
 
     const currentUserId = sessionData.session.user.id;
-    if (user?.id && user.id !== currentUserId) {
+    if (user.id !== currentUserId) {
       console.warn('[NewChatDialog] auth mismatch', { contextUserId: user.id, sessionUserId: currentUserId });
     }
 
-    // Create the chat with the exact authenticated user ID.
     let chat: any = null;
     try {
       const resp = await supabase
         .from('chats')
-        .insert({ type: 'group', name: groupName.trim(), created_by: currentUserId })
+        .insert({ type, name: groupName.trim(), created_by: currentUserId })
         .select('id')
         .single();
       if (resp.error) {
-        console.error('[NewChatDialog] createGroup error', resp.error, { currentUserId });
-        toast.error(resp.error.message || 'Failed to create group');
+        console.error('[NewChatDialog] createChat error', resp.error, { currentUserId, type });
+        toast.error(resp.error.message || 'Failed to create chat');
         setBusy(false);
-        return;
+        return null;
       }
       chat = resp.data;
     } catch (err) {
-      console.error('[NewChatDialog] createGroup exception', err);
+      console.error('[NewChatDialog] createChat exception', err);
       try {
         const sess = await supabase.auth.getSession();
         console.debug('[NewChatDialog] session', sess);
       } catch (_) {}
-      toast.error('Failed to create group (check console for details)');
+      toast.error('Failed to create chat (check console for details)');
       setBusy(false);
-      return;
+      return null;
     }
 
-    // Add members (including self)
     const members = [
-      { chat_id: chat.id, user_id: user?.id || '', role: 'owner' },
-      ...selectedUsers.map(u => ({ chat_id: chat.id, user_id: u.id, role: 'member' })),
+      { chat_id: chat.id, user_id: currentUserId, role: 'owner' },
+      ...(type === 'group'
+        ? selectedUsers.map(u => ({ chat_id: chat.id, user_id: u.id, role: 'member' }))
+        : []),
     ];
-    await supabase.from('chat_members').insert(members);
+
+    const { error: membersError } = await supabase.from('chat_members').insert(members);
+    if (membersError) {
+      console.error('[NewChatDialog] createChat members insert error', membersError, { chatId: chat.id });
+      toast.error('Chat created, but failed to add members.');
+      setBusy(false);
+      return chat.id;
+    }
 
     setBusy(false);
-    onChatCreated?.(chat.id);
+    return chat.id;
+  };
+
+  const createGroup = async () => {
+    const chatId = await createChat('group');
+    if (chatId) onChatCreated?.(chatId);
+  };
+
+  const createChannel = async () => {
+    const chatId = await createChat('channel');
+    if (chatId) onChatCreated?.(chatId);
   };
 
   const initials = (n: string) => n.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2);
@@ -138,32 +170,42 @@ export function NewChatDialog({ open, onClose, onChatCreated }: NewChatDialogPro
       <DialogContent className="bg-card border-border max-w-md">
         <DialogHeader>
           <DialogTitle className="text-foreground flex items-center justify-between">
-            <span>{groupMode ? 'New Group' : 'New Chat'}</span>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="text-xs text-primary"
-              onClick={() => setGroupMode(!groupMode)}
-            >
-              <Users className="w-3.5 h-3.5 mr-1" />
-              {groupMode ? 'Direct chat' : 'Create group'}
-            </Button>
+            <span>
+              {dialogMode === 'group'
+                ? 'New Group'
+                : dialogMode === 'channel'
+                  ? 'New Channel'
+                  : 'New Chat'}
+            </span>
+            {dialogMode !== 'channel' && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-xs text-primary"
+                onClick={() => setDialogMode(prev => (prev === 'group' ? 'direct' : 'group'))}
+              >
+                <Users className="w-3.5 h-3.5 mr-1" />
+                {dialogMode === 'group' ? 'Direct chat' : 'Create group'}
+              </Button>
+            )}
           </DialogTitle>
           <DialogDescription>
-            Search users and start a direct chat or create a new group with selected members.
+            {dialogMode === 'channel'
+              ? 'Create a broadcast channel and become its owner.'
+              : 'Search users and start a direct chat or create a new group with selected members.'}
           </DialogDescription>
         </DialogHeader>
 
-        {/* Group name input */}
-        {groupMode && (
+        {/* Chat name input for groups and channels */}
+        {dialogMode !== 'direct' && (
           <>
             <Input
-              placeholder="Group name"
+              placeholder={dialogMode === 'channel' ? 'Channel name' : 'Group name'}
               value={groupName}
               onChange={e => setGroupName(e.target.value)}
               className="bg-secondary border-0"
             />
-            {selectedUsers.length > 0 && (
+            {dialogMode === 'group' && selectedUsers.length > 0 && (
               <div className="flex flex-wrap gap-1.5">
                 {selectedUsers.map(u => (
                   <Badge key={u.id} variant="secondary" className="gap-1 pr-1">
@@ -179,68 +221,81 @@ export function NewChatDialog({ open, onClose, onChatCreated }: NewChatDialogPro
           </>
         )}
 
-        {/* Search */}
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-          <Input
-            placeholder="Search by username, name, phone or email"
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-            className="pl-9 bg-secondary border-0"
-          />
-        </div>
+        {dialogMode !== 'channel' ? (
+          <>
+            {/* Search */}
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <Input
+                placeholder="Search by username, name, phone or email"
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+                className="pl-9 bg-secondary border-0"
+              />
+            </div>
 
-        {/* Results */}
-        <div className="max-h-80 overflow-y-auto -mx-6 px-2">
-          {loading ? (
-            <div className="space-y-2 p-2">
-              {[...Array(4)].map((_, i) => (
-                <div key={i} className="flex items-center gap-3 px-4 py-2.5">
-                  <Skeleton className="w-10 h-10 rounded-full" />
-                  <div className="space-y-1.5 flex-1">
-                    <Skeleton className="h-4 w-32" />
-                    <Skeleton className="h-3 w-20" />
-                  </div>
+            {/* Results */}
+            <div className="max-h-80 overflow-y-auto -mx-6 px-2">
+              {loading ? (
+                <div className="space-y-2 p-2">
+                  {[...Array(4)].map((_, i) => (
+                    <div key={i} className="flex items-center gap-3 px-4 py-2.5">
+                      <Skeleton className="w-10 h-10 rounded-full" />
+                      <div className="space-y-1.5 flex-1">
+                        <Skeleton className="h-4 w-32" />
+                        <Skeleton className="h-3 w-20" />
+                      </div>
+                    </div>
+                  ))}
                 </div>
-              ))}
+              ) : results.length === 0 ? (
+                <div className="py-8 text-center text-muted-foreground">
+                  <UserPlus className="w-10 h-10 mx-auto mb-3 text-muted-foreground/50" />
+                  <p className="text-sm">No users found</p>
+                </div>
+              ) : (
+                results.map(p => {
+                  const isSelected = selectedUsers.some(u => u.id === p.id);
+                  return (
+                    <button
+                      key={p.id}
+                      onClick={() => dialogMode === 'group' ? toggleUserSelection(p) : startDirectChat(p.id)}
+                      disabled={busy}
+                      className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-accent rounded-lg text-left transition-colors"
+                    >
+                      {dialogMode === 'group' && (
+                        <Checkbox checked={isSelected} className="flex-shrink-0" />
+                      )}
+                      <Avatar className="w-10 h-10">
+                        <AvatarImage src={p.avatar_url} />
+                        <AvatarFallback className="bg-primary/20 text-primary text-xs">{initials(p.display_name || 'U')}</AvatarFallback>
+                      </Avatar>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-foreground truncate">{p.display_name}</p>
+                        <p className="text-xs text-muted-foreground truncate">@{p.username}</p>
+                      </div>
+                    </button>
+                  );
+                })
+              )}
             </div>
-          ) : results.length === 0 ? (
-            <div className="py-8 text-center text-muted-foreground">
-              <UserPlus className="w-10 h-10 mx-auto mb-3 text-muted-foreground/50" />
-              <p className="text-sm">No users found</p>
-            </div>
-          ) : (
-            results.map(p => {
-              const isSelected = selectedUsers.some(u => u.id === p.id);
-              return (
-                <button
-                  key={p.id}
-                  onClick={() => groupMode ? toggleUserSelection(p) : startDirectChat(p.id)}
-                  disabled={busy}
-                  className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-accent rounded-lg text-left transition-colors"
-                >
-                  {groupMode && (
-                    <Checkbox checked={isSelected} className="flex-shrink-0" />
-                  )}
-                  <Avatar className="w-10 h-10">
-                    <AvatarImage src={p.avatar_url} />
-                    <AvatarFallback className="bg-primary/20 text-primary text-xs">{initials(p.display_name || 'U')}</AvatarFallback>
-                  </Avatar>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-foreground truncate">{p.display_name}</p>
-                    <p className="text-xs text-muted-foreground truncate">@{p.username}</p>
-                  </div>
-                </button>
-              );
-            })
-          )}
-        </div>
+          </>
+        ) : (
+          <div className="py-6 px-4 text-sm text-muted-foreground">
+            Channels are broadcast spaces. Create a channel name below and then invite or share it after creation.
+          </div>
+        )}
 
-        {/* Create group button */}
-        {groupMode && selectedUsers.length > 0 && (
+        {dialogMode === 'group' && selectedUsers.length > 0 && (
           <Button onClick={createGroup} disabled={busy} className="w-full gap-2">
             <Users className="w-4 h-4" />
             Create Group ({selectedUsers.length} members)
+          </Button>
+        )}
+        {dialogMode === 'channel' && (
+          <Button onClick={createChannel} disabled={busy} className="w-full gap-2">
+            <Users className="w-4 h-4" />
+            Create Channel
           </Button>
         )}
       </DialogContent>

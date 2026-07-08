@@ -33,6 +33,7 @@ export function ChatLayout() {
   const latestMessageAt = messages[messages.length - 1]?.created_at;
   const { othersLastReadAt } = useReadReceipts(activeChat, user?.id, latestMessageAt);
   const [showNewChat, setShowNewChat] = useState(false);
+  const [newChatMode, setNewChatMode] = useState<'direct' | 'group' | 'channel'>('direct');
   const [showChatInfo, setShowChatInfo] = useState(false);
   const [showProfileDrawer, setShowProfileDrawer] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
@@ -131,9 +132,18 @@ export function ChatLayout() {
                 chats={chats}
                 activeChat={activeChat}
                 onSelectChat={setActiveChat}
-                onNewChat={() => setShowNewChat(true)}
-                onNewGroup={() => setShowNewChat(true)}
-                onNewChannel={() => {}}
+                onNewChat={() => {
+                  setNewChatMode('direct');
+                  setShowNewChat(true);
+                }}
+                onNewGroup={() => {
+                  setNewChatMode('group');
+                  setShowNewChat(true);
+                }}
+                onNewChannel={() => {
+                  setNewChatMode('channel');
+                  setShowNewChat(true);
+                }}
                 onOpenProfile={() => setShowProfileDrawer(true)}
               />
             </div>
@@ -153,9 +163,18 @@ export function ChatLayout() {
                 chats={chats}
                 activeChat={activeChat}
                 onSelectChat={setActiveChat}
-                onNewChat={() => setShowNewChat(true)}
-                onNewGroup={() => setShowNewChat(true)}
-                onNewChannel={() => {}}
+                onNewChat={() => {
+                  setNewChatMode('direct');
+                  setShowNewChat(true);
+                }}
+                onNewGroup={() => {
+                  setNewChatMode('group');
+                  setShowNewChat(true);
+                }}
+                onNewChannel={() => {
+                  setNewChatMode('channel');
+                  setShowNewChat(true);
+                }}
                 onOpenProfile={() => setShowProfileDrawer(true)}
               />
             </div>
@@ -167,7 +186,12 @@ export function ChatLayout() {
         </ResizablePanelGroup>
       )}
 
-      <NewChatDialog open={showNewChat} onClose={() => setShowNewChat(false)} onChatCreated={handleChatCreated} />
+      <NewChatDialog
+        open={showNewChat}
+        mode={newChatMode}
+        onClose={() => setShowNewChat(false)}
+        onChatCreated={handleChatCreated}
+      />
 
       {currentChat && (
         <ChatInfoSheet open={showChatInfo} onClose={() => setShowChatInfo(false)} chat={currentChat} />
