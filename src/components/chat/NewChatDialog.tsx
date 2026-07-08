@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -80,17 +80,30 @@ export function NewChatDialog({ open, onClose, onChatCreated }: NewChatDialogPro
       return;
     }
 
-    // Create the chat
-    // Attempt to create the chat — log verbose info to help debug 403s in deployed envs
+    // Ensure we have the active auth session and the correct current user ID.
+    const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+    if (sessionError || !sessionData?.session?.user?.id) {
+      console.error('[NewChatDialog] createGroup: missing auth session', sessionError, sessionData);
+      toast.error('Unable to verify your session. Please sign in again.');
+      setBusy(false);
+      return;
+    }
+
+    const currentUserId = sessionData.session.user.id;
+    if (user?.id && user.id !== currentUserId) {
+      console.warn('[NewChatDialog] auth mismatch', { contextUserId: user.id, sessionUserId: currentUserId });
+    }
+
+    // Create the chat with the exact authenticated user ID.
     let chat: any = null;
     try {
       const resp = await supabase
         .from('chats')
-        .insert({ type: 'group', name: groupName.trim(), created_by: user.id })
+        .insert({ type: 'group', name: groupName.trim(), created_by: currentUserId })
         .select('id')
         .single();
       if (resp.error) {
-        console.error('[NewChatDialog] createGroup error', resp.error);
+        console.error('[NewChatDialog] createGroup error', resp.error, { currentUserId });
         toast.error(resp.error.message || 'Failed to create group');
         setBusy(false);
         return;
@@ -98,7 +111,6 @@ export function NewChatDialog({ open, onClose, onChatCreated }: NewChatDialogPro
       chat = resp.data;
     } catch (err) {
       console.error('[NewChatDialog] createGroup exception', err);
-      // Dump current session for debugging (no backend changes)
       try {
         const sess = await supabase.auth.getSession();
         console.debug('[NewChatDialog] session', sess);
@@ -137,6 +149,9 @@ export function NewChatDialog({ open, onClose, onChatCreated }: NewChatDialogPro
               {groupMode ? 'Direct chat' : 'Create group'}
             </Button>
           </DialogTitle>
+          <DialogDescription>
+            Search users and start a direct chat or create a new group with selected members.
+          </DialogDescription>
         </DialogHeader>
 
         {/* Group name input */}
