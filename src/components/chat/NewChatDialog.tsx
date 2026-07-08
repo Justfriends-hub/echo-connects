@@ -72,15 +72,38 @@ export function NewChatDialog({ open, onClose, onChatCreated }: NewChatDialogPro
     if (!groupName.trim()) { toast.error('Enter a group name'); return; }
     setBusy(true);
 
-    // Create the chat
-    const { data: chat, error: chatError } = await supabase
-      .from('chats')
-      .insert({ type: 'group', name: groupName.trim(), created_by: user?.id || '' })
-      .select('id')
-      .single();
+    // Sanity: ensure user is authenticated before attempting DB write
+    if (!user) {
+      console.debug('[NewChatDialog] createGroup: no authenticated user', await supabase.auth.getSession().catch(() => null));
+      toast.error('You must be signed in to create a group');
+      setBusy(false);
+      return;
+    }
 
-    if (chatError || !chat) {
-      toast.error(chatError?.message || 'Failed to create group');
+    // Create the chat
+    // Attempt to create the chat — log verbose info to help debug 403s in deployed envs
+    let chat: any = null;
+    try {
+      const resp = await supabase
+        .from('chats')
+        .insert({ type: 'group', name: groupName.trim(), created_by: user.id })
+        .select('id')
+        .single();
+      if (resp.error) {
+        console.error('[NewChatDialog] createGroup error', resp.error);
+        toast.error(resp.error.message || 'Failed to create group');
+        setBusy(false);
+        return;
+      }
+      chat = resp.data;
+    } catch (err) {
+      console.error('[NewChatDialog] createGroup exception', err);
+      // Dump current session for debugging (no backend changes)
+      try {
+        const sess = await supabase.auth.getSession();
+        console.debug('[NewChatDialog] session', sess);
+      } catch (_) {}
+      toast.error('Failed to create group (check console for details)');
       setBusy(false);
       return;
     }
