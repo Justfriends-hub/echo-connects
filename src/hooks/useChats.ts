@@ -178,24 +178,29 @@ export function useChats() {
 
   useEffect(() => { load(); }, [load]);
 
+  useEffect(() => {
+    if (!user) return;
+    const interval = window.setInterval(() => {
+      load();
+    }, 30000);
+    return () => window.clearInterval(interval);
+  }, [user, load]);
+
   // Realtime: update chat list on new messages or membership changes
   useEffect(() => {
     if (!user) return;
     const channel = supabase
       .channel('chats-list')
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, (payload) => {
-        // Optimistic: update just the affected chat's last_message instead of full reload
         const msg = payload.new as Message;
         setChats(prev => {
           const idx = prev.findIndex(c => c.id === msg.chat_id);
           if (idx === -1) {
-            // New chat we don't know about yet — do a full reload
             load();
             return prev;
           }
           const updated = [...prev];
           updated[idx] = { ...updated[idx], last_message: msg };
-          // Re-sort: move updated chat to top
           updated.sort((a, b) => {
             const at = a.last_message?.created_at || a.created_at;
             const bt = b.last_message?.created_at || b.created_at;

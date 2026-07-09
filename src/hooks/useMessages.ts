@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
+import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import type { Message, Reaction, UserProfile } from '@/types/chat';
 
@@ -163,5 +164,54 @@ export function useMessages(chatId: string | null) {
     saveCachedMessages(chatId, messages);
   }, [chatId, messages]);
 
-  return { messages, loading, loadingOlder, hasMore, loadOlder, reload: load };
+  const sendMessage = useCallback(async (content: string, senderId: string) => {
+    if (!chatId || !senderId || !content.trim()) return;
+
+    const tempId = `local-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const tempMessage: Message = {
+      id: tempId,
+      chat_id: chatId,
+      sender_id: senderId,
+      content: content.trim(),
+      type: 'text',
+      status: 'sending',
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+      reactions: [],
+    } as Message;
+
+    setMessages(prev => {
+      const next = [...prev, tempMessage];
+      saveCachedMessages(chatId, next);
+      return next;
+    });
+
+    const { data, error } = await supabase
+      .from('messages')
+      .insert({ chat_id: chatId, sender_id: senderId, content: content.trim(), type: 'text', status: 'sent' })
+      .select('*')
+      .single();
+
+    if (error) {
+      console.error('[useMessages] sendMessage failed', error);
+      toast.error('Message failed to send. It will remain in draft mode until the next sync.');
+      return;
+    }
+
+    setMessages(prev => {
+      const next = prev.map(msg => msg.id === tempId ? { ...(data as Message), reactions: [], sender: prev.find(m => m.id === tempId)?.sender } : msg);
+      saveCachedMessages(chatId, next);
+      return next;
+    });
+  }, [chatId]);
+
+  useEffect(() => {
+    if (!chatId) return;
+    const interval = window.setInterval(() => {
+      load();
+    }, 30000);
+    return () => window.clearInterval(interval);
+  }, [chatId, load]);
+
+  return { messages, loading, loadingOlder, hasMore, loadOlder, reload: load, sendMessage };
 }

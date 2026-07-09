@@ -24,7 +24,7 @@ export function ChatLayout() {
   const navigate = useNavigate();
   const { chats, reload: reloadChats } = useChats();
   const [activeChat, setActiveChat] = useState<string | null>(null);
-  const { messages, loadOlder, hasMore, loadingOlder } = useMessages(activeChat);
+  const { messages, loadOlder, hasMore, loadingOlder, sendMessage } = useMessages(activeChat);
   const currentChat = chats.find(c => c.id === activeChat);
   const { typingUsers, notifyTyping } = useTypingPresence(
     activeChat,
@@ -55,15 +55,8 @@ export function ChatLayout() {
 
   const handleSendMessage = useCallback(async (content: string) => {
     if (!activeChat || !user) return;
-    const { error } = await supabase.from('messages').insert({
-      chat_id: activeChat,
-      sender_id: user.id,
-      content,
-      type: 'text',
-      status: 'sent',
-    });
-    if (error) toast.error(error.message);
-  }, [activeChat, user]);
+    await sendMessage(content, user.id);
+  }, [activeChat, user, sendMessage]);
 
   const handleChatCreated = useCallback((chatId: string) => {
     setShowNewChat(false);
