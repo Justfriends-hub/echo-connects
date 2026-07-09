@@ -53,7 +53,7 @@ export function ChannelView({ chat, messages, currentUserId, onSendMessage, onBa
   const [commentsEnabled, setCommentsEnabled] = useState(false);
   const [muted, setMuted] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [inputBarHeight, setInputBarHeight] = useState(68);
+  const [inputBottomOffset, setInputBottomOffset] = useState(68);
 
   const isAdmin = memberRole === 'owner' || memberRole === 'admin';
 
@@ -169,7 +169,7 @@ export function ChannelView({ chat, messages, currentUserId, onSendMessage, onBa
   }, [messages]);
 
   return (
-    <div className="flex flex-col h-full chat-bg">
+    <div className="flex flex-col h-full min-h-0 chat-bg">
       {/* ── Channel Header ──────────────────────────────────────────────────── */}
       <div className="flex items-center gap-3 px-4 py-2.5 bg-card border-b border-border flex-shrink-0 pwa-no-select">
         <Button variant="ghost" size="icon" className="md:hidden text-foreground" onClick={onBack}>
@@ -263,8 +263,8 @@ export function ChannelView({ chat, messages, currentUserId, onSendMessage, onBa
 
       {/* ── Channel Posts ─────────────────────────────────────────────────────── */}
       <div
-        className="flex-1 overflow-y-auto chat-messages-scroll px-3 py-4"
-        style={{ paddingBottom: isAdmin ? inputBarHeight + 8 : 60 }}
+        className="flex-1 min-h-0 overflow-y-auto chat-messages-scroll px-3 py-4"
+        style={{ paddingBottom: isAdmin ? inputBottomOffset + 8 : 60 }}
       >
         <div className="max-w-2xl mx-auto">
           {loading && messages.length === 0 ? (
@@ -333,7 +333,7 @@ export function ChannelView({ chat, messages, currentUserId, onSendMessage, onBa
         <ChatInput
           onSend={onSendMessage}
           placeholder="Broadcast to channel…"
-          onHeightChange={setInputBarHeight}
+          onHeightChange={(_, bottomOffset) => setInputBottomOffset(bottomOffset)}
         />
       ) : (
         <div className="chat-input-fixed flex items-center justify-center gap-2 p-3 bg-card border-t border-border text-muted-foreground text-sm">

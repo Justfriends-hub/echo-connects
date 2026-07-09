@@ -8,22 +8,31 @@
 html {
   height: 100%;
   height: 100dvh;
-  overflow: hidden;
+  width: 100vw;
+  min-width: 100vw;
+  overflow-x: hidden;
+  overflow-y: hidden;
 }
 
 body {
   height: 100%;
   height: 100dvh;
-  overflow: hidden;
+  width: 100vw;
+  min-width: 100vw;
+  overflow-x: hidden;
+  overflow-y: hidden;
   overscroll-behavior: none;
+  padding-bottom: env(safe-area-inset-bottom);
   /* Do NOT use position:fixed here — it breaks keyboard layout on iOS */
-  width: 100%;
 }
 
 #root {
   height: 100%;
   height: 100dvh;
-  overflow: hidden;
+  width: 100vw;
+  min-width: 100vw;
+  overflow-x: hidden;
+  overflow-y: hidden;
 }
 
 /*

@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { Send, Paperclip, Smile, Mic } from 'lucide-react';
+import { Send, Paperclip, Smile, Mic, Keyboard } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
@@ -40,9 +40,40 @@ export function ChatInput({
 }: ChatInputProps) {
   const [text, setText] = useState('');
   const [emojiOpen, setEmojiOpen] = useState(false);
+  const [keyboardBottom, setKeyboardBottom] = useState(0);
+  const [panelHeight, setPanelHeight] = useState(0);
+  const [inputHeight, setInputHeight] = useState(68);
+  const [recentEmojis, setRecentEmojis] = useState<string[]>(() => {
+    if (typeof window === 'undefined') return [];
+    try {
+      return JSON.parse(window.localStorage.getItem('chirp.recentEmojis') || '[]') as string[];
+    } catch {
+      return [];
+    }
+  });
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const wrapperRef = useRef<HTMLDivElement>(null);
   const isTouch = isTouchDevice();
+
+  const saveRecentEmoji = (emoji: string) => {
+    setRecentEmojis(prev => {
+      const next = [emoji, ...prev.filter(e => e !== emoji)].slice(0, 12);
+      try {
+        window.localStorage.setItem('chirp.recentEmojis', JSON.stringify(next));
+      } catch {
+        // ignore storage failures
+      }
+      return next;
+    });
+  };
+
+  const reportLayout = useCallback(() => {
+    if (!wrapperRef.current) return;
+    const height = wrapperRef.current.getBoundingClientRect().height;
+    setInputHeight(height);
+    const bottomOffset = height + (emojiOpen ? panelHeight : 0);
+    onHeightChange?.(height, bottomOffset);
+  }, [emojiOpen, onHeightChange, panelHeight]);
 
   // ─── Auto-resize textarea ────────────────────────────────────────────────────
   useEffect(() => {
@@ -50,50 +81,44 @@ export function ChatInput({
     if (!ta) return;
     ta.style.height = 'auto';
     ta.style.height = Math.min(ta.scrollHeight, 120) + 'px';
-  }, [text]);
+    reportLayout();
+  }, [text, reportLayout]);
 
-  // ─── Report bar height to parent (for bottom spacer) ────────────────────────
+  // ─── Report bar height and bottom offset to parent ───────────────────────────
   useEffect(() => {
-    if (!onHeightChange || !wrapperRef.current) return;
-    const ro = new ResizeObserver(() => {
-      if (wrapperRef.current) {
-        onHeightChange(wrapperRef.current.getBoundingClientRect().height);
-      }
-    });
+    if (!wrapperRef.current) return;
+    const ro = new ResizeObserver(() => reportLayout());
     ro.observe(wrapperRef.current);
-    // Report initial height
-    onHeightChange(wrapperRef.current.getBoundingClientRect().height);
+    reportLayout();
     return () => ro.disconnect();
-  }, [onHeightChange]);
+  }, [reportLayout]);
 
-  // ─── visualViewport: update CSS variable so bar floats above keyboard ────────
-  //
-  // The bar has `position: fixed` via the `.chat-input-fixed` class.
-  // We set `--vv-bottom` on <html> so the CSS rule `bottom: var(--vv-bottom)`
-  // keeps the bar flush with the top of the keyboard at all times.
-  // The transition in App.css makes this smooth.
-  //
-  // Why this works and translateY didn't:
-  //   - translateY on a non-fixed element still causes the element to visually
-  //     move, but the *layout* (flex column) still positions everything below it.
-  //   - `position: fixed` with an updated `bottom` value is the canonical approach
-  //     used by WhatsApp Web, Telegram Web, and iMessage PWAs.
   useEffect(() => {
-    const vv = window.visualViewport;
-
-    const dispatchViewportEvent = (bottom: number) => {
-      // Keep CSS var in sync so `.chat-input-fixed` sits above keyboard
+    const syncBottom = (bottom: number) => {
       document.documentElement.style.setProperty('--vv-bottom', `${Math.max(0, bottom)}px`);
-      // Emit an event other parts of the app can listen to
       try {
         window.dispatchEvent(new CustomEvent('chat-visual-viewport', { detail: { bottom } }));
       } catch (_) {}
     };
 
+    const updateBottom = (bottom: number) => {
+      setKeyboardBottom(bottom);
+      if (!emojiOpen) {
+        syncBottom(bottom);
+      }
+    };
+
+    const vv = window.visualViewport;
     if (vv) {
+      let ticking = false;
       const update = () => {
-        const vvBottom = window.innerHeight - (vv.offsetTop + vv.height);
-        dispatchViewportEvent(Math.max(0, vvBottom));
+        if (ticking) return;
+        ticking = true;
+        window.requestAnimationFrame(() => {
+          const bottom = Math.max(0, window.innerHeight - (vv.offsetTop + vv.height));
+          updateBottom(bottom);
+          ticking = false;
+        });
       };
       update();
       vv.addEventListener('resize', update);
@@ -101,27 +126,76 @@ export function ChatInput({
       return () => {
         vv.removeEventListener('resize', update);
         vv.removeEventListener('scroll', update);
-        document.documentElement.style.removeProperty('--vv-bottom');
       };
     }
 
-    // Fallback for environments without visualViewport (older browsers / webviews)
-    let lastInner = window.innerHeight;
-    const onResize = () => {
-      const diff = lastInner - window.innerHeight;
-      lastInner = window.innerHeight;
-      // If window.innerHeight dropped, assume keyboard appeared and use diff
-      const bottom = diff > 0 ? diff : 0;
-      dispatchViewportEvent(bottom);
+    let ticking = false;
+    const updateFallback = () => {
+      if (ticking) return;
+      ticking = true;
+      window.requestAnimationFrame(() => {
+        const bottom = Math.max(0, window.innerHeight - document.documentElement.clientHeight);
+        updateBottom(bottom);
+        ticking = false;
+      });
     };
-    window.addEventListener('resize', onResize);
-    // initial check
-    onResize();
-    return () => {
-      window.removeEventListener('resize', onResize);
-      document.documentElement.style.removeProperty('--vv-bottom');
-    };
-  }, []);
+    window.addEventListener('resize', updateFallback);
+    updateFallback();
+    return () => window.removeEventListener('resize', updateFallback);
+  }, [emojiOpen]);
+
+  useEffect(() => {
+    const bottom = emojiOpen ? panelHeight : keyboardBottom;
+    document.documentElement.style.setProperty('--vv-bottom', `${Math.max(0, bottom)}px`);
+    try {
+      window.dispatchEvent(new CustomEvent('chat-visual-viewport', { detail: { bottom } }));
+    } catch (_) {}
+    reportLayout();
+  }, [emojiOpen, panelHeight, keyboardBottom, reportLayout]);
+
+  const handleFocus = () => {
+    if (emojiOpen) {
+      setEmojiOpen(false);
+      textareaRef.current?.focus();
+    }
+  };
+
+  const handleEmojiClick = () => {
+    if (!isTouch) {
+      setEmojiOpen(prev => !prev);
+      return;
+    }
+
+    if (emojiOpen) {
+      setEmojiOpen(false);
+      textareaRef.current?.focus();
+      return;
+    }
+
+    const desiredHeight = Math.max(280, keyboardBottom || 280);
+    setPanelHeight(desiredHeight);
+    textareaRef.current?.blur();
+    setEmojiOpen(true);
+  };
+
+  const insertEmoji = (emoji: string) => {
+    const ta = textareaRef.current;
+    if (ta) {
+      const start = ta.selectionStart ?? text.length;
+      const end = ta.selectionEnd ?? text.length;
+      const newText = text.slice(0, start) + emoji + text.slice(end);
+      setText(newText);
+      saveRecentEmoji(emoji);
+      requestAnimationFrame(() => {
+        ta.selectionStart = ta.selectionEnd = start + emoji.length;
+        ta.focus();
+      });
+    } else {
+      setText(prev => prev + emoji);
+      saveRecentEmoji(emoji);
+    }
+    setEmojiOpen(false);
+  };
 
   // ─── Handlers ────────────────────────────────────────────────────────────────
   const handleSend = useCallback(() => {
@@ -144,46 +218,12 @@ export function ChatInput({
     onTyping?.();
   };
 
-  const insertEmoji = (emoji: string) => {
-    const ta = textareaRef.current;
-    if (ta) {
-      const start = ta.selectionStart ?? text.length;
-      const end = ta.selectionEnd ?? text.length;
-      const newText = text.slice(0, start) + emoji + text.slice(end);
-      setText(newText);
-      requestAnimationFrame(() => {
-        ta.selectionStart = ta.selectionEnd = start + emoji.length;
-        ta.focus();
-      });
-    } else {
-      setText(prev => prev + emoji);
-    }
-    setEmojiOpen(false);
-  };
-
-  /**
-   * Emoji button handler:
-   * - Mobile (touch): Just focus the textarea. The native keyboard already has
-   *   an emoji switch key (🌐/😊). This gives users the full OS emoji keyboard
-   *   with thousands of emojis, recents, search, etc.
-   * - Desktop (no touch): Open the in-app emoji popover for quick access.
-   */
-  const handleEmojiClick = () => {
-    if (isTouch) {
-      // On mobile: focus textarea to bring up keyboard.
-      // The user taps the emoji key on their native keyboard.
-      textareaRef.current?.focus();
-      return;
-    }
-    // On desktop: toggle the emoji popover
-    setEmojiOpen(prev => !prev);
-  };
-
   return (
-    <div
-      ref={wrapperRef}
-      className="chat-input-fixed flex items-end gap-2 p-3 bg-chat-input-bg border-t border-border"
-    >
+    <div className="relative">
+      <div
+        ref={wrapperRef}
+        className="chat-input-fixed flex items-end gap-2 p-3 bg-chat-input-bg border-t border-border"
+      >
       {/* Attach */}
       <Tooltip>
         <TooltipTrigger asChild>
@@ -203,6 +243,7 @@ export function ChatInput({
         <textarea
           ref={textareaRef}
           value={text}
+          onFocus={handleFocus}
           onChange={handleChange}
           onKeyDown={handleKeyDown}
           placeholder={placeholder}
@@ -217,16 +258,16 @@ export function ChatInput({
 
         {/* Desktop-only emoji popover (mobile users use their native keyboard emoji key) */}
         {isTouch ? (
-          /* Mobile: simple button that focuses textarea */
+          /* Mobile: emoji panel toggle */
           <Button
             variant="ghost"
             size="icon"
             className="absolute right-1 bottom-0.5 text-muted-foreground hover:text-foreground h-8 w-8"
             onClick={handleEmojiClick}
-            aria-label="Open emoji keyboard"
+            aria-label={emojiOpen ? 'Switch to keyboard' : 'Open emoji picker'}
             id="emoji-picker-btn"
           >
-            <Smile className="w-5 h-5" />
+            {emojiOpen ? <Keyboard className="w-5 h-5" /> : <Smile className="w-5 h-5" />}
           </Button>
         ) : (
           /* Desktop: popover with quick emoji grid */
@@ -301,5 +342,62 @@ export function ChatInput({
         </Tooltip>
       )}
     </div>
+
+    {isTouch && (
+      <div
+        className={cn(
+          'chat-emoji-panel fixed left-0 right-0 bottom-0 z-40 overflow-hidden border-t border-border bg-card shadow-[0_-8px_30px_rgba(0,0,0,0.18)] transition-transform duration-200 ease-out',
+          emojiOpen ? 'translate-y-0 opacity-100 pointer-events-auto' : 'translate-y-full opacity-0 pointer-events-none'
+        )}
+        style={{ height: panelHeight || 280 }}
+      >
+        <div className="flex items-center justify-between px-3 py-2 border-b border-border text-xs text-muted-foreground">
+          <span className="font-semibold">Emoji</span>
+          <button
+            type="button"
+            onClick={handleEmojiClick}
+            className="inline-flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors"
+            aria-label="Switch to keyboard"
+          >
+            <Keyboard className="w-4 h-4" />
+          </button>
+        </div>
+        <div className="p-3 overflow-y-auto h-full">
+          {recentEmojis.length > 0 && (
+            <div className="mb-3">
+              <p className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground mb-2">Recent</p>
+              <div className="grid grid-cols-8 gap-2">
+                {recentEmojis.map(emoji => (
+                  <button
+                    key={emoji}
+                    type="button"
+                    onClick={() => insertEmoji(emoji)}
+                    className="h-9 w-9 rounded-xl text-lg hover:bg-secondary transition-colors"
+                  >
+                    {emoji}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+          <div>
+            <p className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground mb-2">Quick</p>
+            <div className="grid grid-cols-8 gap-2">
+              {EMOJI_LIST.map(emoji => (
+                <button
+                  key={emoji}
+                  type="button"
+                  onClick={() => insertEmoji(emoji)}
+                  className="h-9 w-9 rounded-xl text-lg hover:bg-secondary transition-colors"
+                >
+                  {emoji}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+    )}
+  </div>
   );
 }

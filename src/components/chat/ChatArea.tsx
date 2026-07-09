@@ -86,7 +86,7 @@ export function ChatArea({
    * We pad the bottom of the scroll area by this amount so the last message
    * is never hidden behind the bar.
    */
-  const [inputBarHeight, setInputBarHeight] = useState(68);
+  const [inputBottomOffset, setInputBottomOffset] = useState(68);
 
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
@@ -102,27 +102,49 @@ export function ChatArea({
   // Keep messages anchored above keyboard: when visual viewport changes (keyboard open/close)
   useEffect(() => {
     const onVV = () => {
-      // Ensure the last message stays visible above the input bar
-      bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+      const container = scrollRef.current;
+      if (!container) return;
+      const nearBottom = container.scrollHeight - container.scrollTop - container.clientHeight < 80;
+      if (nearBottom) {
+        bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+      }
     };
 
     // Listen to visualViewport if available
     const vv = window.visualViewport;
     if (vv) {
-      vv.addEventListener('resize', onVV);
-      vv.addEventListener('scroll', onVV);
+      let ticking = false;
+      const update = () => {
+        if (ticking) return;
+        ticking = true;
+        window.requestAnimationFrame(() => {
+          onVV();
+          ticking = false;
+        });
+      };
+      vv.addEventListener('resize', update);
+      vv.addEventListener('scroll', update);
       return () => {
-        vv.removeEventListener('resize', onVV);
-        vv.removeEventListener('scroll', onVV);
+        vv.removeEventListener('resize', update);
+        vv.removeEventListener('scroll', update);
       };
     }
 
-    // Fallback: listen to our custom event dispatched by ChatInput and window resize
-    window.addEventListener('chat-visual-viewport', onVV as EventListener);
-    window.addEventListener('resize', onVV);
+    let ticking = false;
+    const updateFallback = () => {
+      if (ticking) return;
+      ticking = true;
+      window.requestAnimationFrame(() => {
+        onVV();
+        ticking = false;
+      });
+    };
+
+    window.addEventListener('chat-visual-viewport', updateFallback as EventListener);
+    window.addEventListener('resize', updateFallback);
     return () => {
-      window.removeEventListener('chat-visual-viewport', onVV as EventListener);
-      window.removeEventListener('resize', onVV);
+      window.removeEventListener('chat-visual-viewport', updateFallback as EventListener);
+      window.removeEventListener('resize', updateFallback);
     };
   }, []);
 
@@ -142,7 +164,7 @@ export function ChatArea({
      * floats independently above the keyboard. The messages scroll area fills
      * the remaining space (below header, above the fixed bar gap).
      */
-    <div className="flex flex-col h-full chat-bg">
+    <div className="flex flex-col h-full min-h-0 chat-bg">
       {/* Header */}
       <div className="flex items-center gap-3 px-4 py-2.5 bg-card border-b border-border flex-shrink-0 pwa-no-select">
         <Button variant="ghost" size="icon" className="md:hidden text-foreground" onClick={onBack}>
@@ -206,8 +228,8 @@ export function ChatArea({
       <div
         ref={scrollRef}
         onScroll={handleScroll}
-        className="flex-1 overflow-y-auto chat-messages-scroll px-3 py-2"
-        style={{ paddingBottom: inputBarHeight + 8 }}
+        className="flex-1 min-h-0 overflow-y-auto chat-messages-scroll px-3 py-2"
+        style={{ paddingBottom: inputBottomOffset + 8 }}
       >
         <div className="max-w-3xl mx-auto space-y-0.5">
           {hasMore && (
@@ -272,7 +294,7 @@ export function ChatArea({
       <ChatInput
         onSend={onSendMessage}
         onTyping={onTyping}
-        onHeightChange={setInputBarHeight}
+        onHeightChange={(_, bottomOffset) => setInputBottomOffset(bottomOffset)}
       />
     </div>
   );
