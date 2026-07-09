@@ -24,11 +24,10 @@ interface ChatInputProps {
   disabled?: boolean;
   placeholder?: string;
   /**
-   * Called with the current pixel height of the input bar whenever it changes.
-   * The parent uses this to keep a matching bottom padding on the scroll area
-   * so the last message is never hidden behind the floating bar.
+   * Called with the current pixel height of the input bar and the total bottom
+   * offset needed for the scroll area when the keyboard or emoji panel is open.
    */
-  onHeightChange?: (height: number) => void;
+  onHeightChange?: (height: number, bottomOffset: number) => void;
 }
 
 export function ChatInput({
