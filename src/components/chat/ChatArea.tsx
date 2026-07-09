@@ -83,10 +83,10 @@ export function ChatArea({
   const prevFirstIdRef = useRef<string | null>(null);
   /**
    * Height of the fixed input bar reported by ChatInput.
-   * We pad the bottom of the scroll area by this amount so the last message
-   * is never hidden behind the bar.
+   * The input bar floats above the keyboard, so the scroll area only needs
+   * a constant bottom padding equal to the bar height.
    */
-  const [inputBottomOffset, setInputBottomOffset] = useState(68);
+  const [inputHeight, setInputHeight] = useState(68);
 
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
@@ -103,18 +103,43 @@ export function ChatArea({
   useEffect(() => {
     const onVV = () => {
       const container = scrollRef.current;
-      if (!container) return;
-      const nearBottom = container.scrollHeight - container.scrollTop - container.clientHeight < 80;
-      if (nearBottom) {
-        bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
-      }
-    };
+        const bottomAnchor = bottomRef.current;
+        if (!container || !bottomAnchor) return;
 
-    // Listen to visualViewport if available
-    const vv = window.visualViewport;
-    if (vv) {
+        const nearBottom = container.scrollHeight - container.scrollTop - container.clientHeight < 120;
+        if (!nearBottom) return;
+
+        const vv = window.visualViewport;
+        const viewportBottom = vv ? vv.offsetTop + vv.height : window.innerHeight;
+        const inputTop = viewportBottom - inputHeight;
+        const bottomRect = bottomAnchor.getBoundingClientRect();
+
+        if (bottomRect.bottom > inputTop) {
+          bottomAnchor.scrollIntoView({ behavior: 'smooth' });
+        }
+      };
+
+      const vv = window.visualViewport;
+      if (vv) {
+        let ticking = false;
+        const update = () => {
+          if (ticking) return;
+          ticking = true;
+          window.requestAnimationFrame(() => {
+            onVV();
+            ticking = false;
+          });
+        };
+        vv.addEventListener('resize', update);
+        vv.addEventListener('scroll', update);
+        return () => {
+          vv.removeEventListener('resize', update);
+          vv.removeEventListener('scroll', update);
+        };
+      }
+
       let ticking = false;
-      const update = () => {
+      const updateFallback = () => {
         if (ticking) return;
         ticking = true;
         window.requestAnimationFrame(() => {
@@ -122,35 +147,14 @@ export function ChatArea({
           ticking = false;
         });
       };
-      vv.addEventListener('resize', update);
-      vv.addEventListener('scroll', update);
+
+      window.addEventListener('chat-visual-viewport', updateFallback as EventListener);
+      window.addEventListener('resize', updateFallback);
       return () => {
-        vv.removeEventListener('resize', update);
-        vv.removeEventListener('scroll', update);
+        window.removeEventListener('chat-visual-viewport', updateFallback as EventListener);
+        window.removeEventListener('resize', updateFallback);
       };
-    }
-
-    let ticking = false;
-    const updateFallback = () => {
-      if (ticking) return;
-      ticking = true;
-      window.requestAnimationFrame(() => {
-        onVV();
-        ticking = false;
-      });
-    };
-
-    window.addEventListener('chat-visual-viewport', updateFallback as EventListener);
-    window.addEventListener('resize', updateFallback);
-    return () => {
-      window.removeEventListener('chat-visual-viewport', updateFallback as EventListener);
-      window.removeEventListener('resize', updateFallback);
-    };
-  }, []);
-
-  const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
-    if (!onLoadOlder || !hasMore || loadingOlder) return;
-    if (e.currentTarget.scrollTop < 80) onLoadOlder();
+    }, [inputHeight]);
   };
 
   const getInitials = (name: string) =>
@@ -229,7 +233,7 @@ export function ChatArea({
         ref={scrollRef}
         onScroll={handleScroll}
         className="flex-1 min-h-0 overflow-y-auto chat-messages-scroll px-3 py-2"
-        style={{ paddingBottom: inputBottomOffset + 8 }}
+        style={{ paddingBottom: inputHeight + 8 }}
       >
         <div className="max-w-3xl mx-auto space-y-0.5">
           {hasMore && (
@@ -294,7 +298,7 @@ export function ChatArea({
       <ChatInput
         onSend={onSendMessage}
         onTyping={onTyping}
-        onHeightChange={(_, bottomOffset) => setInputBottomOffset(bottomOffset)}
+        onHeightChange={setInputHeight}
       />
     </div>
   );

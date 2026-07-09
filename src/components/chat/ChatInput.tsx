@@ -24,10 +24,11 @@ interface ChatInputProps {
   disabled?: boolean;
   placeholder?: string;
   /**
-   * Called with the current pixel height of the input bar and the total bottom
-   * offset needed for the scroll area when the keyboard or emoji panel is open.
+   * Called with the current pixel height of the input bar. The scroll area
+   * only needs a fixed bottom padding equal to the bar height; keyboard
+   * movement is handled independently by the fixed input overlay.
    */
-  onHeightChange?: (height: number, bottomOffset: number) => void;
+  onHeightChange?: (height: number) => void;
 }
 
 export function ChatInput({
@@ -70,9 +71,8 @@ export function ChatInput({
     if (!wrapperRef.current) return;
     const height = wrapperRef.current.getBoundingClientRect().height;
     setInputHeight(height);
-    const bottomOffset = height + (emojiOpen ? panelHeight : 0);
-    onHeightChange?.(height, bottomOffset);
-  }, [emojiOpen, onHeightChange, panelHeight]);
+    onHeightChange?.(height);
+  }, [onHeightChange]);
 
   // ─── Auto-resize textarea ────────────────────────────────────────────────────
   useEffect(() => {

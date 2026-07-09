@@ -53,7 +53,7 @@ export function ChannelView({ chat, messages, currentUserId, onSendMessage, onBa
   const [commentsEnabled, setCommentsEnabled] = useState(false);
   const [muted, setMuted] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [inputBottomOffset, setInputBottomOffset] = useState(68);
+  const [inputHeight, setInputHeight] = useState(68);
 
   const isAdmin = memberRole === 'owner' || memberRole === 'admin';
 
@@ -264,7 +264,7 @@ export function ChannelView({ chat, messages, currentUserId, onSendMessage, onBa
       {/* ── Channel Posts ─────────────────────────────────────────────────────── */}
       <div
         className="flex-1 min-h-0 overflow-y-auto chat-messages-scroll px-3 py-4"
-        style={{ paddingBottom: isAdmin ? inputBottomOffset + 8 : 60 }}
+        style={{ paddingBottom: isAdmin ? inputHeight + 8 : 60 }}
       >
         <div className="max-w-2xl mx-auto">
           {loading && messages.length === 0 ? (
@@ -333,7 +333,7 @@ export function ChannelView({ chat, messages, currentUserId, onSendMessage, onBa
         <ChatInput
           onSend={onSendMessage}
           placeholder="Broadcast to channel…"
-          onHeightChange={(_, bottomOffset) => setInputBottomOffset(bottomOffset)}
+          onHeightChange={setInputHeight}
         />
       ) : (
         <div className="chat-input-fixed flex items-center justify-center gap-2 p-3 bg-card border-t border-border text-muted-foreground text-sm">

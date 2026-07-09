@@ -58,9 +58,10 @@ body {
   position: fixed;
   left: 0;
   right: 0;
-  bottom: var(--vv-bottom, 0px);
+  bottom: 0;
+  transform: translateY(calc(-1 * var(--vv-bottom, 0px)));
   z-index: 50;
-  transition: bottom 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-  will-change: bottom;
+  transition: transform 0.18s ease-out;
+  will-change: transform;
   padding-bottom: env(safe-area-inset-bottom);
 }
