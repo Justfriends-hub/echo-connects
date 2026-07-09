@@ -122,7 +122,7 @@ export function ChatSidebar({ chats, activeChat, onSelectChat, onNewChat, onNewG
   return (
     <div className="flex flex-col h-full bg-sidebar border-r border-sidebar-border">
       {/* Header */}
-      <div className="flex items-center gap-2 p-3 border-b border-sidebar-border">
+      <div className="flex items-center gap-2 p-3 border-b border-sidebar-border pwa-no-select">
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" size="icon" className="text-sidebar-foreground">

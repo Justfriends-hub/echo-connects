@@ -5,6 +5,7 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider } from "@/contexts/AuthContext";
+import { PWAInstallPrompt } from "@/components/pwa/PWAInstallPrompt";
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import Login from "./pages/Login";
@@ -50,6 +51,7 @@ const App = () => (
         <Toaster />
         <Sonner />
         <DebugLogger />
+        <PWAInstallPrompt />
         <BrowserRouter>
           <Routes>
             <Route path="/" element={<Index />} />
