@@ -1,28 +1,24 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import {
   ArrowLeft, Megaphone, Users, MoreVertical,
-  MessageSquare, Lock, Bell, BellOff, Share2,
+  Lock, Bell, BellOff, Share2,
   Shield, ChevronDown, Search, Pin,
 } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Separator } from '@/components/ui/separator';
 import { Skeleton } from '@/components/ui/skeleton';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem,
   DropdownMenuSeparator, DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
-import { MessageBubble } from '@/components/chat/MessageBubble';
+import { ChannelPost } from './ChannelPost';
 import { ChatInput } from '@/components/chat/ChatInput';
 import { ChannelComments } from './ChannelComments';
-import { EmojiReactionBar } from './EmojiReactionBar';
 import type { Chat, Message } from '@/types/chat';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
-import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 
 interface ChannelViewProps {
@@ -31,6 +27,19 @@ interface ChannelViewProps {
   currentUserId: string;
   onSendMessage: (content: string) => void;
   onBack: () => void;
+}
+
+/** Group messages by date string for date dividers */
+function getDateLabel(iso: string): string {
+  const d = new Date(iso);
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const msgDay = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  const diff = today.getTime() - msgDay.getTime();
+  const oneDay = 86400000;
+  if (diff < oneDay) return 'Today';
+  if (diff < 2 * oneDay) return 'Yesterday';
+  return d.toLocaleDateString([], { month: 'long', day: 'numeric', year: 'numeric' });
 }
 
 export function ChannelView({ chat, messages, currentUserId, onSendMessage, onBack }: ChannelViewProps) {
@@ -140,17 +149,29 @@ export function ChannelView({ chat, messages, currentUserId, onSendMessage, onBa
     navigator.clipboard?.writeText(window.location.href).then(() => toast.success('Link copied!'));
   };
 
-  const getInitials = (name: string) =>
-    name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
-
   const formattedCount = subscriberCount >= 1000
     ? `${(subscriberCount / 1000).toFixed(1)}K`
     : subscriberCount.toString();
 
+  // Build messages with date dividers
+  const messagesWithDividers = useMemo(() => {
+    const items: { type: 'divider'; label: string; key: string }[] | { type: 'message'; msg: Message; key: string }[] = [];
+    let lastDate = '';
+    for (const msg of messages) {
+      const dateLabel = getDateLabel(msg.created_at);
+      if (dateLabel !== lastDate) {
+        (items as any[]).push({ type: 'divider', label: dateLabel, key: `div-${msg.id}` });
+        lastDate = dateLabel;
+      }
+      (items as any[]).push({ type: 'message', msg, key: msg.id });
+    }
+    return items as ({ type: 'divider'; label: string; key: string } | { type: 'message'; msg: Message; key: string })[];
+  }, [messages]);
+
   return (
     <div className="flex flex-col h-full chat-bg">
       {/* ── Channel Header ──────────────────────────────────────────────────── */}
-      <div className="flex items-center gap-3 px-4 py-2.5 bg-card border-b border-border flex-shrink-0">
+      <div className="flex items-center gap-3 px-4 py-2.5 bg-card border-b border-border flex-shrink-0 pwa-no-select">
         <Button variant="ghost" size="icon" className="md:hidden text-foreground" onClick={onBack}>
           <ArrowLeft className="w-5 h-5" />
         </Button>
@@ -240,25 +261,27 @@ export function ChannelView({ chat, messages, currentUserId, onSendMessage, onBa
         </div>
       )}
 
-      {/* ── Messages ─────────────────────────────────────────────────────────── */}
-      {/*
-        paddingBottom accounts for the fixed input bar (for admins)
-        or the locked bar (for members). Members see a smaller locked bar.
-      */}
+      {/* ── Channel Posts ─────────────────────────────────────────────────────── */}
       <div
-        className="flex-1 overflow-y-auto chat-messages-scroll px-3 py-2"
+        className="flex-1 overflow-y-auto chat-messages-scroll px-3 py-4"
         style={{ paddingBottom: isAdmin ? inputBarHeight + 8 : 60 }}
       >
-        <div className="max-w-3xl mx-auto space-y-1">
+        <div className="max-w-2xl mx-auto">
           {loading && messages.length === 0 ? (
             <div className="space-y-4 p-4">
-              {[...Array(4)].map((_, i) => (
-                <div key={i} className="flex gap-3">
-                  <Skeleton className="w-9 h-9 rounded-full flex-shrink-0" />
-                  <div className="space-y-2 flex-1">
-                    <Skeleton className="h-4 w-32" />
-                    <Skeleton className={`h-16 ${i % 2 === 0 ? 'w-3/4' : 'w-full'} rounded-xl`} />
-                    <Skeleton className="h-3 w-24" />
+              {[...Array(3)].map((_, i) => (
+                <div key={i} className="rounded-2xl border border-border/50 p-4 space-y-3">
+                  <div className="flex items-center gap-2.5">
+                    <Skeleton className="w-9 h-9 rounded-full flex-shrink-0" />
+                    <div className="space-y-1 flex-1">
+                      <Skeleton className="h-3.5 w-28" />
+                      <Skeleton className="h-2.5 w-20" />
+                    </div>
+                  </div>
+                  <Skeleton className={`h-16 ${i % 2 === 0 ? 'w-3/4' : 'w-full'} rounded-xl`} />
+                  <div className="flex justify-between items-center pt-2 border-t border-border/30">
+                    <Skeleton className="h-2.5 w-12" />
+                    <Skeleton className="h-2.5 w-20" />
                   </div>
                 </div>
               ))}
@@ -274,44 +297,32 @@ export function ChannelView({ chat, messages, currentUserId, onSendMessage, onBa
               </p>
             </div>
           ) : (
-            messages.map((msg) => (
-              <div key={msg.id} className="group">
-                <MessageBubble
-                  message={msg}
-                  isOwn={msg.sender_id === currentUserId}
-                  senderName={msg.sender?.display_name || 'Channel'}
+            messagesWithDividers.map((item) => {
+              if (item.type === 'divider') {
+                return (
+                  <div key={item.key} className="channel-date-divider">
+                    <span>{item.label}</span>
+                  </div>
+                );
+              }
+              return (
+                <ChannelPost
+                  key={item.key}
+                  message={item.msg}
+                  channelName={chat.name || 'Channel'}
+                  channelAvatar={chat.avatar_url}
+                  allowedReactions={allowedReactions}
+                  currentUserId={currentUserId}
+                  onReact={handleReaction}
+                  commentsEnabled={commentsEnabled}
+                  onOpenComments={(msgId) => {
+                    setSelectedMessage(msgId);
+                    setShowComments(true);
+                  }}
+                  subscriberCount={subscriberCount}
                 />
-                {/* Reactions + Comments row */}
-                <div className="flex items-center gap-2 ml-2 mt-0.5 mb-3">
-                  <EmojiReactionBar
-                    messageId={msg.id}
-                    allowedEmojis={allowedReactions}
-                    reactions={msg.reactions || []}
-                    currentUserId={currentUserId}
-                    onReact={handleReaction}
-                  />
-                  {commentsEnabled && (
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-6 px-2 text-[10px] text-muted-foreground hover:text-foreground gap-1 opacity-0 group-hover:opacity-100 transition-opacity"
-                          onClick={() => {
-                            setSelectedMessage(msg.id);
-                            setShowComments(true);
-                          }}
-                        >
-                          <MessageSquare className="w-3 h-3" />
-                          Comment
-                        </Button>
-                      </TooltipTrigger>
-                      <TooltipContent>View comments</TooltipContent>
-                    </Tooltip>
-                  )}
-                </div>
-              </div>
-            ))
+              );
+            })
           )}
           <div ref={bottomRef} />
         </div>

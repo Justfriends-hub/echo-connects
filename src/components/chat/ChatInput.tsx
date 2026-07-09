@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { Send, Paperclip, Smile, Mic, Globe } from 'lucide-react';
+import { Send, Paperclip, Smile, Mic } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
@@ -11,6 +11,12 @@ const EMOJI_LIST = [
   '🤣', '😍', '🥳', '😤', '🙏', '💪', '✨', '💀',
   '👀', '🫡', '🤝', '💔', '🎯', '🚀', '⭐', '🌟',
 ];
+
+/** Detect touch-capable devices (phones/tablets with software keyboards) */
+function isTouchDevice(): boolean {
+  if (typeof window === 'undefined') return false;
+  return 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+}
 
 interface ChatInputProps {
   onSend: (content: string) => void;
@@ -34,16 +40,9 @@ export function ChatInput({
 }: ChatInputProps) {
   const [text, setText] = useState('');
   const [emojiOpen, setEmojiOpen] = useState(false);
-  const [prefersNativeEmoji, setPrefersNativeEmoji] = useState<boolean>(() => {
-    try {
-      const v = localStorage.getItem('prefersNativeEmoji');
-      return v === '1';
-    } catch (_) {
-      return false;
-    }
-  });
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const wrapperRef = useRef<HTMLDivElement>(null);
+  const isTouch = isTouchDevice();
 
   // ─── Auto-resize textarea ────────────────────────────────────────────────────
   useEffect(() => {
@@ -162,28 +161,22 @@ export function ChatInput({
     setEmojiOpen(false);
   };
 
-  // On mobile: focus textarea first so the keyboard with the emoji key appears
+  /**
+   * Emoji button handler:
+   * - Mobile (touch): Just focus the textarea. The native keyboard already has
+   *   an emoji switch key (🌐/😊). This gives users the full OS emoji keyboard
+   *   with thousands of emojis, recents, search, etc.
+   * - Desktop (no touch): Open the in-app emoji popover for quick access.
+   */
   const handleEmojiClick = () => {
-    // Focus first to reliably open the keyboard on mobile devices.
-    textareaRef.current?.focus();
-    // If user prefers native emoji keyboard, do not open the in-app picker.
-    if (prefersNativeEmoji) {
-      // Keep popover closed; focusing usually exposes the keyboard where user can switch to emoji.
-      setEmojiOpen(false);
+    if (isTouch) {
+      // On mobile: focus textarea to bring up keyboard.
+      // The user taps the emoji key on their native keyboard.
+      textareaRef.current?.focus();
       return;
     }
-    // Small timeout to ensure keyboard is visible before toggling the popover state
-    setTimeout(() => setEmojiOpen(prev => !prev), 120);
-  };
-
-  const togglePrefersNative = () => {
-    setPrefersNativeEmoji(v => {
-      const next = !v;
-      try {
-        localStorage.setItem('prefersNativeEmoji', next ? '1' : '0');
-      } catch (_) {}
-      return next;
-    });
+    // On desktop: toggle the emoji popover
+    setEmojiOpen(prev => !prev);
   };
 
   return (
@@ -221,61 +214,61 @@ export function ChatInput({
             'max-h-[120px] transition-colors'
           )}
         />
-        <Popover open={emojiOpen} onOpenChange={setEmojiOpen}>
-          <PopoverTrigger asChild>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="absolute right-1 bottom-0.5 text-muted-foreground hover:text-foreground h-8 w-8"
-              onClick={handleEmojiClick}
-              aria-label="Emoji"
-              id="emoji-picker-btn"
-            >
-              <Smile className="w-5 h-5" />
-            </Button>
-          </PopoverTrigger>
-          <PopoverContent
-            className="w-72 bg-card border-border p-2"
-            align="end"
-            side="top"
-            // Don't steal focus from textarea on mobile
-            onOpenAutoFocus={e => e.preventDefault()}
-          >
-            <div className="grid grid-cols-8 gap-1">
-              {EMOJI_LIST.map(emoji => (
-                <button
-                  key={emoji}
-                  onMouseDown={e => {
-                    // Prevent blur on textarea before we insert
-                    e.preventDefault();
-                    insertEmoji(emoji);
-                  }}
-                  className="w-8 h-8 flex items-center justify-center text-lg hover:bg-accent rounded-md transition-colors active:scale-90"
-                >
-                  {emoji}
-                </button>
-              ))}
-            </div>
-          </PopoverContent>
-        </Popover>
-      </div>
 
-      {/* Native / in-app emoji toggle */}
-      <Tooltip>
-        <TooltipTrigger asChild>
+        {/* Desktop-only emoji popover (mobile users use their native keyboard emoji key) */}
+        {isTouch ? (
+          /* Mobile: simple button that focuses textarea */
           <Button
             variant="ghost"
             size="icon"
-            onClick={togglePrefersNative}
-            className={cn('flex-shrink-0 mb-0.5', prefersNativeEmoji ? 'text-primary' : 'text-muted-foreground')}
-            aria-label="Toggle native emoji keyboard"
-            id="emoji-toggle-btn"
+            className="absolute right-1 bottom-0.5 text-muted-foreground hover:text-foreground h-8 w-8"
+            onClick={handleEmojiClick}
+            aria-label="Open emoji keyboard"
+            id="emoji-picker-btn"
           >
-            <Globe className="w-5 h-5" />
+            <Smile className="w-5 h-5" />
           </Button>
-        </TooltipTrigger>
-        <TooltipContent>{prefersNativeEmoji ? 'Using system emoji keyboard' : 'Use in-app emoji picker'}</TooltipContent>
-      </Tooltip>
+        ) : (
+          /* Desktop: popover with quick emoji grid */
+          <Popover open={emojiOpen} onOpenChange={setEmojiOpen}>
+            <PopoverTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="absolute right-1 bottom-0.5 text-muted-foreground hover:text-foreground h-8 w-8"
+                onClick={handleEmojiClick}
+                aria-label="Emoji"
+                id="emoji-picker-btn"
+              >
+                <Smile className="w-5 h-5" />
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent
+              className="w-72 bg-card border-border p-2"
+              align="end"
+              side="top"
+              // Don't steal focus from textarea
+              onOpenAutoFocus={e => e.preventDefault()}
+            >
+              <div className="grid grid-cols-8 gap-1">
+                {EMOJI_LIST.map(emoji => (
+                  <button
+                    key={emoji}
+                    onMouseDown={e => {
+                      // Prevent blur on textarea before we insert
+                      e.preventDefault();
+                      insertEmoji(emoji);
+                    }}
+                    className="w-8 h-8 flex items-center justify-center text-lg hover:bg-accent rounded-md transition-colors active:scale-90"
+                  >
+                    {emoji}
+                  </button>
+                ))}
+              </div>
+            </PopoverContent>
+          </Popover>
+        )}
+      </div>
 
       {/* Send / Mic */}
       {text.trim() ? (

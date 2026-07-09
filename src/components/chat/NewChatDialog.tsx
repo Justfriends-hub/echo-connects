@@ -7,7 +7,8 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Search, UserPlus, Users, X } from 'lucide-react';
+import { Search, UserPlus, Users, X, Megaphone } from 'lucide-react';
+import { Textarea } from '@/components/ui/textarea';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
@@ -29,6 +30,7 @@ export function NewChatDialog({ open, onClose, onChatCreated, mode }: NewChatDia
   const [dialogMode, setDialogMode] = useState<'direct' | 'group' | 'channel'>(mode ?? 'direct');
   const [selectedUsers, setSelectedUsers] = useState<UserProfile[]>([]);
   const [groupName, setGroupName] = useState('');
+  const [channelDescription, setChannelDescription] = useState('');
 
   useEffect(() => {
     if (!open) {
@@ -37,6 +39,7 @@ export function NewChatDialog({ open, onClose, onChatCreated, mode }: NewChatDia
       setDialogMode(mode ?? 'direct');
       setSelectedUsers([]);
       setGroupName('');
+      setChannelDescription('');
       return;
     }
 
@@ -109,6 +112,14 @@ export function NewChatDialog({ open, onClose, onChatCreated, mode }: NewChatDia
         });
         chatId = data as string | null;
         error = rpcError;
+
+        // Save description if provided
+        if (chatId && channelDescription.trim()) {
+          await supabase
+            .from('chats')
+            .update({ description: channelDescription.trim() })
+            .eq('id', chatId);
+        }
       }
 
       if (error) {
@@ -264,8 +275,22 @@ export function NewChatDialog({ open, onClose, onChatCreated, mode }: NewChatDia
             </div>
           </>
         ) : (
-          <div className="py-6 px-4 text-sm text-muted-foreground">
-            Channels are broadcast spaces. Create a channel name below and then invite or share it after creation.
+          <div className="space-y-3">
+            <Textarea
+              placeholder="Channel description (optional)"
+              value={channelDescription}
+              onChange={e => setChannelDescription(e.target.value)}
+              className="bg-secondary border-0 resize-none text-sm min-h-[80px]"
+              rows={3}
+            />
+            <div className="flex items-start gap-2.5 px-1 py-2">
+              <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0 mt-0.5">
+                <Megaphone className="w-4 h-4 text-primary" />
+              </div>
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                Channels are broadcast spaces where only admins can post. Subscribers can react and comment on posts.
+              </p>
+            </div>
           </div>
         )}
 
@@ -276,8 +301,8 @@ export function NewChatDialog({ open, onClose, onChatCreated, mode }: NewChatDia
           </Button>
         )}
         {dialogMode === 'channel' && (
-          <Button onClick={createChannel} disabled={busy} className="w-full gap-2">
-            <Users className="w-4 h-4" />
+          <Button onClick={createChannel} disabled={busy || !groupName.trim()} className="w-full gap-2">
+            <Megaphone className="w-4 h-4" />
             Create Channel
           </Button>
         )}

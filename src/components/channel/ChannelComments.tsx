@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Send, Play, Eye, ShieldCheck } from 'lucide-react';
+import { X, Send, Play, Eye, ShieldCheck, MessageSquare } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -140,10 +140,7 @@ export function ChannelComments({ messageId, chatId, onClose }: ChannelCommentsP
     toast.success('Comment posted!');
   };
 
-  const displayComments = comments.length > 0 ? comments : [
-    { id: 'dc1', content: 'Great article! 🔥', user_id: 'u1', created_at: new Date(Date.now() - 3600000).toISOString(), status: 'approved', display_name: 'Chidi N.' },
-    { id: 'dc2', content: 'Thanks for sharing this', user_id: 'u2', created_at: new Date(Date.now() - 1800000).toISOString(), status: 'approved', display_name: 'Amaka O.' },
-  ];
+
 
   const progressPct = (adWatchCount / REQUIRED_AD_WATCHES) * 100;
 
@@ -214,8 +211,16 @@ export function ChannelComments({ messageId, chatId, onClose }: ChannelCommentsP
                 </div>
               ))}
             </div>
+          ) : comments.filter(c => c.status === 'approved' || c.user_id === user?.id).length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-10 gap-2 text-center">
+              <div className="w-10 h-10 rounded-full bg-muted/50 flex items-center justify-center">
+                <MessageSquare className="w-5 h-5 text-muted-foreground" />
+              </div>
+              <p className="text-xs text-muted-foreground">No comments yet</p>
+              <p className="text-[10px] text-muted-foreground/70">Be the first to share your thoughts</p>
+            </div>
           ) : (
-            displayComments
+            comments
               .filter(c => c.status === 'approved' || c.user_id === user?.id)
               .map(comment => (
                 <div key={comment.id} className="flex gap-2 mb-3">
@@ -230,6 +235,11 @@ export function ChannelComments({ messageId, chatId, onClose }: ChannelCommentsP
                       <span className="text-[10px] text-muted-foreground">
                         {new Date(comment.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                       </span>
+                      {comment.status === 'pending' && (
+                        <span className="text-[9px] text-amber-400/80 bg-amber-400/10 px-1.5 py-0 rounded-full">
+                          pending
+                        </span>
+                      )}
                     </div>
                     <p className="text-xs text-foreground/80 mt-0.5">{comment.content}</p>
                   </div>
