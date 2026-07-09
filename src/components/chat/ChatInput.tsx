@@ -218,7 +218,7 @@ export function ChatInput({
   };
 
   return (
-    <div className="relative">
+    <>
       <div
         ref={wrapperRef}
         className="chat-input-fixed flex items-end gap-2 p-3 bg-chat-input-bg border-t border-border"
@@ -397,6 +397,6 @@ export function ChatInput({
         </div>
       </div>
     )}
-  </div>
+</>
   );
 }

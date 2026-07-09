@@ -1,4 +1,4 @@
-import React, { useRef, useEffect, useState } from 'react';
+import React, { useRef, useEffect, useState, useCallback } from 'react';
 import { ArrowLeft, MoreVertical, Users, Info } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
@@ -81,6 +81,7 @@ export function ChatArea({
   const bottomRef = useRef<HTMLDivElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const prevFirstIdRef = useRef<string | null>(null);
+  const [isNearBottom, setIsNearBottom] = useState(true);
   /**
    * Height of the fixed input bar reported by ChatInput.
    * The input bar floats above the keyboard, so the scroll area only needs
@@ -88,58 +89,48 @@ export function ChatArea({
    */
   const [inputHeight, setInputHeight] = useState(68);
 
-  // Auto-scroll to bottom when new messages arrive
+  const handleScroll = useCallback(() => {
+    const container = scrollRef.current;
+    if (!container) return;
+    const atBottom = container.scrollHeight - container.scrollTop - container.clientHeight < 72;
+    setIsNearBottom(atBottom);
+  }, []);
+
+  // Auto-scroll to bottom when new messages arrive only if the user is already near bottom.
   useEffect(() => {
     const first = messages[0]?.id || null;
     if (prevFirstIdRef.current && first !== prevFirstIdRef.current) {
       // Older messages prepended — keep position, don't scroll
-    } else {
-      bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+    } else if (isNearBottom) {
+      bottomRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     }
     prevFirstIdRef.current = first;
-  }, [messages]);
+  }, [messages, isNearBottom]);
 
   // Keep messages anchored above keyboard: when visual viewport changes (keyboard open/close)
   useEffect(() => {
     const onVV = () => {
       const container = scrollRef.current;
-        const bottomAnchor = bottomRef.current;
-        if (!container || !bottomAnchor) return;
+      const bottomAnchor = bottomRef.current;
+      if (!container || !bottomAnchor) return;
 
-        const nearBottom = container.scrollHeight - container.scrollTop - container.clientHeight < 120;
-        if (!nearBottom) return;
-
-        const vv = window.visualViewport;
-        const viewportBottom = vv ? vv.offsetTop + vv.height : window.innerHeight;
-        const inputTop = viewportBottom - inputHeight;
-        const bottomRect = bottomAnchor.getBoundingClientRect();
-
-        if (bottomRect.bottom > inputTop) {
-          bottomAnchor.scrollIntoView({ behavior: 'smooth' });
-        }
-      };
+      const nearBottom = container.scrollHeight - container.scrollTop - container.clientHeight < 120;
+      if (!nearBottom) return;
 
       const vv = window.visualViewport;
-      if (vv) {
-        let ticking = false;
-        const update = () => {
-          if (ticking) return;
-          ticking = true;
-          window.requestAnimationFrame(() => {
-            onVV();
-            ticking = false;
-          });
-        };
-        vv.addEventListener('resize', update);
-        vv.addEventListener('scroll', update);
-        return () => {
-          vv.removeEventListener('resize', update);
-          vv.removeEventListener('scroll', update);
-        };
-      }
+      const viewportBottom = vv ? vv.offsetTop + vv.height : window.innerHeight;
+      const inputTop = viewportBottom - inputHeight;
+      const bottomRect = bottomAnchor.getBoundingClientRect();
 
+      if (bottomRect.bottom > inputTop) {
+        bottomAnchor.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      }
+    };
+
+    const vv = window.visualViewport;
+    if (vv) {
       let ticking = false;
-      const updateFallback = () => {
+      const update = () => {
         if (ticking) return;
         ticking = true;
         window.requestAnimationFrame(() => {
@@ -147,15 +138,31 @@ export function ChatArea({
           ticking = false;
         });
       };
-
-      window.addEventListener('chat-visual-viewport', updateFallback as EventListener);
-      window.addEventListener('resize', updateFallback);
+      vv.addEventListener('resize', update);
+      vv.addEventListener('scroll', update);
       return () => {
-        window.removeEventListener('chat-visual-viewport', updateFallback as EventListener);
-        window.removeEventListener('resize', updateFallback);
+        vv.removeEventListener('resize', update);
+        vv.removeEventListener('scroll', update);
       };
-    }, [inputHeight]);
-  };
+    }
+
+    let ticking = false;
+    const updateFallback = () => {
+      if (ticking) return;
+      ticking = true;
+      window.requestAnimationFrame(() => {
+        onVV();
+        ticking = false;
+      });
+    };
+
+    window.addEventListener('chat-visual-viewport', updateFallback as EventListener);
+    window.addEventListener('resize', updateFallback);
+    return () => {
+      window.removeEventListener('chat-visual-viewport', updateFallback as EventListener);
+      window.removeEventListener('resize', updateFallback);
+    };
+  }, [inputHeight]);
 
   const getInitials = (name: string) =>
     name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
@@ -233,7 +240,7 @@ export function ChatArea({
         ref={scrollRef}
         onScroll={handleScroll}
         className="flex-1 min-h-0 overflow-y-auto chat-messages-scroll px-3 py-2"
-        style={{ paddingBottom: inputHeight + 8 }}
+        style={{ paddingBottom: inputHeight + 16 }}
       >
         <div className="max-w-3xl mx-auto space-y-0.5">
           {hasMore && (
