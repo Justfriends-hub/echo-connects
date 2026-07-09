@@ -3,6 +3,24 @@ import { supabase } from '@/integrations/supabase/client';
 import type { Message, Reaction, UserProfile } from '@/types/chat';
 
 const PAGE_SIZE = 30;
+const CACHE_KEY_PREFIX = 'echo-connects.messages-cache';
+
+function getCachedMessages(chatId: string): Message[] {
+  try {
+    const raw = localStorage.getItem(`${CACHE_KEY_PREFIX}.${chatId}`);
+    return raw ? (JSON.parse(raw) as Message[]) : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveCachedMessages(chatId: string, messages: Message[]) {
+  try {
+    localStorage.setItem(`${CACHE_KEY_PREFIX}.${chatId}`, JSON.stringify(messages));
+  } catch {
+    // ignore write errors
+  }
+}
 
 /**
  * Loads messages for a chat with sender profile + reactions, subscribes to realtime.
@@ -38,20 +56,40 @@ export function useMessages(chatId: string | null) {
 
   const load = useCallback(async () => {
     if (!chatId) { setMessages([]); setHasMore(true); return; }
-    setLoading(true);
-    // Fetch the most recent PAGE_SIZE messages (descending), then reverse for display order.
-    const { data: msgs } = await supabase
-      .from('messages')
-      .select('*')
-      .eq('chat_id', chatId)
-      .order('created_at', { ascending: false })
-      .limit(PAGE_SIZE);
 
-    const desc = (msgs || []) as Message[];
-    setHasMore(desc.length === PAGE_SIZE);
-    const list = desc.slice().reverse();
-    setMessages(await hydrate(list));
-    setLoading(false);
+    const cached = getCachedMessages(chatId);
+    if (cached.length > 0) {
+      setMessages(cached);
+      setLoading(false);
+    } else {
+      setLoading(true);
+    }
+
+    try {
+      setLoading(true);
+      const { data: msgs, error } = await supabase
+        .from('messages')
+        .select('*')
+        .eq('chat_id', chatId)
+        .order('created_at', { ascending: false })
+        .limit(PAGE_SIZE);
+      if (error) throw error;
+
+      const desc = (msgs || []) as Message[];
+      setHasMore(desc.length === PAGE_SIZE);
+      const list = desc.slice().reverse();
+      const hydrated = await hydrate(list);
+      setMessages(hydrated);
+      saveCachedMessages(chatId, hydrated);
+      setLoading(false);
+    } catch (error) {
+      console.warn('[useMessages] load failed, using cached messages if available:', error);
+      if (!cached.length) {
+        setMessages([]);
+        setHasMore(true);
+        setLoading(false);
+      }
+    }
   }, [chatId, hydrate]);
 
   const loadOlder = useCallback(async () => {
@@ -119,6 +157,11 @@ export function useMessages(chatId: string | null) {
 
     return () => { supabase.removeChannel(channel); };
   }, [chatId]);
+
+  useEffect(() => {
+    if (!chatId) return;
+    saveCachedMessages(chatId, messages);
+  }, [chatId, messages]);
 
   return { messages, loading, loadingOlder, hasMore, loadOlder, reload: load };
 }
