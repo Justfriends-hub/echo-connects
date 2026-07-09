@@ -5,6 +5,51 @@ import type { Database } from './types';
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 
+// Custom fetch with retry logic for mobile networks
+const customFetch = async (url: string, options: RequestInit = {}): Promise<Response> => {
+  const maxRetries = 2;
+  let lastError: any;
+  
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      const controller = new AbortController();
+      // Increased timeout: 60s for normal, 120s for auth endpoints (mobile networks are slow)
+      const isAuthEndpoint = url.includes('/auth/');
+      const timeoutMs = isAuthEndpoint ? 120000 : 60000;
+      const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+      
+      const response = await fetch(url, {
+        ...options,
+        signal: controller.signal,
+      });
+      
+      clearTimeout(timeoutId);
+      
+      // Retry on 408 (timeout) or 503 (service unavailable)
+      if ((response.status === 408 || response.status === 503) && attempt < maxRetries) {
+        console.warn(`[Fetch] ${response.status} on attempt ${attempt + 1}, retrying...`);
+        // Exponential backoff: 500ms, 1000ms
+        await new Promise(r => setTimeout(r, 500 * Math.pow(2, attempt)));
+        continue;
+      }
+      
+      return response;
+    } catch (error: any) {
+      lastError = error;
+      if (error.name === 'AbortError') {
+        console.warn(`[Fetch] Timeout on attempt ${attempt + 1}, retrying...`);
+        if (attempt < maxRetries) {
+          await new Promise(r => setTimeout(r, 500 * Math.pow(2, attempt)));
+          continue;
+        }
+      }
+      throw error;
+    }
+  }
+  
+  throw lastError || new Error('Fetch failed after retries');
+};
+
 // Import the supabase client like this:
 // import { supabase } from "@/integrations/supabase/client";
 
@@ -13,5 +58,13 @@ export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABL
     storage: localStorage,
     persistSession: true,
     autoRefreshToken: true,
-  }
+  },
+  global: {
+    fetch: customFetch,
+  },
+  realtime: {
+    params: {
+      eventsPerSecond: 10,
+    },
+  },
 });

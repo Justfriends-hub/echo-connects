@@ -110,13 +110,32 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       console.debug('[Auth Debug] signIn payload', payload);
     }
 
-    const { data, error } = await supabase.auth.signInWithPassword(payload as any);
+    // Retry logic for network failures
+    let lastError: any;
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try {
+        const { data, error } = await supabase.auth.signInWithPassword(payload as any);
 
-    if (import.meta.env.DEV) {
-      console.debug('[Auth Debug] signIn response', { data, error });
+        if (import.meta.env.DEV) {
+          console.debug('[Auth Debug] signIn response', { data, error });
+        }
+
+        // If we got a response (success or auth error), return it
+        return { data, error };
+      } catch (err: any) {
+        lastError = err;
+        // Retry on network errors, but not auth errors
+        if (attempt < 2 && (err.message?.includes('Failed to fetch') || err.message?.includes('timeout'))) {
+          console.warn(`[Auth] signIn network error attempt ${attempt + 1}, retrying...`);
+          await new Promise(r => setTimeout(r, 500 * Math.pow(2, attempt)));
+          continue;
+        }
+        // Non-network error or last attempt, return the error
+        return { data: null, error: err };
+      }
     }
 
-    return { data, error };
+    return { data: null, error: lastError };
   };
 
   const signOut = async () => {

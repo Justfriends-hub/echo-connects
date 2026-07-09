@@ -47,7 +47,15 @@ export default function Login() {
     setLoading(false);
 
     if (result.error) {
-      setError(result.error.message || 'Login failed. Please check your credentials.');
+      const msg = result.error.message || 'Login failed. Please check your credentials.';
+      // Friendly message for network timeouts
+      if (msg.includes('Failed to fetch') || msg.includes('timeout') || msg.includes('408')) {
+        setError('Network timeout. Check your connection and try again.');
+      } else if (msg.includes('Invalid login credentials')) {
+        setError('Invalid email/phone or password.');
+      } else {
+        setError(msg);
+      }
       return;
     }
 
