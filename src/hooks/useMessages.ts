@@ -5,6 +5,16 @@ import type { Message, Reaction, UserProfile } from '@/types/chat';
 
 const PAGE_SIZE = 30;
 const CACHE_KEY_PREFIX = 'echo-connects.messages-cache';
+const PENDING_CACHE_PREFIX = 'echo-connects.pending-messages';
+
+type PendingMessageData = {
+  tempId: string;
+  chat_id: string;
+  sender_id: string;
+  content: string;
+  type: Message['type'];
+  created_at: string;
+};
 
 function getCachedMessages(chatId: string): Message[] {
   try {
@@ -23,6 +33,37 @@ function saveCachedMessages(chatId: string, messages: Message[]) {
   }
 }
 
+function getPendingMessages(chatId: string): PendingMessageData[] {
+  try {
+    const raw = localStorage.getItem(`${PENDING_CACHE_PREFIX}.${chatId}`);
+    return raw ? (JSON.parse(raw) as PendingMessageData[]) : [];
+  } catch {
+    return [];
+  }
+}
+
+function savePendingMessages(chatId: string, pending: PendingMessageData[]) {
+  try {
+    localStorage.setItem(`${PENDING_CACHE_PREFIX}.${chatId}`, JSON.stringify(pending));
+  } catch {
+    // ignore local storage failures
+  }
+}
+
+function pendingToMessage(pending: PendingMessageData): Message {
+  return {
+    id: pending.tempId,
+    chat_id: pending.chat_id,
+    sender_id: pending.sender_id,
+    content: pending.content,
+    type: pending.type,
+    status: 'sending',
+    created_at: pending.created_at,
+    updated_at: pending.created_at,
+    reactions: [],
+  } as Message;
+}
+
 /**
  * Loads messages for a chat with sender profile + reactions, subscribes to realtime.
  * Supports paginated loading of older messages via `loadOlder()`.
@@ -32,6 +73,18 @@ export function useMessages(chatId: string | null) {
   const [loading, setLoading] = useState(false);
   const [loadingOlder, setLoadingOlder] = useState(false);
   const [hasMore, setHasMore] = useState(true);
+  const [isOnline, setIsOnline] = useState(typeof navigator !== 'undefined' ? navigator.onLine : true);
+
+  useEffect(() => {
+    const onOnline = () => setIsOnline(true);
+    const onOffline = () => setIsOnline(false);
+    window.addEventListener('online', onOnline);
+    window.addEventListener('offline', onOffline);
+    return () => {
+      window.removeEventListener('online', onOnline);
+      window.removeEventListener('offline', onOffline);
+    };
+  }, []);
 
   const hydrate = useCallback(async (rows: Message[]): Promise<Message[]> => {
     if (rows.length === 0) return [];
@@ -66,6 +119,11 @@ export function useMessages(chatId: string | null) {
       setLoading(true);
     }
 
+    if (!isOnline) {
+      setLoading(false);
+      return;
+    }
+
     try {
       setLoading(true);
       const { data: msgs, error } = await supabase
@@ -80,8 +138,12 @@ export function useMessages(chatId: string | null) {
       setHasMore(desc.length === PAGE_SIZE);
       const list = desc.slice().reverse();
       const hydrated = await hydrate(list);
-      setMessages(hydrated);
-      saveCachedMessages(chatId, hydrated);
+
+      const pending = getPendingMessages(chatId).map(pendingToMessage);
+      const merged = [...hydrated, ...pending].sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+
+      setMessages(merged);
+      saveCachedMessages(chatId, merged);
       setLoading(false);
     } catch (error) {
       console.warn('[useMessages] load failed, using cached messages if available:', error);
@@ -91,10 +153,14 @@ export function useMessages(chatId: string | null) {
         setLoading(false);
       }
     }
-  }, [chatId, hydrate]);
+  }, [chatId, hydrate, isOnline]);
 
   const loadOlder = useCallback(async () => {
     if (!chatId || loadingOlder || !hasMore || messages.length === 0) return;
+    if (!isOnline) {
+      setLoadingOlder(false);
+      return;
+    }
     setLoadingOlder(true);
     const oldest = messages[0];
     const { data: msgs } = await supabase
@@ -109,7 +175,7 @@ export function useMessages(chatId: string | null) {
     const older = await hydrate(desc.slice().reverse());
     setMessages(prev => [...older, ...prev]);
     setLoadingOlder(false);
-  }, [chatId, loadingOlder, hasMore, messages, hydrate]);
+  }, [chatId, loadingOlder, hasMore, messages, hydrate, isOnline]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -186,6 +252,26 @@ export function useMessages(chatId: string | null) {
       return next;
     });
 
+    const pendingItem: PendingMessageData = {
+      tempId,
+      chat_id: chatId,
+      sender_id: senderId,
+      content: content.trim(),
+      type: 'text',
+      created_at: tempMessage.created_at,
+    };
+
+    const queuePending = async () => {
+      const currentPending = getPendingMessages(chatId);
+      savePendingMessages(chatId, [...currentPending, pendingItem]);
+      toast.error('No internet connection. Message will send when you reconnect.');
+    };
+
+    if (!isOnline) {
+      await queuePending();
+      return;
+    }
+
     const { data, error } = await supabase
       .from('messages')
       .insert({ chat_id: chatId, sender_id: senderId, content: content.trim(), type: 'text', status: 'sent' })
@@ -194,7 +280,7 @@ export function useMessages(chatId: string | null) {
 
     if (error) {
       console.error('[useMessages] sendMessage failed', error);
-      toast.error('Message failed to send. It will remain in draft mode until the next sync.');
+      await queuePending();
       return;
     }
 
@@ -203,7 +289,48 @@ export function useMessages(chatId: string | null) {
       saveCachedMessages(chatId, next);
       return next;
     });
-  }, [chatId]);
+  }, [chatId, isOnline]);
+
+  const flushPendingMessages = useCallback(async () => {
+    if (!chatId || !isOnline) return;
+
+    const pending = getPendingMessages(chatId);
+    if (pending.length === 0) return;
+
+    let remaining = [...pending];
+    for (const item of pending) {
+      try {
+        const { data, error } = await supabase
+          .from('messages')
+          .insert({ chat_id: item.chat_id, sender_id: item.sender_id, content: item.content, type: item.type, status: 'sent' })
+          .select('*')
+          .single();
+
+        if (error || !data) {
+          console.warn('[useMessages] flushPendingMessages error', error);
+          continue;
+        }
+
+        setMessages(prev => {
+          const next = prev.map(msg => msg.id === item.tempId ? { ...(data as Message), reactions: [], sender: prev.find(m => m.id === item.tempId)?.sender } : msg);
+          saveCachedMessages(chatId, next);
+          return next;
+        });
+        remaining = remaining.filter(p => p.tempId !== item.tempId);
+      } catch (err) {
+        console.warn('[useMessages] flushPendingMessages exception', err);
+      }
+    }
+
+    if (remaining.length !== pending.length) {
+      savePendingMessages(chatId, remaining);
+    }
+  }, [chatId, isOnline]);
+
+  useEffect(() => {
+    if (!chatId) return;
+    flushPendingMessages();
+  }, [chatId, isOnline, flushPendingMessages]);
 
   useEffect(() => {
     if (!chatId) return;

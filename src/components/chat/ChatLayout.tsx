@@ -37,6 +37,7 @@ export function ChatLayout() {
   const [showChatInfo, setShowChatInfo] = useState(false);
   const [showProfileDrawer, setShowProfileDrawer] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
+  const [isOnline, setIsOnline] = useState(typeof navigator !== 'undefined' ? navigator.onLine : true);
   const isMobile = useIsMobile();
 
   // Redirect to auth if signed out
@@ -51,6 +52,17 @@ export function ChatLayout() {
     };
     window.addEventListener('open-new-chat', handler);
     return () => window.removeEventListener('open-new-chat', handler);
+  }, []);
+
+  useEffect(() => {
+    const onOnline = () => setIsOnline(true);
+    const onOffline = () => setIsOnline(false);
+    window.addEventListener('online', onOnline);
+    window.addEventListener('offline', onOffline);
+    return () => {
+      window.removeEventListener('online', onOnline);
+      window.removeEventListener('offline', onOffline);
+    };
   }, []);
 
   const handleSendMessage = useCallback(async (content: string) => {
@@ -191,6 +203,12 @@ export function ChatLayout() {
       )}
 
       <ProfileDrawer open={showProfileDrawer} onClose={() => setShowProfileDrawer(false)} />
+
+      {!isOnline && (
+        <div className="fixed inset-x-4 bottom-24 z-50 rounded-full bg-destructive/95 px-4 py-3 text-sm text-white shadow-xl backdrop-blur-sm sm:bottom-20">
+          No internet connection. Your message will appear with a clock and send when the network returns.
+        </div>
+      )}
 
       {/* Delete Chat Confirmation */}
       <AlertDialog open={!!deleteTarget} onOpenChange={() => setDeleteTarget(null)}>
