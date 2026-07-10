@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Plus, RefreshCcw } from 'lucide-react';
 import { useStatuses } from '@/hooks/useStatuses';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -15,9 +15,27 @@ interface StatusListViewProps {
 export function StatusListView({ onOpenComposer }: StatusListViewProps) {
   const { myStatuses, recentUpdates, viewedUpdates, hasUnseenStatuses, isLoading, isError, refetch } = useStatuses();
   const [activeGroup, setActiveGroup] = useState<ContactStatusGroup | null>(null);
+  const [showUploadedBadge, setShowUploadedBadge] = useState(false);
+  const prevMyIdsRef = useRef<string[]>([]);
 
   const latestStatus = myStatuses[0];
   const hasOwnStatuses = myStatuses.length > 0;
+
+  // Detect optimistic -> real upload transition to show a quick "Uploaded" badge
+  useEffect(() => {
+    const prev = prevMyIdsRef.current || [];
+    const current = myStatuses.map(s => s.id);
+    // if previously had a local temp id and now it doesn't, show uploaded
+    const hadTempBefore = prev.some(id => id && (id as string).startsWith && (id as string).startsWith('local-'));
+    const hasTempNow = current.some(id => id && (id as string).startsWith && (id as string).startsWith('local-'));
+    if (hadTempBefore && !hasTempNow) {
+      setShowUploadedBadge(true);
+      const t = setTimeout(() => setShowUploadedBadge(false), 1800);
+      return () => clearTimeout(t);
+    }
+    prevMyIdsRef.current = current as string[];
+    return undefined;
+  }, [myStatuses]);
 
   return (
     <div className="flex flex-col h-full bg-sidebar text-sidebar-foreground">
@@ -34,19 +52,37 @@ export function StatusListView({ onOpenComposer }: StatusListViewProps) {
       <div className="px-4 py-3 border-b border-sidebar-border">
         <div className="flex items-center gap-3">
           <div className="relative">
-            <Avatar className="w-14 h-14">
-              <AvatarImage src={latestStatus?.media_url || undefined} />
-              <AvatarFallback className="bg-primary/20 text-primary text-sm font-medium">
-                {latestStatus ? 'Me' : 'Me'}
-              </AvatarFallback>
-            </Avatar>
+            <div
+              role="button"
+              tabIndex={0}
+              onClick={() => {
+                if (hasOwnStatuses) {
+                  // open viewer for own statuses
+                  setActiveGroup({ user: myStatuses[0].user, statuses: myStatuses, latestAt: myStatuses[0]?.created_at || '' , totalCount: myStatuses.length, viewedCount: 0, allViewed: false } as any);
+                }
+              }}
+              className="cursor-pointer"
+              aria-label="Open my status"
+            >
+              <Avatar className={`w-14 h-14 ${myStatuses.some(s => String(s.id).startsWith('local-')) ? 'ring-4 ring-primary/40 animate-pulse' : ''}`}>
+                <AvatarImage src={latestStatus?.media_url || undefined} />
+                <AvatarFallback className="bg-primary/20 text-primary text-sm font-medium">
+                  {latestStatus ? 'Me' : 'Me'}
+                </AvatarFallback>
+              </Avatar>
+            </div>
             <button
               type="button"
               onClick={onOpenComposer}
+              aria-label="Add status"
               className="absolute bottom-0 right-0 flex h-8 w-8 items-center justify-center rounded-full bg-primary text-white shadow-lg"
             >
               <Plus className="w-4 h-4" />
             </button>
+
+            {showUploadedBadge && (
+              <div className="absolute -top-2 -right-2 bg-primary text-white text-xs px-2 py-1 rounded-full shadow-md animate-fade-in">Uploaded</div>
+            )}
           </div>
           <div className="flex-1 min-w-0">
             <p className="font-medium text-sm">My Status</p>
