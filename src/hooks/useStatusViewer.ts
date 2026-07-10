@@ -20,6 +20,7 @@ export function useStatusViewer(groups: ContactStatusGroup[]) {
 
   const currentGroup = groups[currentGroupIndex] || null;
   const currentStatus = useMemo(() => getStatusAt(groups, currentGroupIndex, currentStatusIndex), [groups, currentGroupIndex, currentStatusIndex]);
+  const isVideoStatus = currentStatus?.media_type === 'video';
 
   const resetProgress = useCallback(() => setProgress(0), []);
 
@@ -29,7 +30,7 @@ export function useStatusViewer(groups: ContactStatusGroup[]) {
   }, [currentGroupIndex, currentStatusIndex, resetProgress]);
 
   useEffect(() => {
-    if (!currentStatus || isPaused) return;
+    if (!currentStatus || isPaused || isVideoStatus) return;
 
     const interval = window.setInterval(() => {
       setProgress((prev) => {
@@ -42,7 +43,7 @@ export function useStatusViewer(groups: ContactStatusGroup[]) {
     }, AUTO_ADVANCE_MS / 25);
 
     return () => window.clearInterval(interval);
-  }, [currentStatus, isPaused]);
+  }, [currentStatus, isPaused, isVideoStatus]);
 
   useEffect(() => {
     if (progress < 1 || !currentStatus) return;
@@ -116,6 +117,10 @@ export function useStatusViewer(groups: ContactStatusGroup[]) {
     }
   }, [groups, currentGroupIndex]);
 
+  const setStatusProgress = useCallback((value: number) => {
+    setProgress(value);
+  }, []);
+
   return {
     currentStatus,
     currentGroup,
@@ -127,6 +132,7 @@ export function useStatusViewer(groups: ContactStatusGroup[]) {
     pause,
     resume,
     close,
+    setStatusProgress,
     seenByList,
   };
 }
