@@ -6,12 +6,15 @@ import { EmptyState } from './EmptyState';
 import { NewChatDialog } from './NewChatDialog';
 import { ChatInfoSheet } from './ChatInfoSheet';
 import { ProfileDrawer } from '@/components/ProfileDrawer';
+import { SectionErrorBoundary } from '@/components/SectionErrorBoundary';
+import { StatusComposer } from '../status/StatusComposer';
 import { ChannelView } from '@/components/channel/ChannelView';
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useAuth } from '@/contexts/AuthContext';
 import { useChats } from '@/hooks/useChats';
+import { useStatuses } from '@/hooks/useStatuses';
 import { useMessages } from '@/hooks/useMessages';
 import { useTypingPresence } from '@/hooks/useTypingPresence';
 import { useReadReceipts } from '@/hooks/useReadReceipts';
@@ -22,7 +25,8 @@ import { cn } from '@/lib/utils';
 export function ChatLayout() {
   const { user, profile, loading: authLoading } = useAuth();
   const navigate = useNavigate();
-  const { chats, reload: reloadChats } = useChats();
+  const { chats, loading: chatsLoading, isError: chatsError, reload: reloadChats } = useChats();
+  const { hasUnseenStatuses } = useStatuses();
   const [activeChat, setActiveChat] = useState<string | null>(null);
   const { messages, loadOlder, hasMore, loadingOlder, sendMessage } = useMessages(activeChat);
   const currentChat = chats.find(c => c.id === activeChat);
@@ -33,6 +37,7 @@ export function ChatLayout() {
   const latestMessageAt = messages[messages.length - 1]?.created_at;
   const { othersLastReadAt } = useReadReceipts(activeChat, user?.id, latestMessageAt);
   const [showNewChat, setShowNewChat] = useState(false);
+  const [showStatusComposer, setShowStatusComposer] = useState(false);
   const [newChatMode, setNewChatMode] = useState<'direct' | 'group' | 'channel'>('direct');
   const [showChatInfo, setShowChatInfo] = useState(false);
   const [showProfileDrawer, setShowProfileDrawer] = useState(false);
@@ -149,13 +154,20 @@ export function ChatLayout() {
                   setNewChatMode('channel');
                   setShowNewChat(true);
                 }}
+                onNewStatus={() => setShowStatusComposer(true)}
+                hasUnseenStatuses={hasUnseenStatuses}
+                isError={chatsError}
+                loading={chatsLoading}
+                onRetry={reloadChats}
                 onOpenProfile={() => setShowProfileDrawer(true)}
               />
             </div>
           )}
           {showChat && (
             <div className="w-full h-full">
-              {chatContent}
+              <SectionErrorBoundary onRetry={reloadChats}>
+                {chatContent}
+              </SectionErrorBoundary>
             </div>
           )}
         </div>
@@ -180,13 +192,20 @@ export function ChatLayout() {
                   setNewChatMode('channel');
                   setShowNewChat(true);
                 }}
+                onNewStatus={() => setShowStatusComposer(true)}
+                hasUnseenStatuses={hasUnseenStatuses}
+                isError={chatsError}
+                loading={chatsLoading}
+                onRetry={reloadChats}
                 onOpenProfile={() => setShowProfileDrawer(true)}
               />
             </div>
           </ResizablePanel>
           <ResizableHandle withHandle className="bg-border hover:bg-primary/30 transition-colors" />
           <ResizablePanel defaultSize={72}>
-            {chatContent}
+            <SectionErrorBoundary onRetry={reloadChats}>
+              {chatContent}
+            </SectionErrorBoundary>
           </ResizablePanel>
         </ResizablePanelGroup>
       )}
@@ -203,6 +222,7 @@ export function ChatLayout() {
       )}
 
       <ProfileDrawer open={showProfileDrawer} onClose={() => setShowProfileDrawer(false)} />
+      <StatusComposer open={showStatusComposer} onClose={() => setShowStatusComposer(false)} />
 
       {!isOnline && (
         <div className="fixed inset-x-4 bottom-24 z-50 rounded-full bg-destructive/95 px-4 py-3 text-sm text-white shadow-xl backdrop-blur-sm sm:bottom-20">

@@ -13,7 +13,15 @@ import Settings from "./pages/Settings";
 import AdminDashboard from "./pages/AdminDashboard";
 import NotFound from "./pages/NotFound";
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 30000,
+      retry: 2,
+      refetchOnWindowFocus: false,
+    },
+  },
+});
 
 function DebugLogger() {
   React.useEffect(() => {
