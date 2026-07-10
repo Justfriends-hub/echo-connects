@@ -133,11 +133,12 @@ export function ChatLayout() {
 
   return (
     <>
-      {isMobile ? (
-        // Mobile: stacked views (no resizable)
-        <div className="flex h-screen w-full overflow-hidden">
-          {showSidebar && (
-            <div className="w-full h-full relative">
+      <div className="mx-auto mt-[5vh] h-[95vh] w-full max-w-full overflow-hidden">
+        {isMobile ? (
+          // Mobile: stacked views (no resizable)
+          <div className="flex h-full w-full overflow-hidden">
+            {showSidebar && (
+              <div className="w-full h-full relative">
               <ChatSidebar
                 chats={chats}
                 activeChat={activeChat}
@@ -173,7 +174,7 @@ export function ChatLayout() {
         </div>
       ) : (
         // Desktop: resizable panels
-        <ResizablePanelGroup direction="horizontal" className="h-screen w-full">
+        <ResizablePanelGroup direction="horizontal" className="h-full w-full">
           <ResizablePanel defaultSize={28} minSize={20} maxSize={40}>
             <div className="h-full relative">
               <ChatSidebar
@@ -209,6 +210,7 @@ export function ChatLayout() {
           </ResizablePanel>
         </ResizablePanelGroup>
       )}
+      </div>
 
       <NewChatDialog
         open={showNewChat}
