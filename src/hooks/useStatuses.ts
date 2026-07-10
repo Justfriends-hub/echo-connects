@@ -139,8 +139,9 @@ export function useStatuses() {
 
   useEffect(() => {
     if (!user) return;
+    const channelName = `statuses-list-${user.id}-${Date.now()}-${Math.random().toString(36).slice(2)}`;
     const channel = supabase
-      .channel(`statuses-list-${user.id}`)
+      .channel(channelName)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'statuses' }, () => queryClient.invalidateQueries({ queryKey: STATUSES_QUERY_KEY(user.id) }))
       .on('postgres_changes', { event: '*', schema: 'public', table: 'status_views' }, () => queryClient.invalidateQueries({ queryKey: STATUSES_QUERY_KEY(user.id) }))
       .subscribe();
