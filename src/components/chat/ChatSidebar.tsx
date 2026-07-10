@@ -174,7 +174,9 @@ export function ChatSidebar({ chats, activeChat, onSelectChat, onNewChat, onNewG
       {/* Chat List */}
       <ScrollArea className="flex-1">
         {activeTab === 'status' ? (
-          <StatusListView onOpenComposer={onNewStatus} />
+          <SectionErrorBoundary>
+            <StatusListView onOpenComposer={onNewStatus} />
+          </SectionErrorBoundary>
         ) : (
           <SectionErrorBoundary onRetry={onRetry}>
             {loading ? (

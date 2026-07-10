@@ -1,4 +1,4 @@
-import { useRef, useState, type ChangeEvent } from 'react';
+import { useEffect, useRef, useState, type ChangeEvent } from 'react';
 import { ArrowLeft, Camera, Type } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { TextStatusComposer } from './TextStatusComposer';
@@ -15,6 +15,13 @@ export function StatusComposer({ open, onClose }: StatusComposerProps) {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [mediaType, setMediaType] = useState<StatusMediaType>('image');
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+
+  useEffect(() => {
+    if (!open) {
+      setMode('entry');
+      setSelectedFile(null);
+    }
+  }, [open]);
 
   const handleFileChange = (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];

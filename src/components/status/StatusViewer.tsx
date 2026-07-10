@@ -1,7 +1,12 @@
-import { X } from 'lucide-react';
+import { useState } from 'react';
+import { X, Eye } from 'lucide-react';
+import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
 import { useStatusViewer } from '@/hooks/useStatusViewer';
 import { StatusProgressBar } from './StatusProgressBar';
 import { StatusReplyBar } from './StatusReplyBar';
+import { StatusSeenBySheet } from './StatusSeenBySheet';
 import type { ContactStatusGroup } from '@/types/chat';
 
 interface StatusViewerProps {
@@ -10,6 +15,9 @@ interface StatusViewerProps {
 }
 
 export function StatusViewer({ group, onClose }: StatusViewerProps) {
+  const { user } = useAuth();
+  const [showSeenBy, setShowSeenBy] = useState(false);
+
   const {
     currentStatus,
     currentGroup,
@@ -17,7 +25,6 @@ export function StatusViewer({ group, onClose }: StatusViewerProps) {
     progress,
     isPaused,
     goNext,
-    goPrev,
     pause,
     resume,
   } = useStatusViewer([group]);
@@ -25,6 +32,33 @@ export function StatusViewer({ group, onClose }: StatusViewerProps) {
   if (!currentStatus || !currentGroup) return null;
 
   const isOwnStatus = currentStatus.user_id === group.user.id;
+
+  const handleSendReply = async (message: string) => {
+    if (!user) {
+      toast.error('Please sign in to reply.');
+      return;
+    }
+    try {
+      const { data: chatId, error: chatError } = await supabase.rpc('get_or_create_direct_chat', { _other_user: group.user.id });
+      if (chatError || !chatId) {
+        throw chatError || new Error('Unable to create chat');
+      }
+
+      const { error: messageError } = await supabase
+        .from('messages')
+        .insert({ chat_id: chatId as string, sender_id: user.id, content: message, type: 'text', status: 'sent' });
+
+      if (messageError) {
+        throw messageError;
+      }
+
+      toast.success('Reply sent');
+      onClose();
+    } catch (error) {
+      console.error('[StatusViewer] send reply failed', error);
+      toast.error('Failed to send reply');
+    }
+  };
 
   return (
     <div className="fixed inset-0 z-50 flex flex-col bg-black text-white">
@@ -38,9 +72,22 @@ export function StatusViewer({ group, onClose }: StatusViewerProps) {
             <p className="text-xs text-white/70">{new Date(currentStatus.created_at).toLocaleString()}</p>
           </div>
         </div>
-        <button type="button" onClick={onClose} className="rounded-full p-2 bg-white/10 hover:bg-white/20">
-          <X className="w-5 h-5" />
-        </button>
+
+        <div className="flex items-center gap-2">
+          {isOwnStatus && (
+            <button
+              type="button"
+              onClick={() => setShowSeenBy(true)}
+              className="rounded-full p-2 bg-white/10 hover:bg-white/20"
+              aria-label="Show viewers"
+            >
+              <Eye className="w-5 h-5" />
+            </button>
+          )}
+          <button type="button" onClick={onClose} className="rounded-full p-2 bg-white/10 hover:bg-white/20">
+            <X className="w-5 h-5" />
+          </button>
+        </div>
       </div>
 
       <StatusProgressBar totalSegments={currentGroup.statuses.length} currentIndex={currentIndex} progress={progress} />
@@ -63,9 +110,13 @@ export function StatusViewer({ group, onClose }: StatusViewerProps) {
       </div>
 
       {!isOwnStatus ? (
-        <StatusReplyBar onSend={async () => {}} />
+        <StatusReplyBar onSend={handleSendReply} />
       ) : (
-        <div className="px-4 pb-4 text-xs text-white/70">Swipe up to see who viewed your status.</div>
+        <div className="px-4 pb-4 text-xs text-white/70">Tap the eye icon to see who viewed this status.</div>
+      )}
+
+      {showSeenBy && (
+        <StatusSeenBySheet statusId={currentStatus.id} open={showSeenBy} onClose={() => setShowSeenBy(false)} />
       )}
     </div>
   );
