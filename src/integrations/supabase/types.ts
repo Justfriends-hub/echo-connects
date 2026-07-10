@@ -351,6 +351,66 @@ export type Database = {
           },
         ]
       }
+      statuses: {
+        Row: {
+          id: string
+          user_id: string
+          media_url: string | null
+          media_type: Database["public"]["Enums"]["status_media_type"]
+          text_content: string | null
+          background_color: string | null
+          caption: string | null
+          created_at: string
+          expires_at: string
+          privacy_mode: Database["public"]["Enums"]["status_privacy_type"]
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          media_url?: string | null
+          media_type?: Database["public"]["Enums"]["status_media_type"]
+          text_content?: string | null
+          background_color?: string | null
+          caption?: string | null
+          created_at?: string
+          expires_at?: string
+          privacy_mode?: Database["public"]["Enums"]["status_privacy_type"]
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          media_url?: string | null
+          media_type?: Database["public"]["Enums"]["status_media_type"]
+          text_content?: string | null
+          background_color?: string | null
+          caption?: string | null
+          created_at?: string
+          expires_at?: string
+          privacy_mode?: Database["public"]["Enums"]["status_privacy_type"]
+        }
+        Relationships: []
+      }
+      status_views: {
+        Row: {
+          id: string
+          status_id: string
+          viewer_id: string
+          viewed_at: string
+        }
+        Insert: {
+          id?: string
+          status_id: string
+          viewer_id: string
+          viewed_at?: string
+        }
+        Update: {
+          id?: string
+          status_id?: string
+          viewer_id?: string
+          viewed_at?: string
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           id: string
@@ -399,6 +459,8 @@ export type Database = {
       member_role: "owner" | "admin" | "member"
       message_status: "sending" | "sent" | "delivered" | "seen"
       message_type: "text" | "image" | "video" | "file" | "voice" | "system"
+      status_media_type: "text" | "image" | "video"
+      status_privacy_type: "contacts" | "contacts_except" | "only_share_with"
     }
     CompositeTypes: {
       [_ in never]: never
