@@ -12,6 +12,7 @@ import Login from "./pages/Login";
 import Settings from "./pages/Settings";
 import AdminDashboard from "./pages/AdminDashboard";
 import NotFound from "./pages/NotFound";
+import GlobalErrorBoundary from '@/components/GlobalErrorBoundary';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -60,6 +61,7 @@ const App = () => (
         <Sonner />
         <DebugLogger />
         <PWAInstallPrompt />
+        <GlobalErrorBoundary>
         <BrowserRouter>
           <Routes>
             <Route path="/" element={<Index />} />
@@ -70,6 +72,7 @@ const App = () => (
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>
+        </GlobalErrorBoundary>
       </AuthProvider>
     </TooltipProvider>
   </QueryClientProvider>
