@@ -24,7 +24,7 @@ interface ChatSidebarProps {
   onNewChat: () => void;
   onNewGroup: () => void;
   onNewChannel: () => void;
-  onNewStatus: () => void;
+  onNewStatus?: () => void;
   hasUnseenStatuses?: boolean;
   isError?: boolean;
   onRetry?: () => void;
@@ -48,7 +48,7 @@ function ChatListSkeleton() {
   );
 }
 
-export function ChatSidebar({ chats, activeChat, onSelectChat, onNewChat, onNewGroup, onNewChannel, hasUnseenStatuses, loading, isError, onRetry, onOpenProfile }: ChatSidebarProps) {
+export function ChatSidebar({ chats, activeChat, onSelectChat, onNewChat, onNewGroup, onNewChannel, onNewStatus = () => {}, hasUnseenStatuses, loading, isError, onRetry, onOpenProfile }: ChatSidebarProps) {
   const [search, setSearch] = useState('');
   const [channelsOpen, setChannelsOpen] = useState(true);
   const [directsOpen, setDirectsOpen] = useState(true);

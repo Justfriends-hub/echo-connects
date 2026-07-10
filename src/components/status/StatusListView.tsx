@@ -9,7 +9,7 @@ import { StatusViewer } from './StatusViewer';
 import type { ContactStatusGroup } from '@/types/chat';
 
 interface StatusListViewProps {
-  onOpenComposer: () => void;
+  onOpenComposer?: () => void;
 }
 
 export function StatusListView({ onOpenComposer }: StatusListViewProps) {

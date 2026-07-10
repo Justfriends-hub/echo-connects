@@ -44,11 +44,12 @@ function groupStatusesByUser(statuses: Status[], views: Record<string, boolean>,
 }
 
 async function fetchStatuses(userId: string) {
+  const now = new Date().toISOString();
   const [{ data: statuses, error: statusesError }, { data: views, error: viewsError }] = await Promise.all([
     supabase
       .from('statuses')
-      .select('*, user:user_id (id, username, display_name, avatar_url)')
-      .gt('expires_at', 'now()')
+      .select('*')
+      .gt('expires_at', now)
       .order('created_at', { ascending: false }),
     supabase
       .from('status_views')
@@ -61,13 +62,44 @@ async function fetchStatuses(userId: string) {
   }
 
   const statusList = (statuses || []) as Status[];
+  const userIds = Array.from(new Set(statusList.map((status) => status.user_id)));
+  const { data: profiles, error: profilesError } = userIds.length > 0
+    ? await supabase.from('profiles').select('id, username, display_name, avatar_url').in('id', userIds)
+    : { data: [], error: null };
+
+  if (profilesError) {
+    throw profilesError;
+  }
+
+  const profileMap = new Map<string, Status['user']>();
+  (profiles || []).forEach((profile: any) => {
+    profileMap.set(profile.id, {
+      id: profile.id,
+      username: profile.username,
+      display_name: profile.display_name,
+      avatar_url: profile.avatar_url,
+      email: undefined,
+      phone: undefined,
+      bio: undefined,
+      is_bot: false,
+      hide_phone: false,
+      is_online: false,
+      last_seen: '',
+      created_at: '',
+    });
+  });
+
+  const enrichedStatuses = statusList.map((status) => ({
+    ...status,
+    user: profileMap.get(status.user_id),
+  }));
   const viewedMap: Record<string, boolean> = {};
   (views || []).forEach((view: any) => {
     viewedMap[view.status_id] = true;
   });
 
-  const myStatuses = statusList.filter((status) => status.user_id === userId);
-  const otherStatuses = statusList.filter((status) => status.user_id !== userId);
+  const myStatuses = enrichedStatuses.filter((status) => status.user_id === userId);
+  const otherStatuses = enrichedStatuses.filter((status) => status.user_id !== userId);
 
   const groups = groupStatusesByUser(otherStatuses, viewedMap, userId)
     .sort((a, b) => new Date(b.latestAt).getTime() - new Date(a.latestAt).getTime());
