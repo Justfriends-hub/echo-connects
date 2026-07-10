@@ -140,10 +140,12 @@ export function useChats() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
 
-  const query = useQuery(['chats', user?.id], async () => {
-    if (!user) return [];
-    return loadChats(user.id);
-  }, {
+  const query = useQuery({
+    queryKey: ['chats', user?.id],
+    queryFn: async () => {
+      if (!user) return [];
+      return loadChats(user.id);
+    },
     enabled: !!user,
     staleTime: 30000,
     retry: 2,
@@ -153,13 +155,13 @@ export function useChats() {
 
   const reload = useCallback(() => {
     if (!user) return;
-    return queryClient.invalidateQueries(['chats', user.id]);
+    return queryClient.invalidateQueries({ queryKey: ['chats', user.id] });
   }, [queryClient, user]);
 
   useEffect(() => {
     if (!user) return;
     const interval = window.setInterval(() => {
-      queryClient.invalidateQueries(['chats', user.id]);
+      queryClient.invalidateQueries({ queryKey: ['chats', user.id] });
     }, 30000);
     return () => window.clearInterval(interval);
   }, [queryClient, user]);
@@ -174,7 +176,7 @@ export function useChats() {
           if (!old) return old;
           const idx = old.findIndex((c) => c.id === msg.chat_id);
           if (idx === -1) {
-            queryClient.invalidateQueries(['chats', user.id]);
+            queryClient.invalidateQueries({ queryKey: ['chats', user.id] });
             return old;
           }
           const updated = [...old];
@@ -187,7 +189,7 @@ export function useChats() {
           return updated;
         });
       })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'chat_members', filter: `user_id=eq.${user.id}` }, () => queryClient.invalidateQueries(['chats', user.id]))
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'chat_members', filter: `user_id=eq.${user.id}` }, () => queryClient.invalidateQueries({ queryKey: ['chats', user.id] }))
       .subscribe();
     return () => { supabase.removeChannel(channel); };
   }, [queryClient, user]);

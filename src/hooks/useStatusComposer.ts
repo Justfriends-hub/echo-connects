@@ -30,7 +30,7 @@ export function useStatusComposer() {
       privacy_mode,
     }]);
     if (error) throw error;
-    await queryClient.invalidateQueries(['statuses', user.id]);
+    await queryClient.invalidateQueries({ queryKey: ['statuses', user.id] });
   }, [getPrivacyPreference, queryClient, user]);
 
   const postMediaStatus = useCallback(async (file: File, caption: string, mediaType: 'image' | 'video') => {
@@ -52,14 +52,14 @@ export function useStatusComposer() {
       privacy_mode,
     }]);
     if (error) throw error;
-    await queryClient.invalidateQueries(['statuses', user.id]);
+    await queryClient.invalidateQueries({ queryKey: ['statuses', user.id] });
   }, [getPrivacyPreference, queryClient, user]);
 
   const deleteMyStatus = useCallback(async (statusId: string) => {
     if (!user) throw new Error('Not authenticated');
     const { error } = await supabase.from('statuses').delete().eq('id', statusId).eq('user_id', user.id);
     if (error) throw error;
-    await queryClient.invalidateQueries(['statuses', user.id]);
+    await queryClient.invalidateQueries({ queryKey: ['statuses', user.id] });
   }, [queryClient, user]);
 
   return {

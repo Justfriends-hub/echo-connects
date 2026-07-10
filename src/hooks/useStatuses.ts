@@ -87,32 +87,30 @@ export function useStatuses() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
 
-  const query = useQuery(
-    STATUSES_QUERY_KEY(user?.id || ''),
-    async () => {
+  const query = useQuery({
+    queryKey: STATUSES_QUERY_KEY(user?.id || ''),
+    queryFn: async () => {
       if (!user) return { myStatuses: [], recentUpdates: [], viewedUpdates: [], hasUnseenStatuses: false };
       return fetchStatuses(user.id);
     },
-    {
-      enabled: !!user,
-      staleTime: 30000,
-      retry: 2,
-      refetchOnWindowFocus: false,
-      placeholderData: {
-        myStatuses: [],
-        recentUpdates: [],
-        viewedUpdates: [],
-        hasUnseenStatuses: false,
-      },
-    }
-  );
+    enabled: !!user,
+    staleTime: 30000,
+    retry: 2,
+    refetchOnWindowFocus: false,
+    placeholderData: {
+      myStatuses: [],
+      recentUpdates: [],
+      viewedUpdates: [],
+      hasUnseenStatuses: false,
+    },
+  });
 
   useEffect(() => {
     if (!user) return;
     const channel = supabase
       .channel(`statuses-list-${user.id}`)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'statuses' }, () => queryClient.invalidateQueries(STATUSES_QUERY_KEY(user.id)))
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'status_views' }, () => queryClient.invalidateQueries(STATUSES_QUERY_KEY(user.id)))
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'statuses' }, () => queryClient.invalidateQueries({ queryKey: STATUSES_QUERY_KEY(user.id) }))
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'status_views' }, () => queryClient.invalidateQueries({ queryKey: STATUSES_QUERY_KEY(user.id) }))
       .subscribe();
 
     return () => {
