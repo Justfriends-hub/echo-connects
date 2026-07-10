@@ -48,7 +48,7 @@ function ChatListSkeleton() {
   );
 }
 
-export function ChatSidebar({ chats, activeChat, onSelectChat, onNewChat, onNewGroup, onNewChannel, loading, onOpenProfile }: ChatSidebarProps) {
+export function ChatSidebar({ chats, activeChat, onSelectChat, onNewChat, onNewGroup, onNewChannel, hasUnseenStatuses, loading, isError, onRetry, onOpenProfile }: ChatSidebarProps) {
   const [search, setSearch] = useState('');
   const [channelsOpen, setChannelsOpen] = useState(true);
   const [directsOpen, setDirectsOpen] = useState(true);
