@@ -89,6 +89,7 @@ export interface Status {
   id: string;
   user_id: string;
   media_url?: string;
+  media_path?: string;
   media_type: StatusMediaType;
   text_content?: string;
   background_color?: string;

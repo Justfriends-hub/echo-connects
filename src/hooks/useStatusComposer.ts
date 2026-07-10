@@ -133,6 +133,7 @@ export function useStatusComposer() {
     const { error } = await supabase.from('statuses').insert([{ 
       user_id: user.id,
       media_url: url,
+      media_path: `${user.id}/${filename}`,
       media_type: mediaType,
       caption,
       privacy_mode,

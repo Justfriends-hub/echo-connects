@@ -356,6 +356,7 @@ export type Database = {
           id: string
           user_id: string
           media_url: string | null
+          media_path: string | null
           media_type: Database["public"]["Enums"]["status_media_type"]
           text_content: string | null
           background_color: string | null
@@ -368,6 +369,7 @@ export type Database = {
           id?: string
           user_id: string
           media_url?: string | null
+          media_path?: string | null
           media_type?: Database["public"]["Enums"]["status_media_type"]
           text_content?: string | null
           background_color?: string | null
@@ -380,6 +382,7 @@ export type Database = {
           id?: string
           user_id?: string
           media_url?: string | null
+          media_path?: string | null
           media_type?: Database["public"]["Enums"]["status_media_type"]
           text_content?: string | null
           background_color?: string | null
