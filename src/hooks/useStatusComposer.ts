@@ -128,11 +128,9 @@ export function useStatusComposer() {
       }
     }
 
-    const pub = await supabase.storage.from('status-media').getPublicUrl(`${user.id}/${filename}`);
-    const url = (pub && (pub as any).data && ((pub as any).data.publicUrl || (pub as any).data.public_url)) || '';
     const { error } = await supabase.from('statuses').insert([{ 
       user_id: user.id,
-      media_url: url,
+      media_url: null,
       media_path: `${user.id}/${filename}`,
       media_type: mediaType,
       caption,

@@ -89,10 +89,36 @@ async function fetchStatuses(userId: string) {
     });
   });
 
+  const statusMediaPaths = statusList
+    .map((status) => status.media_path)
+    .filter((path): path is string => typeof path === 'string' && path.trim() !== '');
+
+  const signedUrlsMap = new Map<string, string>();
+  if (statusMediaPaths.length > 0) {
+    const uniqueMediaPaths = Array.from(new Set(statusMediaPaths));
+    const { data: signedUrlResult, error: signedUrlsError } = await supabase
+      .storage
+      .from('status-media')
+      .createSignedUrls(uniqueMediaPaths, 3600);
+
+    if (signedUrlsError) {
+      throw signedUrlsError;
+    }
+
+    const signedUrlsList = (signedUrlResult as any)?.signedUrls ?? signedUrlResult ?? [];
+    (signedUrlsList || []).forEach((item: any) => {
+      if (item?.path && item?.signedUrl) {
+        signedUrlsMap.set(item.path, item.signedUrl);
+      }
+    });
+  }
+
   const enrichedStatuses = statusList.map((status) => ({
     ...status,
+    signed_url: status.media_path ? signedUrlsMap.get(status.media_path) : undefined,
     user: profileMap.get(status.user_id),
   }));
+
   const viewedMap: Record<string, boolean> = {};
   (views || []).forEach((view: any) => {
     viewedMap[view.status_id] = true;

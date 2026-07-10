@@ -65,7 +65,7 @@ export function StatusListView({ onOpenComposer }: StatusListViewProps) {
               aria-label="Open my status"
             >
               <Avatar className={`w-14 h-14 ${myStatuses.some(s => String(s.id).startsWith('local-')) ? 'ring-4 ring-primary/40 animate-pulse' : ''}`}>
-                <AvatarImage src={latestStatus?.media_url || undefined} />
+                <AvatarImage src={latestStatus?.signed_url || undefined} />
                 <AvatarFallback className="bg-primary/20 text-primary text-sm font-medium">
                   {latestStatus ? 'Me' : 'Me'}
                 </AvatarFallback>

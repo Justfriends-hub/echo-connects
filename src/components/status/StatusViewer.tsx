@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { X, Eye } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
@@ -17,6 +17,7 @@ interface StatusViewerProps {
 export function StatusViewer({ group, onClose }: StatusViewerProps) {
   const { user } = useAuth();
   const [showSeenBy, setShowSeenBy] = useState(false);
+  const [mediaSrc, setMediaSrc] = useState<string | null>(null);
 
   const {
     currentStatus,
@@ -29,9 +30,47 @@ export function StatusViewer({ group, onClose }: StatusViewerProps) {
     resume,
   } = useStatusViewer([group]);
 
+  useEffect(() => {
+    if (!currentStatus || currentStatus.media_type === 'text') {
+      setMediaSrc(null);
+      return;
+    }
+
+    if (!currentStatus.media_path) {
+      setMediaSrc(null);
+      return;
+    }
+
+    let cancelled = false;
+
+    const loadMedia = async () => {
+      const { data, error } = await supabase
+        .storage
+        .from('status-media')
+        .createSignedUrl(currentStatus.media_path, 3600);
+
+      if (cancelled) return;
+
+      if (error) {
+        console.error('[StatusViewer] createSignedUrl failed', error);
+        setMediaSrc(currentStatus.signed_url || null);
+        return;
+      }
+
+      const signedUrl = (data as any)?.signedUrl ?? (data as any)?.signed_url ?? null;
+      setMediaSrc(signedUrl || currentStatus.signed_url || null);
+    };
+
+    loadMedia();
+    return () => {
+      cancelled = true;
+    };
+  }, [currentStatus?.id, currentStatus?.media_path, currentStatus?.media_type, currentStatus?.signed_url]);
+
   if (!currentStatus || !currentGroup) return null;
 
   const isOwnStatus = currentStatus.user_id === group.user.id;
+  const mediaSource = mediaSrc || currentStatus.signed_url || '';
 
   const handleSendReply = async (message: string) => {
     if (!user) {
@@ -84,7 +123,7 @@ export function StatusViewer({ group, onClose }: StatusViewerProps) {
               <Eye className="w-5 h-5" />
             </button>
           )}
-          <button type="button" onClick={onClose} className="rounded-full p-2 bg-white/10 hover:bg-white/20">
+          <button type="button" onClick={onClose} className="rounded-full p-2 bg-white/10 hover:bg-white/20" aria-label="Close status viewer">
             <X className="w-5 h-5" />
           </button>
         </div>
@@ -103,9 +142,19 @@ export function StatusViewer({ group, onClose }: StatusViewerProps) {
             <p>{currentStatus.text_content}</p>
           </div>
         ) : currentStatus.media_type === 'image' ? (
-          <img src={currentStatus.media_url || ''} alt="status" className="mx-auto max-h-full w-full max-w-full rounded-3xl object-contain" />
+          mediaSource ? (
+            <img src={mediaSource} alt="status" className="mx-auto max-h-full w-full max-w-full rounded-3xl object-contain" />
+          ) : (
+            <div className="mx-auto flex h-full max-w-lg flex-col items-center justify-center rounded-3xl border border-white/10 bg-white/5 p-6 text-center text-lg leading-relaxed text-white">
+              <p>Unable to load image.</p>
+            </div>
+          )
+        ) : mediaSource ? (
+          <video src={mediaSource} controls className="mx-auto max-h-full w-full rounded-3xl object-contain" />
         ) : (
-          <video src={currentStatus.media_url || ''} controls className="mx-auto max-h-full w-full rounded-3xl object-contain" />
+          <div className="mx-auto flex h-full max-w-lg flex-col items-center justify-center rounded-3xl border border-white/10 bg-white/5 p-6 text-center text-lg leading-relaxed text-white">
+            <p>Unable to load video.</p>
+          </div>
         )}
       </div>
 
