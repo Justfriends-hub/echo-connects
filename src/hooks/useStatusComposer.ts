@@ -102,17 +102,34 @@ export function useStatusComposer() {
     });
 
     const filename = `${Date.now()}_${file.name}`;
-    const { error: uploadError } = await supabase.storage
-      .from('status-media')
-      .upload(`${user.id}/${filename}`, file, { cacheControl: '3600', upsert: false });
-    if (uploadError) {
-      queryClient.setQueryData(['statuses', user.id], (old: any) => ({ ...old, myStatuses: (old?.myStatuses || []).filter((s: any) => s.id !== tempId) }));
-      toast.error('Failed to upload media');
-      throw uploadError;
+    let uploadError: any = null;
+    try {
+      const res = await supabase.storage
+        .from('status-media')
+        .upload(`${user.id}/${filename}`, file, { cacheControl: '3600', upsert: false });
+      uploadError = res.error;
+      if (uploadError) throw uploadError;
+    } catch (err) {
+      console.error('[Status Upload] initial upload failed:', err);
+      // Try a retry with upsert=true for edge cases where file exists or race conditions
+      try {
+        const res2 = await supabase.storage
+          .from('status-media')
+          .upload(`${user.id}/${filename}`, file, { cacheControl: '3600', upsert: true });
+        uploadError = res2.error;
+        if (uploadError) throw uploadError;
+      } catch (err2) {
+        console.error('[Status Upload] retry upload failed:', err2);
+        // cleanup optimistic status and revoke object URL
+        try { URL.revokeObjectURL(tempStatus.media_url); } catch (e) {}
+        queryClient.setQueryData(['statuses', user.id], (old: any) => ({ ...old, myStatuses: (old?.myStatuses || []).filter((s: any) => s.id !== tempId) }));
+        toast.error((err2 && err2.message) || 'Failed to upload media');
+        throw err2;
+      }
     }
 
-    const { data } = supabase.storage.from('status-media').getPublicUrl(`${user.id}/${filename}`);
-    const url = data.publicUrl;
+    const pub = await supabase.storage.from('status-media').getPublicUrl(`${user.id}/${filename}`);
+    const url = (pub && (pub as any).data && ((pub as any).data.publicUrl || (pub as any).data.public_url)) || '';
     const { error } = await supabase.from('statuses').insert([{ 
       user_id: user.id,
       media_url: url,
@@ -121,10 +138,16 @@ export function useStatusComposer() {
       privacy_mode,
     }]);
     if (error) {
+      // cleanup optimistic status and revoke object URL
+      try { URL.revokeObjectURL(tempStatus.media_url); } catch (e) {}
       queryClient.setQueryData(['statuses', user.id], (old: any) => ({ ...old, myStatuses: (old?.myStatuses || []).filter((s: any) => s.id !== tempId) }));
-      toast.error('Failed to save status');
+      console.error('[Status Save] insert failed:', error);
+      toast.error(error.message || 'Failed to save status');
       throw error;
     }
+
+    // Revoke the temporary local blob URL now that the public URL is available
+    try { URL.revokeObjectURL(tempStatus.media_url); } catch (e) {}
 
     await queryClient.invalidateQueries({ queryKey: ['statuses', user.id] });
     toast.success('Status uploaded');
