@@ -1,53 +1,83 @@
-import React, { useState, useCallback, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { ChatSidebar } from './ChatSidebar';
-import { ChatArea } from './ChatArea';
-import { EmptyState } from './EmptyState';
-import { NewChatDialog } from './NewChatDialog';
-import { ChatInfoSheet } from './ChatInfoSheet';
-import { ProfileDrawer } from '@/components/ProfileDrawer';
-import { SectionErrorBoundary } from '@/components/SectionErrorBoundary';
-import { StatusComposer } from '../status/StatusComposer';
-import { ChannelView } from '@/components/channel/ChannelView';
-import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable';
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
-import { useIsMobile } from '@/hooks/use-mobile';
-import { useAuth } from '@/contexts/AuthContext';
-import { useChats } from '@/hooks/useChats';
-import { useStatuses } from '@/hooks/useStatuses';
-import { useMessages } from '@/hooks/useMessages';
-import { useTypingPresence } from '@/hooks/useTypingPresence';
-import { useReadReceipts } from '@/hooks/useReadReceipts';
-import { supabase } from '@/integrations/supabase/client';
-import { toast } from 'sonner';
-import { cn } from '@/lib/utils';
+import React, { useState, useCallback, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import { ChatSidebar } from "./ChatSidebar";
+import { ChatArea } from "./ChatArea";
+import { EmptyState } from "./EmptyState";
+import { NewChatDialog } from "./NewChatDialog";
+import { ChatInfoSheet } from "./ChatInfoSheet";
+import { ProfileDrawer } from "@/components/ProfileDrawer";
+import { SectionErrorBoundary } from "@/components/SectionErrorBoundary";
+import { StatusComposer } from "../status/StatusComposer";
+import { ChannelView } from "@/components/channel/ChannelView";
+import {
+  ResizableHandle,
+  ResizablePanel,
+  ResizablePanelGroup,
+} from "@/components/ui/resizable";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { useIsMobile } from "@/hooks/use-mobile";
+import { useAuth } from "@/contexts/AuthContext";
+import { useChats } from "@/hooks/useChats";
+import { useStatuses } from "@/hooks/useStatuses";
+import { useMessages } from "@/hooks/useMessages";
+import { useTypingPresence } from "@/hooks/useTypingPresence";
+import { useReadReceipts } from "@/hooks/useReadReceipts";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
+import { cn } from "@/lib/utils";
 
 export function ChatLayout() {
   const { user, profile, loading: authLoading } = useAuth();
   const navigate = useNavigate();
-  const { chats, loading: chatsLoading, isError: chatsError, reload: reloadChats } = useChats();
+  const {
+    chats,
+    loading: chatsLoading,
+    isError: chatsError,
+    reload: reloadChats,
+  } = useChats();
   const { hasUnseenStatuses } = useStatuses();
   const [activeChat, setActiveChat] = useState<string | null>(null);
-  const { messages, loadOlder, hasMore, loadingOlder, sendMessage } = useMessages(activeChat);
-  const currentChat = chats.find(c => c.id === activeChat);
+  const { messages, loadOlder, hasMore, loadingOlder, sendMessage } =
+    useMessages(activeChat);
+  const currentChat = chats.find((c) => c.id === activeChat);
   const { typingUsers, notifyTyping } = useTypingPresence(
     activeChat,
-    profile?.display_name || user?.user_metadata?.display_name || user?.email || 'Someone'
+    profile?.display_name ||
+      user?.user_metadata?.display_name ||
+      user?.email ||
+      "Someone",
   );
   const latestMessageAt = messages[messages.length - 1]?.created_at;
-  const { othersLastReadAt } = useReadReceipts(activeChat, user?.id, latestMessageAt);
+  const { othersLastReadAt } = useReadReceipts(
+    activeChat,
+    user?.id,
+    latestMessageAt,
+  );
   const [showNewChat, setShowNewChat] = useState(false);
   const [showStatusComposer, setShowStatusComposer] = useState(false);
-  const [newChatMode, setNewChatMode] = useState<'direct' | 'group' | 'channel'>('direct');
+  const [newChatMode, setNewChatMode] = useState<
+    "direct" | "group" | "channel"
+  >("direct");
   const [showChatInfo, setShowChatInfo] = useState(false);
   const [showProfileDrawer, setShowProfileDrawer] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
-  const [isOnline, setIsOnline] = useState(typeof navigator !== 'undefined' ? navigator.onLine : true);
+  const [isOnline, setIsOnline] = useState(
+    typeof navigator !== "undefined" ? navigator.onLine : true,
+  );
   const isMobile = useIsMobile();
 
   // Redirect to auth if signed out
   useEffect(() => {
-    if (!authLoading && !user) navigate('/auth');
+    if (!authLoading && !user) navigate("/auth");
   }, [authLoading, user, navigate]);
 
   // Listen for command palette events
@@ -55,59 +85,61 @@ export function ChatLayout() {
     const handler = (e: Event) => {
       setShowNewChat(true);
     };
-    window.addEventListener('open-new-chat', handler);
-    return () => window.removeEventListener('open-new-chat', handler);
+    window.addEventListener("open-new-chat", handler);
+    return () => window.removeEventListener("open-new-chat", handler);
   }, []);
 
   useEffect(() => {
     const onOnline = () => setIsOnline(true);
     const onOffline = () => setIsOnline(false);
-    window.addEventListener('online', onOnline);
-    window.addEventListener('offline', onOffline);
+    window.addEventListener("online", onOnline);
+    window.addEventListener("offline", onOffline);
     return () => {
-      window.removeEventListener('online', onOnline);
-      window.removeEventListener('offline', onOffline);
+      window.removeEventListener("online", onOnline);
+      window.removeEventListener("offline", onOffline);
     };
   }, []);
 
-  const handleSendMessage = useCallback(async (content: string) => {
-    if (!activeChat || !user) return;
-    await sendMessage(content, user.id);
-  }, [activeChat, user, sendMessage]);
+  const handleSendMessage = useCallback(
+    async (content: string) => {
+      if (!activeChat || !user) return;
+      await sendMessage(content, user.id);
+    },
+    [activeChat, user, sendMessage],
+  );
 
-  const handleChatCreated = useCallback((chatId: string) => {
-    setShowNewChat(false);
-    setActiveChat(chatId);
-    reloadChats();
-  }, [reloadChats]);
+  const handleChatCreated = useCallback(
+    (chatId: string) => {
+      setShowNewChat(false);
+      setActiveChat(chatId);
+      reloadChats();
+    },
+    [reloadChats],
+  );
 
   const handleDeleteChat = async () => {
     if (!deleteTarget) return;
-    // Remove membership (soft delete for user)
     const { error } = await supabase
-      .from('chat_members')
+      .from("chat_members")
       .delete()
-      .eq('chat_id', deleteTarget)
-      .eq('user_id', user?.id || '');
+      .eq("chat_id", deleteTarget)
+      .eq("user_id", user?.id || "");
     if (error) {
-      toast.error('Failed to leave chat');
+      toast.error("Failed to leave chat");
     } else {
-      toast.success('Chat removed');
+      toast.success("Chat removed");
       if (activeChat === deleteTarget) setActiveChat(null);
       reloadChats();
     }
     setDeleteTarget(null);
   };
 
-  const showSidebar = !isMobile || !activeChat;
-  const showChat = !isMobile || !!activeChat;
-
   const chatContent = currentChat ? (
-    currentChat.type === 'channel' ? (
+    currentChat.type === "channel" ? (
       <ChannelView
         chat={currentChat}
         messages={messages}
-        currentUserId={user?.id || ''}
+        currentUserId={user?.id || ""}
         onSendMessage={handleSendMessage}
         onBack={() => setActiveChat(null)}
       />
@@ -115,7 +147,7 @@ export function ChatLayout() {
       <ChatArea
         chat={currentChat}
         messages={messages}
-        currentUserId={user?.id || ''}
+        currentUserId={user?.id || ""}
         onSendMessage={handleSendMessage}
         onBack={() => setActiveChat(null)}
         typingUsers={typingUsers}
@@ -133,26 +165,36 @@ export function ChatLayout() {
 
   return (
     <>
-      <div className="mx-auto mt-[5vh] h-[95vh] w-full max-w-full overflow-hidden">
+      {/* 
+        WhatsApp-style Edge-to-Edge Fluid Shell Container:
+        Replaced the stiff mt-[5vh] h-[95vh] bounds with structural dynamic viewport rules.
+        Ensures smooth transition with keyboard and zero safe-area rendering layout breaks.
+      */}
+      <div className="fixed inset-0 h-full w-full w-screen overflow-hidden bg-background pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)] pr-[env(safe-area-inset-right)] pl-[env(safe-area-inset-left)]">
         {isMobile ? (
-          // Mobile: stacked views (no resizable)
-          <div className="flex h-full w-full overflow-hidden">
-            {showSidebar && (
-              <div className="w-full h-full relative">
+          /* Mobile Viewport: Absolute slider deck layer to mimic a native application frame wrapper */
+          <div className="relative flex h-full w-full overflow-hidden bg-background">
+            {/* Sidebar Slide Control */}
+            <div
+              className={cn(
+                "absolute inset-0 w-full h-full z-10 transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] will-change-transform",
+                activeChat ? "-translate-x-full" : "translate-x-0",
+              )}
+            >
               <ChatSidebar
                 chats={chats}
                 activeChat={activeChat}
                 onSelectChat={setActiveChat}
                 onNewChat={() => {
-                  setNewChatMode('direct');
+                  setNewChatMode("direct");
                   setShowNewChat(true);
                 }}
                 onNewGroup={() => {
-                  setNewChatMode('group');
+                  setNewChatMode("group");
                   setShowNewChat(true);
                 }}
                 onNewChannel={() => {
-                  setNewChatMode('channel');
+                  setNewChatMode("channel");
                   setShowNewChat(true);
                 }}
                 onNewStatus={() => setShowStatusComposer(true)}
@@ -163,53 +205,70 @@ export function ChatLayout() {
                 onOpenProfile={() => setShowProfileDrawer(true)}
               />
             </div>
-          )}
-          {showChat && (
-            <div className="w-full h-full">
+
+            {/* Chat Frame Slide Layer */}
+            <div
+              className={cn(
+                "absolute inset-0 w-full h-full z-20 transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] will-change-transform bg-background shadow-2xl",
+                activeChat ? "translate-x-0" : "translate-x-full",
+              )}
+            >
               <SectionErrorBoundary onRetry={reloadChats}>
                 {chatContent}
               </SectionErrorBoundary>
             </div>
-          )}
-        </div>
-      ) : (
-        // Desktop: resizable panels
-        <ResizablePanelGroup direction="horizontal" className="h-full w-full">
-          <ResizablePanel defaultSize={28} minSize={20} maxSize={40}>
-            <div className="h-full relative">
-              <ChatSidebar
-                chats={chats}
-                activeChat={activeChat}
-                onSelectChat={setActiveChat}
-                onNewChat={() => {
-                  setNewChatMode('direct');
-                  setShowNewChat(true);
-                }}
-                onNewGroup={() => {
-                  setNewChatMode('group');
-                  setShowNewChat(true);
-                }}
-                onNewChannel={() => {
-                  setNewChatMode('channel');
-                  setShowNewChat(true);
-                }}
-                onNewStatus={() => setShowStatusComposer(true)}
-                hasUnseenStatuses={hasUnseenStatuses}
-                isError={chatsError}
-                loading={chatsLoading}
-                onRetry={reloadChats}
-                onOpenProfile={() => setShowProfileDrawer(true)}
-              />
-            </div>
-          </ResizablePanel>
-          <ResizableHandle withHandle className="bg-border hover:bg-primary/30 transition-colors" />
-          <ResizablePanel defaultSize={72}>
-            <SectionErrorBoundary onRetry={reloadChats}>
-              {chatContent}
-            </SectionErrorBoundary>
-          </ResizablePanel>
-        </ResizablePanelGroup>
-      )}
+          </div>
+        ) : (
+          /* Desktop Frame Layout via Custom Resizable Hardware Layer Blocks */
+          <ResizablePanelGroup
+            direction="horizontal"
+            className="h-full w-full bg-background"
+          >
+            <ResizablePanel
+              defaultSize={30}
+              minSize={25}
+              maxSize={45}
+              className="bg-card"
+            >
+              <div className="h-full relative">
+                <ChatSidebar
+                  chats={chats}
+                  activeChat={activeChat}
+                  onSelectChat={setActiveChat}
+                  onNewChat={() => {
+                    setNewChatMode("direct");
+                    setShowNewChat(true);
+                  }}
+                  onNewGroup={() => {
+                    setNewChatMode("group");
+                    setShowNewChat(true);
+                  }}
+                  onNewChannel={() => {
+                    setNewChatMode("channel");
+                    setShowNewChat(true);
+                  }}
+                  onNewStatus={() => setShowStatusComposer(true)}
+                  hasUnseenStatuses={hasUnseenStatuses}
+                  isError={chatsError}
+                  loading={chatsLoading}
+                  onRetry={reloadChats}
+                  onOpenProfile={() => setShowProfileDrawer(true)}
+                />
+              </div>
+            </ResizablePanel>
+
+            <ResizableHandle
+              withHandle
+              className="w-[1.5px] bg-border/40 hover:bg-primary/20 transition-colors duration-200"
+            />
+
+            <ResizablePanel defaultSize={70} className="bg-background">
+              <SectionErrorBoundary onRetry={reloadChats}>
+                {chatContent}
+              </SectionErrorBoundary>
+            </ResizablePanel>
+          </ResizablePanelGroup>
+        )}
       </div>
 
       <NewChatDialog
@@ -220,30 +279,52 @@ export function ChatLayout() {
       />
 
       {currentChat && (
-        <ChatInfoSheet open={showChatInfo} onClose={() => setShowChatInfo(false)} chat={currentChat} />
+        <ChatInfoSheet
+          open={showChatInfo}
+          onClose={() => setShowChatInfo(false)}
+          chat={currentChat}
+        />
       )}
 
-      <ProfileDrawer open={showProfileDrawer} onClose={() => setShowProfileDrawer(false)} />
-      <StatusComposer open={showStatusComposer} onClose={() => setShowStatusComposer(false)} />
+      <ProfileDrawer
+        open={showProfileDrawer}
+        onClose={() => setShowProfileDrawer(false)}
+      />
+      <StatusComposer
+        open={showStatusComposer}
+        onClose={() => setShowStatusComposer(false)}
+      />
 
+      {/* Floating Network Notification pill banner matching native UI design aesthetics */}
       {!isOnline && (
-        <div className="fixed inset-x-4 bottom-24 z-50 rounded-full bg-destructive/95 px-4 py-3 text-sm text-white shadow-xl backdrop-blur-sm sm:bottom-20">
-          No internet connection. Your message will appear with a clock and send when the network returns.
+        <div className="fixed left-1/2 -translate-x-1/2 top-4 z-50 rounded-full bg-destructive/95 border border-white/10 px-4 py-2 text-xs font-semibold text-white shadow-xl backdrop-blur-md animate-in fade-in-50 slide-in-from-top-3 duration-300">
+          Waiting for network connection…
         </div>
       )}
 
-      {/* Delete Chat Confirmation */}
-      <AlertDialog open={!!deleteTarget} onOpenChange={() => setDeleteTarget(null)}>
-        <AlertDialogContent className="bg-card border-border">
+      {/* Leave Chat Confirmation Dialog styled to match the chat theme colors */}
+      <AlertDialog
+        open={!!deleteTarget}
+        onOpenChange={() => setDeleteTarget(null)}
+      >
+        <AlertDialogContent className="bg-card/95 backdrop-blur-md border border-border/60 max-w-[340px] rounded-2xl p-5 shadow-2xl animate-in fade-in-50 zoom-in-95 duration-200">
           <AlertDialogHeader>
-            <AlertDialogTitle>Leave this chat?</AlertDialogTitle>
-            <AlertDialogDescription>
-              You will be removed from this chat. You can rejoin later if invited.
+            <AlertDialogTitle className="text-base font-bold tracking-tight text-foreground">
+              Leave this chat?
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-xs text-muted-foreground/90 leading-relaxed mt-1">
+              You will be removed from this conversation stream immediately. You
+              will need an invite to rejoin.
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel className="border-border">Cancel</AlertDialogCancel>
-            <AlertDialogAction className="bg-destructive hover:bg-destructive/90" onClick={handleDeleteChat}>
+          <AlertDialogFooter className="mt-4 gap-2 sm:gap-0">
+            <AlertDialogCancel className="border-border/60 rounded-xl text-xs font-medium h-9 hover:bg-muted/50">
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive hover:bg-destructive/90 text-white rounded-xl text-xs font-medium h-9"
+              onClick={handleDeleteChat}
+            >
               Leave Chat
             </AlertDialogAction>
           </AlertDialogFooter>

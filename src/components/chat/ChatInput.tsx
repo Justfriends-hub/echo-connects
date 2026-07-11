@@ -1,21 +1,17 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { Send, Paperclip, Smile, Mic, Keyboard } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
-import { cn } from '@/lib/utils';
-
-const EMOJI_LIST = [
-  '😀', '😂', '🥰', '😎', '🤔', '😅', '😊', '🙌',
-  '👍', '👎', '❤️', '🔥', '🎉', '💯', '😮', '😢',
-  '🤣', '😍', '🥳', '😤', '🙏', '💪', '✨', '💀',
-  '👀', '🫡', '🤝', '💔', '🎯', '🚀', '⭐', '🌟',
-];
+import React, { useState, useRef, useEffect, useCallback } from "react";
+import { Send, Paperclip, Smile, Mic, Keyboard } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import { cn } from "@/lib/utils";
 
 /** Detect touch-capable devices (phones/tablets with software keyboards) */
 function isTouchDevice(): boolean {
-  if (typeof window === 'undefined') return false;
-  return 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+  if (typeof window === "undefined") return false;
+  return "ontouchstart" in window || navigator.maxTouchPoints > 0;
 }
 
 interface ChatInputProps {
@@ -25,8 +21,7 @@ interface ChatInputProps {
   placeholder?: string;
   /**
    * Called with the current pixel height of the input bar. The scroll area
-   * only needs a fixed bottom padding equal to the bar height; keyboard
-   * movement is handled independently by the fixed input overlay.
+   * only needs a fixed bottom padding equal to the bar height.
    */
   onHeightChange?: (height: number) => void;
 }
@@ -35,37 +30,17 @@ export function ChatInput({
   onSend,
   onTyping,
   disabled,
-  placeholder = 'Message',
+  placeholder = "Message",
   onHeightChange,
 }: ChatInputProps) {
-  const [text, setText] = useState('');
-  const [emojiOpen, setEmojiOpen] = useState(false);
+  const [text, setText] = useState("");
+  const [nativeEmojiMode, setNativeEmojiMode] = useState(false);
   const [keyboardBottom, setKeyboardBottom] = useState(0);
-  const [panelHeight, setPanelHeight] = useState(0);
   const [inputHeight, setInputHeight] = useState(68);
-  const [recentEmojis, setRecentEmojis] = useState<string[]>(() => {
-    if (typeof window === 'undefined') return [];
-    try {
-      return JSON.parse(window.localStorage.getItem('chirp.recentEmojis') || '[]') as string[];
-    } catch {
-      return [];
-    }
-  });
+
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const wrapperRef = useRef<HTMLDivElement>(null);
   const isTouch = isTouchDevice();
-
-  const saveRecentEmoji = (emoji: string) => {
-    setRecentEmojis(prev => {
-      const next = [emoji, ...prev.filter(e => e !== emoji)].slice(0, 12);
-      try {
-        window.localStorage.setItem('chirp.recentEmojis', JSON.stringify(next));
-      } catch {
-        // ignore storage failures
-      }
-      return next;
-    });
-  };
 
   const reportLayout = useCallback(() => {
     if (!wrapperRef.current) return;
@@ -74,16 +49,16 @@ export function ChatInput({
     onHeightChange?.(height);
   }, [onHeightChange]);
 
-  // ─── Auto-resize textarea ────────────────────────────────────────────────────
+  // ─── Auto-resize textarea seamlessly ──────────────────────────────────────────
   useEffect(() => {
     const ta = textareaRef.current;
     if (!ta) return;
-    ta.style.height = 'auto';
-    ta.style.height = Math.min(ta.scrollHeight, 120) + 'px';
+    ta.style.height = "auto";
+    ta.style.height = Math.min(ta.scrollHeight, 120) + "px";
     reportLayout();
   }, [text, reportLayout]);
 
-  // ─── Report bar height and bottom offset to parent ───────────────────────────
+  // ─── Layout Observer for reactive viewport resizing ───────────────────────────
   useEffect(() => {
     if (!wrapperRef.current) return;
     const ro = new ResizeObserver(() => reportLayout());
@@ -92,19 +67,23 @@ export function ChatInput({
     return () => ro.disconnect();
   }, [reportLayout]);
 
+  // ─── Track Visual Viewport changes to pin elements beautifully ─────────────────
   useEffect(() => {
     const syncBottom = (bottom: number) => {
-      document.documentElement.style.setProperty('--vv-bottom', `${Math.max(0, bottom)}px`);
+      document.documentElement.style.setProperty(
+        "--vv-bottom",
+        `${Math.max(0, bottom)}px`,
+      );
       try {
-        window.dispatchEvent(new CustomEvent('chat-visual-viewport', { detail: { bottom } }));
+        window.dispatchEvent(
+          new CustomEvent("chat-visual-viewport", { detail: { bottom } }),
+        );
       } catch (_) {}
     };
 
     const updateBottom = (bottom: number) => {
       setKeyboardBottom(bottom);
-      if (!emojiOpen) {
-        syncBottom(bottom);
-      }
+      syncBottom(bottom);
     };
 
     const vv = window.visualViewport;
@@ -114,17 +93,20 @@ export function ChatInput({
         if (ticking) return;
         ticking = true;
         window.requestAnimationFrame(() => {
-          const bottom = Math.max(0, window.innerHeight - (vv.offsetTop + vv.height));
+          const bottom = Math.max(
+            0,
+            window.innerHeight - (vv.offsetTop + vv.height),
+          );
           updateBottom(bottom);
           ticking = false;
         });
       };
       update();
-      vv.addEventListener('resize', update);
-      vv.addEventListener('scroll', update);
+      vv.addEventListener("resize", update);
+      vv.addEventListener("scroll", update);
       return () => {
-        vv.removeEventListener('resize', update);
-        vv.removeEventListener('scroll', update);
+        vv.removeEventListener("resize", update);
+        vv.removeEventListener("scroll", update);
       };
     }
 
@@ -133,80 +115,54 @@ export function ChatInput({
       if (ticking) return;
       ticking = true;
       window.requestAnimationFrame(() => {
-        const bottom = Math.max(0, window.innerHeight - document.documentElement.clientHeight);
+        const bottom = Math.max(
+          0,
+          window.innerHeight - document.documentElement.clientHeight,
+        );
         updateBottom(bottom);
         ticking = false;
       });
     };
-    window.addEventListener('resize', updateFallback);
+    window.addEventListener("resize", updateFallback);
     updateFallback();
-    return () => window.removeEventListener('resize', updateFallback);
-  }, [emojiOpen]);
+    return () => window.removeEventListener("resize", updateFallback);
+  }, []);
 
-  useEffect(() => {
-    const bottom = emojiOpen ? panelHeight : keyboardBottom;
-    document.documentElement.style.setProperty('--vv-bottom', `${Math.max(0, bottom)}px`);
-    try {
-      window.dispatchEvent(new CustomEvent('chat-visual-viewport', { detail: { bottom } }));
-    } catch (_) {}
-    reportLayout();
-  }, [emojiOpen, panelHeight, keyboardBottom, reportLayout]);
+  // ─── Handle Toggle for keyboard configuration styles ─────────────────────────
+  const handleNativeEmojiToggle = () => {
+    const ta = textareaRef.current;
+    if (!ta) return;
+
+    if (isTouch) {
+      // Toggle native device input types dynamically to access native keyboard layers
+      setNativeEmojiMode((prev) => !prev);
+      ta.blur();
+      setTimeout(() => {
+        ta.focus();
+      }, 60);
+    } else {
+      // Fallback fallback interaction
+      setNativeEmojiMode((prev) => !prev);
+      ta.focus();
+    }
+  };
 
   const handleFocus = () => {
-    if (emojiOpen) {
-      setEmojiOpen(false);
-      textareaRef.current?.focus();
+    if (nativeEmojiMode && !isTouch) {
+      setNativeEmojiMode(false);
     }
   };
 
-  const handleEmojiClick = () => {
-    if (!isTouch) {
-      setEmojiOpen(prev => !prev);
-      return;
-    }
-
-    if (emojiOpen) {
-      setEmojiOpen(false);
-      textareaRef.current?.focus();
-      return;
-    }
-
-    const desiredHeight = Math.max(280, keyboardBottom || 280);
-    setPanelHeight(desiredHeight);
-    textareaRef.current?.blur();
-    setEmojiOpen(true);
-  };
-
-  const insertEmoji = (emoji: string) => {
-    const ta = textareaRef.current;
-    if (ta) {
-      const start = ta.selectionStart ?? text.length;
-      const end = ta.selectionEnd ?? text.length;
-      const newText = text.slice(0, start) + emoji + text.slice(end);
-      setText(newText);
-      saveRecentEmoji(emoji);
-      requestAnimationFrame(() => {
-        ta.selectionStart = ta.selectionEnd = start + emoji.length;
-        ta.focus();
-      });
-    } else {
-      setText(prev => prev + emoji);
-      saveRecentEmoji(emoji);
-    }
-    setEmojiOpen(false);
-  };
-
-  // ─── Handlers ────────────────────────────────────────────────────────────────
   const handleSend = useCallback(() => {
     const trimmed = text.trim();
     if (!trimmed || disabled) return;
     onSend(trimmed);
-    setText('');
-    if (textareaRef.current) textareaRef.current.style.height = 'auto';
+    setText("");
+    if (textareaRef.current) textareaRef.current.style.height = "auto";
   }, [text, disabled, onSend]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
+    if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       handleSend();
     }
@@ -218,27 +174,37 @@ export function ChatInput({
   };
 
   return (
-    <>
-      <div
-        ref={wrapperRef}
-        className="chat-input-fixed flex items-end gap-2 p-3 bg-chat-input-bg border-t border-border"
-      >
-      {/* Attach */}
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="text-muted-foreground hover:text-foreground flex-shrink-0 mb-0.5"
-          >
-            <Paperclip className="w-5 h-5" />
-          </Button>
-        </TooltipTrigger>
-        <TooltipContent>Attach file</TooltipContent>
-      </Tooltip>
+    <div
+      ref={wrapperRef}
+      className="chat-input-fixed w-full flex items-end gap-2 px-3 py-2.5 bg-background border-t border-border/40 select-none backdrop-blur-lg"
+      style={{ transform: "translateZ(0)" }}
+    >
+      {/* WhatsApp Integrated Bubble Wrapper */}
+      <div className="flex-1 flex items-end bg-muted/60 hover:bg-muted/80 border border-border/40 rounded-[24px] px-2 py-1 transition-all duration-200 shadow-sm">
+        {/* Toggle between keyboard and native emoji layers via platform interfaces */}
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="text-muted-foreground hover:text-foreground h-9 w-9 rounded-full transition-transform active:scale-95 flex-shrink-0"
+              onClick={handleNativeEmojiToggle}
+              aria-label="Toggle native input type"
+            >
+              {nativeEmojiMode ? (
+                <Keyboard className="w-[22px] h-[22px] text-primary" />
+              ) : (
+                <Smile className="w-[22px] h-[22px]" />
+              )}
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent className="text-xs font-medium">
+            Emoji Keyboard
+          </TooltipContent>
+        </Tooltip>
 
-      {/* Textarea + emoji picker */}
-      <div className="flex-1 relative">
+        {/* Core dynamic auto-expanding responsive textarea */}
         <textarea
           ref={textareaRef}
           value={text}
@@ -248,155 +214,66 @@ export function ChatInput({
           placeholder={placeholder}
           rows={1}
           disabled={disabled}
+          inputMode={nativeEmojiMode ? "search" : "text"}
           className={cn(
-            'w-full resize-none bg-secondary rounded-2xl px-4 py-2.5 pr-10 text-sm text-foreground',
-            'placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring',
-            'max-h-[120px] transition-colors'
+            "flex-1 resize-none bg-transparent rounded-xl px-2 py-2 text-[15px] leading-tight text-foreground max-h-[140px]",
+            "placeholder:text-muted-foreground/80 focus:outline-none min-h-[36px] transition-all scrollbar-none",
           )}
         />
 
-        {/* Desktop-only emoji popover (mobile users use their native keyboard emoji key) */}
-        {isTouch ? (
-          /* Mobile: emoji panel toggle */
-          <Button
-            variant="ghost"
-            size="icon"
-            className="absolute right-1 bottom-0.5 text-muted-foreground hover:text-foreground h-8 w-8"
-            onClick={handleEmojiClick}
-            aria-label={emojiOpen ? 'Switch to keyboard' : 'Open emoji picker'}
-            id="emoji-picker-btn"
-          >
-            {emojiOpen ? <Keyboard className="w-5 h-5" /> : <Smile className="w-5 h-5" />}
-          </Button>
-        ) : (
-          /* Desktop: popover with quick emoji grid */
-          <Popover open={emojiOpen} onOpenChange={setEmojiOpen}>
-            <PopoverTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="absolute right-1 bottom-0.5 text-muted-foreground hover:text-foreground h-8 w-8"
-                onClick={handleEmojiClick}
-                aria-label="Emoji"
-                id="emoji-picker-btn"
-              >
-                <Smile className="w-5 h-5" />
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent
-              className="w-72 bg-card border-border p-2"
-              align="end"
-              side="top"
-              // Don't steal focus from textarea
-              onOpenAutoFocus={e => e.preventDefault()}
-            >
-              <div className="grid grid-cols-8 gap-1">
-                {EMOJI_LIST.map(emoji => (
-                  <button
-                    key={emoji}
-                    onMouseDown={e => {
-                      // Prevent blur on textarea before we insert
-                      e.preventDefault();
-                      insertEmoji(emoji);
-                    }}
-                    className="w-8 h-8 flex items-center justify-center text-lg hover:bg-accent rounded-md transition-colors active:scale-90"
-                  >
-                    {emoji}
-                  </button>
-                ))}
-              </div>
-            </PopoverContent>
-          </Popover>
-        )}
-      </div>
-
-      {/* Send / Mic */}
-      {text.trim() ? (
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button
-              onClick={handleSend}
-              size="icon"
-              className="bg-primary hover:bg-primary/90 rounded-full flex-shrink-0 mb-0.5 w-10 h-10 transition-transform active:scale-90"
-              disabled={disabled}
-              id="send-message-btn"
-            >
-              <Send className="w-4 h-4" />
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent>Send</TooltipContent>
-        </Tooltip>
-      ) : (
+        {/* Attachment Controller */}
         <Tooltip>
           <TooltipTrigger asChild>
             <Button
               variant="ghost"
               size="icon"
-              className="text-muted-foreground hover:text-foreground flex-shrink-0 mb-0.5"
+              className="text-muted-foreground hover:text-foreground h-9 w-9 rounded-full transition-transform active:scale-95 flex-shrink-0"
             >
-              <Mic className="w-5 h-5" />
+              <Paperclip className="w-[20px] h-[20px]" />
             </Button>
           </TooltipTrigger>
-          <TooltipContent>Voice message</TooltipContent>
+          <TooltipContent className="text-xs font-medium">
+            Attach
+          </TooltipContent>
         </Tooltip>
-      )}
-    </div>
-
-    {isTouch && (
-      <div
-        className={cn(
-          'chat-emoji-panel fixed left-0 right-0 bottom-0 z-40 overflow-hidden border-t border-border bg-card shadow-[0_-8px_30px_rgba(0,0,0,0.18)] transition-transform duration-200 ease-out',
-          emojiOpen ? 'translate-y-0 opacity-100 pointer-events-auto' : 'translate-y-full opacity-0 pointer-events-none'
-        )}
-        style={{ height: panelHeight || 280 }}
-      >
-        <div className="flex items-center justify-between px-3 py-2 border-b border-border text-xs text-muted-foreground">
-          <span className="font-semibold">Emoji</span>
-          <button
-            type="button"
-            onClick={handleEmojiClick}
-            className="inline-flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors"
-            aria-label="Switch to keyboard"
-          >
-            <Keyboard className="w-4 h-4" />
-          </button>
-        </div>
-        <div className="p-3 overflow-y-auto h-full">
-          {recentEmojis.length > 0 && (
-            <div className="mb-3">
-              <p className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground mb-2">Recent</p>
-              <div className="grid grid-cols-8 gap-2">
-                {recentEmojis.map(emoji => (
-                  <button
-                    key={emoji}
-                    type="button"
-                    onClick={() => insertEmoji(emoji)}
-                    className="h-9 w-9 rounded-xl text-lg hover:bg-secondary transition-colors"
-                  >
-                    {emoji}
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-          <div>
-            <p className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground mb-2">Quick</p>
-            <div className="grid grid-cols-8 gap-2">
-              {EMOJI_LIST.map(emoji => (
-                <button
-                  key={emoji}
-                  type="button"
-                  onClick={() => insertEmoji(emoji)}
-                  className="h-9 w-9 rounded-xl text-lg hover:bg-secondary transition-colors"
-                >
-                  {emoji}
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
       </div>
-    )}
-</>
+
+      {/* Action Element Floating Button Well */}
+      <div className="flex-shrink-0 pb-[2px]">
+        {text.trim() ? (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                onClick={handleSend}
+                size="icon"
+                className="bg-primary hover:bg-primary/95 text-primary-foreground rounded-full w-10 h-10 shadow-md flex items-center justify-center transition-all duration-200 active:scale-90"
+                disabled={disabled}
+                id="send-message-btn"
+              >
+                <Send className="w-[18px] h-[18px] ml-[2px]" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent className="text-xs font-medium">
+              Send
+            </TooltipContent>
+          </Tooltip>
+        ) : (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="bg-muted/60 border border-border/30 hover:bg-muted/80 text-muted-foreground hover:text-foreground w-10 h-10 rounded-full shadow-sm flex items-center justify-center transition-all duration-200 active:scale-90"
+              >
+                <Mic className="w-[20px] h-[20px]" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent className="text-xs font-medium">
+              Voice note
+            </TooltipContent>
+          </Tooltip>
+        )}
+      </div>
+    </div>
   );
 }

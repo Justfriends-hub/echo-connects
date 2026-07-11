@@ -1,42 +1,66 @@
-import { CheckCircle2 } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import React from "react";
+import { cn } from "@/lib/utils";
 
 interface SidebarTabSwitcherProps {
-  activeTab: 'chats' | 'status';
-  onChange: (tab: 'chats' | 'status') => void;
+  activeTab: "chats" | "status";
+  onChange: (tab: "chats" | "status") => void;
   hasUnseenStatuses: boolean;
 }
 
-export function SidebarTabSwitcher({ activeTab, onChange, hasUnseenStatuses }: SidebarTabSwitcherProps) {
+export function SidebarTabSwitcher({
+  activeTab,
+  onChange,
+  hasUnseenStatuses,
+}: SidebarTabSwitcherProps) {
   return (
-    <div className="flex items-center justify-between bg-sidebar border-b border-sidebar-border px-3 py-2">
-      <button
-        type="button"
-        onClick={() => onChange('chats')}
-        className={cn(
-          'flex-1 px-3 py-2 rounded-full transition-colors duration-200',
-          activeTab === 'chats'
-            ? 'bg-primary/10 text-primary font-semibold shadow-inner'
-            : 'text-muted-foreground hover:bg-sidebar-accent/70'
-        )}
-      >
-        Chats
-      </button>
-      <button
-        type="button"
-        onClick={() => onChange('status')}
-        className={cn(
-          'relative flex-1 px-3 py-2 rounded-full transition-colors duration-200 ml-2',
-          activeTab === 'status'
-            ? 'bg-primary/10 text-primary font-semibold shadow-inner'
-            : 'text-muted-foreground hover:bg-sidebar-accent/70'
-        )}
-      >
-        Status
-        {hasUnseenStatuses && (
-          <span className="absolute -top-1 -right-1 h-2.5 w-2.5 rounded-full bg-unread-badge ring-1 ring-sidebar" />
-        )}
-      </button>
+    /* Integrated a sleek unified navigation track mimicking premium messenger clients */
+    <div className="px-4 py-2 bg-sidebar border-b border-sidebar-border/40 flex-shrink-0 select-none">
+      <div className="relative flex items-center bg-muted/40 p-1 rounded-xl border border-border/20 overflow-hidden">
+        {/* Hardware Accelerated Sliding Accent Background Track Slider */}
+        <div
+          className={cn(
+            "absolute top-1 bottom-1 left-1 w-[calc(50%-4px)] bg-background rounded-lg shadow-sm border border-border/30",
+            "transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] will-change-transform",
+            activeTab === "status" ? "translate-x-full" : "translate-x-0",
+          )}
+        />
+
+        {/* Chats Selection Trigger Tab */}
+        <button
+          type="button"
+          onClick={() => onChange("chats")}
+          className={cn(
+            "relative flex-1 py-2 text-xs font-bold uppercase tracking-wider text-center z-10 transition-colors duration-200 focus:outline-none",
+            "transform active:scale-[0.98]",
+            activeTab === "chats"
+              ? "text-primary"
+              : "text-muted-foreground/80 hover:text-foreground",
+          )}
+        >
+          Chats
+        </button>
+
+        {/* Status Selection Trigger Tab */}
+        <button
+          type="button"
+          onClick={() => onChange("status")}
+          className={cn(
+            "relative flex-1 py-2 text-xs font-bold uppercase tracking-wider text-center z-10 transition-colors duration-200 focus:outline-none",
+            "transform active:scale-[0.98]",
+            activeTab === "status"
+              ? "text-primary"
+              : "text-muted-foreground/80 hover:text-foreground",
+          )}
+        >
+          <span className="inline-flex items-center justify-center gap-1.5 relative">
+            Status
+            {hasUnseenStatuses && (
+              /* WhatsApp style dynamic emerald ring dot that scales up seamlessly */
+              <span className="h-2 w-2 rounded-full bg-emerald-500 ring-2 ring-background shadow-sm animate-in zoom-in-50 duration-300" />
+            )}
+          </span>
+        </button>
+      </div>
     </div>
   );
 }
