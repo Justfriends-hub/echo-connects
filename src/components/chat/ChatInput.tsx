@@ -70,6 +70,7 @@ export function ChatInput({
   // ─── Track Visual Viewport changes to pin elements beautifully ─────────────────
   useEffect(() => {
     const syncBottom = (bottom: number) => {
+      // Smooth dynamic execution on mobile layout adjustments
       document.documentElement.style.setProperty(
         "--vv-bottom",
         `${Math.max(0, bottom)}px`,
@@ -134,14 +135,12 @@ export function ChatInput({
     if (!ta) return;
 
     if (isTouch) {
-      // Toggle native device input types dynamically to access native keyboard layers
       setNativeEmojiMode((prev) => !prev);
       ta.blur();
       setTimeout(() => {
         ta.focus();
       }, 60);
     } else {
-      // Fallback fallback interaction
       setNativeEmojiMode((prev) => !prev);
       ta.focus();
     }
@@ -176,30 +175,33 @@ export function ChatInput({
   return (
     <div
       ref={wrapperRef}
-      className="chat-input-fixed w-full flex items-end gap-2 px-3 py-2.5 bg-background border-t border-border/40 select-none backdrop-blur-lg"
-      style={{ transform: "translateZ(0)" }}
+      className="w-full flex items-end gap-2 px-3 py-3 bg-background/90 border-t border-border/30 select-none backdrop-blur-xl transition-all duration-300 ease-out behavior-contain"
+      style={{
+        transform: `translate3d(0, -${keyboardBottom}px, 0)`,
+        willChange: "transform",
+      }}
     >
-      {/* WhatsApp Integrated Bubble Wrapper */}
-      <div className="flex-1 flex items-end bg-muted/60 hover:bg-muted/80 border border-border/40 rounded-[24px] px-2 py-1 transition-all duration-200 shadow-sm">
-        {/* Toggle between keyboard and native emoji layers via platform interfaces */}
+      {/* WhatsApp + Telegram Hybrid Bubble Wrapper */}
+      <div className="flex-1 flex items-end bg-muted/50 focus-within:bg-muted/80 border border-border/30 rounded-[22px] px-2 py-1 transition-all duration-200 ease-in-out shadow-sm focus-within:shadow-md">
+        {/* Toggle between keyboard and native emoji layers */}
         <Tooltip>
           <TooltipTrigger asChild>
             <Button
               type="button"
               variant="ghost"
               size="icon"
-              className="text-muted-foreground hover:text-foreground h-9 w-9 rounded-full transition-transform active:scale-95 flex-shrink-0"
+              className="text-muted-foreground/80 hover:text-foreground h-9 w-9 rounded-full transition-all duration-200 active:scale-90 hover:bg-background/40 flex-shrink-0"
               onClick={handleNativeEmojiToggle}
               aria-label="Toggle native input type"
             >
               {nativeEmojiMode ? (
-                <Keyboard className="w-[22px] h-[22px] text-primary" />
+                <Keyboard className="w-[21px] h-[21px] text-primary transition-transform duration-200" />
               ) : (
-                <Smile className="w-[22px] h-[22px]" />
+                <Smile className="w-[21px] h-[21px] transition-transform duration-200" />
               )}
             </Button>
           </TooltipTrigger>
-          <TooltipContent className="text-xs font-medium">
+          <TooltipContent className="text-xs font-medium backdrop-blur-md">
             Emoji Keyboard
           </TooltipContent>
         </Tooltip>
@@ -216,8 +218,8 @@ export function ChatInput({
           disabled={disabled}
           inputMode={nativeEmojiMode ? "search" : "text"}
           className={cn(
-            "flex-1 resize-none bg-transparent rounded-xl px-2 py-2 text-[15px] leading-tight text-foreground max-h-[140px]",
-            "placeholder:text-muted-foreground/80 focus:outline-none min-h-[36px] transition-all scrollbar-none",
+            "flex-1 resize-none bg-transparent rounded-xl px-2 py-2 text-[15px] leading-relaxed text-foreground max-h-[140px]",
+            "placeholder:text-muted-foreground/60 focus:outline-none min-h-[36px] transition-all scrollbar-none",
           )}
         />
 
@@ -227,33 +229,33 @@ export function ChatInput({
             <Button
               variant="ghost"
               size="icon"
-              className="text-muted-foreground hover:text-foreground h-9 w-9 rounded-full transition-transform active:scale-95 flex-shrink-0"
+              className="text-muted-foreground/80 hover:text-foreground h-9 w-9 rounded-full transition-all duration-200 active:scale-90 hover:bg-background/40 flex-shrink-0"
             >
-              <Paperclip className="w-[20px] h-[20px]" />
+              <Paperclip className="w-[19px] h-[19px] transition-transform duration-200 hover:rotate-12" />
             </Button>
           </TooltipTrigger>
-          <TooltipContent className="text-xs font-medium">
+          <TooltipContent className="text-xs font-medium backdrop-blur-md">
             Attach
           </TooltipContent>
         </Tooltip>
       </div>
 
-      {/* Action Element Floating Button Well */}
-      <div className="flex-shrink-0 pb-[2px]">
+      {/* Floating Action Button (Telegram-Inspired Sleek Micro-interactions) */}
+      <div className="flex-shrink-0 pb-[1px]">
         {text.trim() ? (
           <Tooltip>
             <TooltipTrigger asChild>
               <Button
                 onClick={handleSend}
                 size="icon"
-                className="bg-primary hover:bg-primary/95 text-primary-foreground rounded-full w-10 h-10 shadow-md flex items-center justify-center transition-all duration-200 active:scale-90"
+                className="bg-primary hover:bg-primary/90 text-primary-foreground rounded-full w-[40px] h-[40px] shadow-sm flex items-center justify-center transition-all duration-200 cubic-bezier(0.34, 1.56, 0.64, 1) active:scale-75 hover:scale-105"
                 disabled={disabled}
                 id="send-message-btn"
               >
-                <Send className="w-[18px] h-[18px] ml-[2px]" />
+                <Send className="w-[17px] h-[17px] ml-[2px] transition-transform duration-200" />
               </Button>
             </TooltipTrigger>
-            <TooltipContent className="text-xs font-medium">
+            <TooltipContent className="text-xs font-medium backdrop-blur-md">
               Send
             </TooltipContent>
           </Tooltip>
@@ -263,12 +265,12 @@ export function ChatInput({
               <Button
                 variant="ghost"
                 size="icon"
-                className="bg-muted/60 border border-border/30 hover:bg-muted/80 text-muted-foreground hover:text-foreground w-10 h-10 rounded-full shadow-sm flex items-center justify-center transition-all duration-200 active:scale-90"
+                className="bg-muted/40 border border-border/20 hover:bg-muted/70 text-muted-foreground/80 hover:text-foreground w-[40px] h-[40px] rounded-full shadow-sm flex items-center justify-center transition-all duration-200 cubic-bezier(0.34, 1.56, 0.64, 1) active:scale-75 hover:scale-105"
               >
-                <Mic className="w-[20px] h-[20px]" />
+                <Mic className="w-[19px] h-[19px] transition-transform duration-200" />
               </Button>
             </TooltipTrigger>
-            <TooltipContent className="text-xs font-medium">
+            <TooltipContent className="text-xs font-medium backdrop-blur-md">
               Voice note
             </TooltipContent>
           </Tooltip>
