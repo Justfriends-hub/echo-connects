@@ -286,7 +286,7 @@ export function ChatArea({
         style={{ zIndex: 1 }}
       >
         {/* ─── LAYER 1: HEADER BAR ─────────────────────────────────────── */}
-        <div className="flex items-center gap-3 px-4 py-2 bg-card/90 backdrop-blur-md border-b border-border/60 flex-shrink-0 z-10 shadow-sm transition-all duration-200">
+        <div className="sticky top-0 z-20 flex items-center gap-3 px-4 py-2 bg-card/90 backdrop-blur-md border-b border-border/60 shadow-sm transition-all duration-200">
           <Button
             variant="ghost"
             size="icon"

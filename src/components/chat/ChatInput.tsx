@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react'
+import { createPortal } from 'react-dom'
 import { Send, Paperclip, Smile, Mic, Keyboard } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
@@ -21,6 +22,7 @@ export function ChatInput({ onSend, onTyping, disabled, placeholder = 'Message',
   const [text, setText] = useState('')
   const [nativeEmojiMode, setNativeEmojiMode] = useState(false)
   const [keyboardBottom, setKeyboardBottom] = useState(0)
+  const [portalEl, setPortalEl] = useState<HTMLDivElement | null>(null)
 
   const textareaRef = useRef<HTMLTextAreaElement | null>(null)
   const wrapperRef = useRef<HTMLDivElement | null>(null)
@@ -40,6 +42,23 @@ export function ChatInput({ onSend, onTyping, disabled, placeholder = 'Message',
     ta.style.height = Math.min(ta.scrollHeight, 140) + 'px'
     reportLayout()
   }, [text, reportLayout])
+
+  useEffect(() => {
+    if (typeof document === 'undefined') return
+    const id = 'chat-input-portal'
+    let el = document.getElementById(id) as HTMLDivElement | null
+    if (!el) {
+      el = document.createElement('div')
+      el.id = id
+      document.body.appendChild(el)
+    }
+    setPortalEl(el)
+
+    return () => {
+      // keep the portal container alive for the app lifecycle to avoid
+      // tearing down the fixed input while the chat remains mounted.
+    }
+  }, [])
 
   // Track visual viewport to determine keyboard inset. Do NOT modify documentRoot styles—only move the chat input.
   useEffect(() => {
@@ -120,7 +139,7 @@ export function ChatInput({ onSend, onTyping, disabled, placeholder = 'Message',
     onTyping?.()
   }
 
-  return (
+  const chatInput = (
     <div
       ref={wrapperRef}
       className="w-full flex items-end gap-2 px-3 py-3 bg-background/90 border-t border-border/30 select-none backdrop-blur-xl transition-all duration-300 ease-out"
@@ -190,6 +209,12 @@ export function ChatInput({ onSend, onTyping, disabled, placeholder = 'Message',
       </div>
     </div>
   )
+
+  if (!portalEl) {
+    return chatInput
+  }
+
+  return createPortal(chatInput, portalEl)
 }
 
 export default ChatInput
