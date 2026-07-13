@@ -224,9 +224,22 @@ export function ChatArea({
   const showOnlineRing = !isGroup && chat.is_online;
 
   return (
-    <div className="flex flex-col h-full min-h-0 bg-background relative overflow-hidden select-none md:select-text">
+    <div className="flex flex-col h-full min-h-0 relative overflow-hidden select-none md:select-text">
+      {/* ── Fixed Wallpaper — never moves, even when keyboard opens ── */}
+      <div
+        className="chat-bg"
+        style={{
+          position: 'fixed',
+          inset: 0,
+          width: '100vw',
+          height: '100vh',
+          zIndex: 0,
+          pointerEvents: 'none',
+        }}
+      />
       {/* Sleek, Blended Header Bar */}
-      <div className="flex items-center gap-3 px-4 py-2 bg-card/90 backdrop-blur-md border-b border-border/60 flex-shrink-0 z-10 shadow-sm transition-all duration-200">
+      <div className="flex items-center gap-3 px-4 py-2 bg-card/90 backdrop-blur-md border-b border-border/60 flex-shrink-0 z-10 shadow-sm transition-all duration-200 relative">
+
         <Button
           variant="ghost"
           size="icon"
@@ -327,11 +340,12 @@ export function ChatArea({
       <div
         ref={scrollRef}
         onScroll={handleScroll}
-        className="flex-1 min-h-0 overflow-y-auto chat-messages-scroll px-4 py-3 space-y-2 overscroll-contain"
+        className="flex-1 min-h-0 overflow-y-auto chat-messages-scroll px-4 py-3 space-y-2 overscroll-contain relative z-[1]"
         style={{
           paddingBottom: inputHeight + 20,
           scrollbarWidth: "none",
           WebkitOverflowScrolling: "touch",
+          backgroundColor: 'transparent',
         }}
       >
         <div className="max-w-3xl mx-auto space-y-1">
@@ -415,7 +429,7 @@ export function ChatArea({
       </div>
 
       {/* Floating Modern Action Bar Container */}
-      <div className="absolute bottom-0 left-0 right-0 z-20 pointer-events-none p-2 md:p-3 bg-gradient-to-t from-background via-background/80 to-transparent">
+      <div className="absolute bottom-0 left-0 right-0 z-20 pointer-events-none p-2 md:p-3 bg-gradient-to-t from-[hsl(var(--chat-bg))] via-[hsl(var(--chat-bg)/0.6)] to-transparent">
         <div className="max-w-3xl mx-auto w-full pointer-events-auto transition-transform duration-200">
           <ChatInput
             onSend={onSendMessage}
