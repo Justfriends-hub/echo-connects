@@ -237,53 +237,6 @@ export function ChatLayout() {
 
   return (
     <>
-      {/* Wallpaper layer - render at top level as fixed sibling so it escapes transform scope */}
-      {mounted && (
-        <div
-          aria-hidden
-          style={{
-            position: 'fixed',
-            inset: 0,
-            zIndex: 0,
-            pointerEvents: 'none',
-          }}
-        >
-          {prevWallpaper && (
-            <div
-              style={{
-                position: 'absolute',
-                inset: 0,
-                backgroundImage: `url(${prevWallpaper})`,
-                backgroundSize: 'cover',
-                backgroundPosition: 'center',
-                backgroundRepeat: 'no-repeat',
-                transition: 'opacity 300ms ease-out, transform 300ms ease-out',
-                opacity: curVisible ? 0 : 1,
-                transform: curVisible ? 'translateY(-10px) scale(0.98)' : 'translateY(0) scale(1)',
-              }}
-            />
-          )}
-          {curWallpaper ? (
-            <div
-              key={curWallpaper}
-              style={{
-                position: 'absolute',
-                inset: 0,
-                backgroundImage: `url(${curWallpaper})`,
-                backgroundSize: 'cover',
-                backgroundPosition: 'center',
-                backgroundRepeat: 'no-repeat',
-                transition: 'opacity 300ms ease-out, transform 300ms ease-out',
-                opacity: curVisible ? 1 : 0,
-                transform: curVisible ? 'translateY(0) scale(1)' : 'translateY(10px) scale(1.02)',
-              }}
-            />
-          ) : (
-            <div className="chat-bg" style={{ position: 'absolute', inset: 0 }} />
-          )}
-        </div>
-      )}
-
       {/* Main app container */}
       <div className="fixed inset-0 h-full w-full w-screen overflow-hidden bg-background pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)] pr-[env(safe-area-inset-right)] pl-[env(safe-area-inset-left)]">
         {isMobile ? (
