@@ -272,33 +272,8 @@ export function ChatArea({
       className="relative h-full w-full overflow-hidden select-none md:select-text"
       style={{ isolation: 'isolate' }}
     >
-      {/* ═══════════════════════════════════════════════════════════════════
-          LAYER 0: WALLPAPER — absolute, full-bleed, immovable, render-once.
-          This div is NEVER modified by JS after mount. No transforms, no
-          height changes, no resize listeners. It sits behind everything.
-          Using min-height:100dvh as a fallback for dynamic viewport height
-          on mobile browsers where 100% might not account for browser chrome.
-          ═══════════════════════════════════════════════════════════════════ */}
-      <div
-        aria-hidden="true"
-        className="chat-bg"
-        style={{
-          position: 'absolute',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          width: '100%',
-          height: '100%',
-          minHeight: '100dvh',
-          zIndex: 0,
-          pointerEvents: 'none',
-          // GPU-composite this layer so it's on its own compositing layer
-          // and immune to repaints from sibling layout changes
-          willChange: 'auto',
-          contain: 'strict',
-        }}
-      />
+      {/* Wallpaper moved to ChatLayout so it can be rendered as a
+          viewport-fixed layer outside any transform-scoped ancestors. */}
 
       {/* ═══════════════════════════════════════════════════════════════════
           CONTENT LAYERS (1-3): Header + Messages + Input

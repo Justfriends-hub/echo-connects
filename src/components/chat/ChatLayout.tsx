@@ -75,6 +75,26 @@ export function ChatLayout() {
   );
   const isMobile = useIsMobile();
 
+  // Wallpaper transition state
+  const [prevWallpaper, setPrevWallpaper] = useState<string | null>(null);
+  const [curWallpaper, setCurWallpaper] = useState<string | null>(currentChat?.wallpaper_url ?? null);
+  const [curVisible, setCurVisible] = useState(true);
+
+  useEffect(() => {
+    const next = currentChat?.wallpaper_url ?? null;
+    if (next === curWallpaper) return;
+    setPrevWallpaper(curWallpaper);
+    setCurVisible(false);
+    setCurWallpaper(next);
+    const t1 = window.setTimeout(() => setCurVisible(true), 40);
+    const t2 = window.setTimeout(() => setPrevWallpaper(null), 360);
+    return () => {
+      window.clearTimeout(t1);
+      window.clearTimeout(t2);
+    };
+  }, [currentChat?.wallpaper_url]);
+
+
   // Redirect to auth if signed out
   useEffect(() => {
     if (!authLoading && !user) navigate("/auth");
@@ -171,6 +191,46 @@ export function ChatLayout() {
         Ensures smooth transition with keyboard and zero safe-area rendering layout breaks.
       */}
       <div className="fixed inset-0 h-full w-full w-screen overflow-hidden bg-background pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)] pr-[env(safe-area-inset-right)] pl-[env(safe-area-inset-left)]">
+        {/* Wallpaper: render as a viewport-fixed layer outside transform-scoped frames.
+            Use active chat wallpaper when available; otherwise fall back to CSS `chat-bg`.
+            We render a previous and current wallpaper with fade + slide/scale transitions
+            to keep the switch feeling smooth and intentional. */}
+        <div aria-hidden style={{position:'fixed', inset:0, zIndex:0, pointerEvents:'none'}}>
+          {prevWallpaper && (
+            <div
+              style={{
+                position: 'absolute',
+                inset: 0,
+                backgroundImage: `url(${prevWallpaper})`,
+                backgroundSize: 'cover',
+                backgroundPosition: 'center',
+                backgroundRepeat: 'no-repeat',
+                transition: 'opacity 300ms ease-out, transform 300ms ease-out',
+                opacity: curVisible ? 0 : 1,
+                transform: curVisible ? 'translateY(-10px) scale(0.98)' : 'translateY(0) scale(1)',
+              }}
+            />
+          )}
+
+          {curWallpaper ? (
+            <div
+              key={curWallpaper}
+              style={{
+                position: 'absolute',
+                inset: 0,
+                backgroundImage: `url(${curWallpaper})`,
+                backgroundSize: 'cover',
+                backgroundPosition: 'center',
+                backgroundRepeat: 'no-repeat',
+                transition: 'opacity 300ms ease-out, transform 300ms ease-out',
+                opacity: curVisible ? 1 : 0,
+                transform: curVisible ? 'translateY(0) scale(1)' : 'translateY(10px) scale(1.02)',
+              }}
+            />
+          ) : (
+            <div className="chat-bg" style={{position:'absolute', inset:0}} />
+          )}
+        </div>
         {isMobile ? (
           /* Mobile Viewport: Absolute slider deck layer to mimic a native application frame wrapper */
           <div className="relative flex h-full w-full overflow-hidden bg-background">

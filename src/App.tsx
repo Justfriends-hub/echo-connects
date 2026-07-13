@@ -12,6 +12,7 @@ import Login from "./pages/Login";
 import Settings from "./pages/Settings";
 import AdminDashboard from "./pages/AdminDashboard";
 import NotFound from "./pages/NotFound";
+import WallpaperDemo from "./pages/WallpaperDemo";
 import GlobalErrorBoundary from '@/components/GlobalErrorBoundary';
 
 const queryClient = new QueryClient({
@@ -69,6 +70,7 @@ const App = () => (
             <Route path="/login" element={<Login />} />
             <Route path="/settings" element={<Settings />} />
             <Route path="/admin" element={<AdminDashboard />} />
+            <Route path="/dev/wallpaper-demo" element={<WallpaperDemo />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>
