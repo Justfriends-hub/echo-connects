@@ -285,8 +285,8 @@ export function ChatArea({
         className="relative flex flex-col h-full w-full"
         style={{ zIndex: 1 }}
       >
-        {/* ─── LAYER 1: HEADER BAR ─────────────────────────────────────── */}
-        <div className="sticky top-0 z-20 flex items-center gap-3 px-4 py-2 bg-card shadow-sm shadow-black/5 border-b border-border/70 transition-all duration-200">
+        {/* ─── LAYER 1: HEADER BAR (absolutely positioned so keyboard opening can't push it) ─── */}
+        <div className="absolute top-0 left-0 right-0 z-20 flex items-center gap-3 px-4 py-2 bg-card shadow-sm shadow-black/5 border-b border-border/70 transition-all duration-200 h-14">
           <Button
             variant="ghost"
             size="icon"
@@ -383,15 +383,15 @@ export function ChatArea({
           </div>
         </div>
 
-        {/* ─── LAYER 2: MESSAGES SCROLL AREA ───────────────────────────── */}
+        {/* ─── LAYER 2: MESSAGES SCROLL AREA (with top padding for header) ─────────────────────────── */}
         {/* Transparent background so the wallpaper (Layer 0) shows through.
             padding-bottom tracks the input bar height so messages don't get
-            hidden behind it. This is the ONLY element that adjusts when the
-            keyboard opens (via scroll position, not layout changes). */}
+            hidden behind it. pt-14 reserves space for the absolutely positioned header.
+            This is the ONLY element that adjusts when the keyboard opens (via scroll position, not layout changes). */}
         <div
           ref={scrollRef}
           onScroll={handleScroll}
-          className="flex-1 min-h-0 overflow-y-auto px-4 py-3 space-y-2 overscroll-contain"
+          className="flex-1 min-h-0 overflow-y-auto px-4 py-3 space-y-2 overscroll-contain pt-14"
           style={{
             paddingBottom: inputHeight + 20,
             scrollbarWidth: "none",
