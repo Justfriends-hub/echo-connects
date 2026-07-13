@@ -20,7 +20,7 @@ export function SidebarTabSwitcher({
         <div
           className={cn(
             "absolute top-1 bottom-1 left-1 w-[calc(50%-4px)] bg-background rounded-lg shadow-sm border border-border/30",
-            "transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] will-change-transform",
+            "transition-transform duration-300 ease-in-out will-change-transform",
             activeTab === "status" ? "translate-x-full" : "translate-x-0",
           )}
         />
