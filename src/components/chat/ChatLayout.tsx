@@ -190,8 +190,8 @@ export function ChatLayout() {
 
   return (
     <>
-      {/* Wallpaper layer - render at top level with createPortal so it escapes transform scope */}
-      {mounted && createPortal(
+      {/* Wallpaper layer - render at top level as fixed sibling so it escapes transform scope */}
+      {mounted && (
         <div
           aria-hidden
           style={{
@@ -234,8 +234,7 @@ export function ChatLayout() {
           ) : (
             <div className="chat-bg" style={{ position: 'absolute', inset: 0 }} />
           )}
-        </div>,
-        document.body,
+        </div>
       )}
 
       {/* Main app container */}
