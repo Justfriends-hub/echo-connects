@@ -144,9 +144,6 @@ export function ChatLayout() {
     );
   };
 
-  // Render wallpaper portal
-  const wallpaperPortal = mounted ? WallpaperPortal() : null;
-
 
 
   // Redirect to auth if signed out
@@ -239,13 +236,11 @@ export function ChatLayout() {
 
   return (
     <>
-      {/* 
-        WhatsApp-style Edge-to-Edge Fluid Shell Container:
-        Replaced the stiff mt-[5vh] h-[95vh] bounds with structural dynamic viewport rules.
-        Ensures smooth transition with keyboard and zero safe-area rendering layout breaks.
-      */}
+      {/* Wallpaper layer - render to body portal so it's outside any transform scope */}
+      <WallpaperPortal />
+
+      {/* Main app container */}
       <div className="fixed inset-0 h-full w-full w-screen overflow-hidden bg-background pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)] pr-[env(safe-area-inset-right)] pl-[env(safe-area-inset-left)]">
-        {wallpaperPortal}
         {isMobile ? (
           /* Mobile Viewport: Absolute slider deck layer to mimic a native application frame wrapper */
           <div className="relative flex h-full w-full overflow-hidden bg-background">
