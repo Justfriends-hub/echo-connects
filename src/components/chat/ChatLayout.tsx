@@ -1,5 +1,4 @@
-import React, { useState, useCallback, useEffect } from "react";
-import { createPortal } from "react-dom";
+import React, { useState, useCallback, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { ChatSidebar } from "./ChatSidebar";
 import { ChatArea } from "./ChatArea";
@@ -80,25 +79,73 @@ export function ChatLayout() {
   const [prevWallpaper, setPrevWallpaper] = useState<string | null>(null);
   const [curWallpaper, setCurWallpaper] = useState<string | null>(currentChat?.wallpaper_url ?? null);
   const [curVisible, setCurVisible] = useState(true);
-  const [mounted, setMounted] = useState(false);
+  const wallpaperContainerRef = useRef<HTMLDivElement | null>(null);
 
+  // Create and manage fixed wallpaper element in DOM
   useEffect(() => {
-    setMounted(true);
+    let container = document.getElementById('chat-wallpaper-container');
+    if (!container) {
+      container = document.createElement('div');
+      container.id = 'chat-wallpaper-container';
+      // Lock wallpaper to the initial layout viewport size so the keyboard
+      // opening does not resize or shift the underlying image.
+      const width = window.visualViewport?.width ?? window.innerWidth;
+      const height = window.visualViewport?.height ?? window.innerHeight;
+      container.style.cssText = `position:fixed;top:0;left:0;width:${width}px;height:${height}px;z-index:-1;pointer-events:none;overflow:hidden;`;
+      document.body.insertBefore(container, document.body.firstChild);
+    }
+    wallpaperContainerRef.current = container;
+    return () => {
+      // Keep the wallpaper container alive for the app lifecycle.
+    };
   }, []);
 
+  // Update wallpaper content whenever it changes
   useEffect(() => {
     const next = currentChat?.wallpaper_url ?? null;
     if (next === curWallpaper) return;
+
     setPrevWallpaper(curWallpaper);
     setCurVisible(false);
     setCurWallpaper(next);
+
     const t1 = window.setTimeout(() => setCurVisible(true), 40);
     const t2 = window.setTimeout(() => setPrevWallpaper(null), 360);
+
     return () => {
       window.clearTimeout(t1);
       window.clearTimeout(t2);
     };
-  }, [currentChat?.wallpaper_url]);
+  }, [currentChat?.wallpaper_url, curWallpaper]);
+
+  // Render wallpaper into the fixed container
+  useEffect(() => {
+    if (!wallpaperContainerRef.current) return;
+    const container = wallpaperContainerRef.current;
+
+    // Clear existing content
+    container.innerHTML = '';
+
+    // Add previous wallpaper (fading out)
+    if (prevWallpaper) {
+      const prevDiv = document.createElement('div');
+      prevDiv.style.cssText = `position:absolute;top:0;left:0;width:100%;height:100%;background-image:url(${prevWallpaper});background-size:cover;background-position:center;background-repeat:no-repeat;transition:opacity 300ms ease-out,transform 300ms ease-out;opacity:${curVisible ? 0 : 1};transform:${curVisible ? 'translateY(-10px) scale(0.98)' : 'translateY(0) scale(1)'};`;
+      container.appendChild(prevDiv);
+    }
+
+    // Add current wallpaper (fading in)
+    if (curWallpaper) {
+      const curDiv = document.createElement('div');
+      curDiv.style.cssText = `position:absolute;top:0;left:0;width:100%;height:100%;background-image:url(${curWallpaper});background-size:cover;background-position:center;background-repeat:no-repeat;transition:opacity 300ms ease-out,transform 300ms ease-out;opacity:${curVisible ? 1 : 0};transform:${curVisible ? 'translateY(0) scale(1)' : 'translateY(10px) scale(1.02)'};`;
+      container.appendChild(curDiv);
+    } else {
+      // Fallback: use chat-bg color
+      const bgDiv = document.createElement('div');
+      bgDiv.className = 'chat-bg';
+      bgDiv.style.cssText = 'position:absolute;inset:0;';
+      container.appendChild(bgDiv);
+    }
+  }, [prevWallpaper, curWallpaper, curVisible]);
 
   // Redirect to auth if signed out
   useEffect(() => {
