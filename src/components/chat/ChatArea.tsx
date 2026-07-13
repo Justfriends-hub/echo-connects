@@ -1,6 +1,5 @@
 import React, { useRef, useEffect, useState, useCallback } from "react";
 import { MoreVertical, Users, Info } from "lucide-react";
-import ChatHeader from "./ChatHeader";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";

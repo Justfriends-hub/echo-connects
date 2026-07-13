@@ -229,6 +229,17 @@ export function ChatLayout() {
       </div>
 
       {/* Main app container */}
+      {/* Chat header (fixed, sibling to the wallpaper and chat frame) */}
+      {currentChat && (
+        <ChatHeader
+          chat={currentChat}
+          typingUsers={typingUsers}
+          isGroup={currentChat.type === "group" || currentChat.type === "channel"}
+          showOnlineRing={!((currentChat.type === "group" || currentChat.type === "channel")) && !!currentChat.is_online}
+          onBack={() => setActiveChat(null)}
+          onOpenInfo={() => setShowChatInfo(true)}
+        />
+      )}
       <div className="fixed inset-0 h-full w-full w-screen overflow-hidden bg-background pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)] pr-[env(safe-area-inset-right)] pl-[env(safe-area-inset-left)]">
         {isMobile ? (
           /* Mobile Viewport: Absolute slider deck layer to mimic a native application frame wrapper */
