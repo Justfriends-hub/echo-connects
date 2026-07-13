@@ -173,25 +173,6 @@ export default function ChatInput({ onSend, onTyping, disabled, placeholder = 'M
     </div>
   )
 }
-import React, { useState, useRef, useEffect, useCallback } from 'react'
-import { Send, Paperclip, Smile, Mic, Keyboard } from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
-import { cn } from '@/lib/utils'
-
-/** Detect touch-capable devices (phones/tablets with software keyboards) */
-function isTouchDevice(): boolean {
-  if (typeof window === 'undefined') return false
-  return 'ontouchstart' in window || navigator.maxTouchPoints > 0
-}
-
-interface ChatInputProps {
-  onSend: (content: string) => void
-  onTyping?: () => void
-  disabled?: boolean
-  placeholder?: string
-  onHeightChange?: (height: number) => void
-}
 
 export function ChatInput({ onSend, onTyping, disabled, placeholder = 'Message', onHeightChange }: ChatInputProps) {
   const [text, setText] = useState('')
