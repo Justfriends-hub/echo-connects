@@ -144,6 +144,10 @@ export function ChatLayout() {
     );
   };
 
+  // Render wallpaper portal
+  const wallpaperPortal = mounted ? WallpaperPortal() : null;
+
+
 
   // Redirect to auth if signed out
   useEffect(() => {
@@ -241,7 +245,7 @@ export function ChatLayout() {
         Ensures smooth transition with keyboard and zero safe-area rendering layout breaks.
       */}
       <div className="fixed inset-0 h-full w-full w-screen overflow-hidden bg-background pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)] pr-[env(safe-area-inset-right)] pl-[env(safe-area-inset-left)]">
-        <WallpaperPortal />
+        {wallpaperPortal}
         {isMobile ? (
           /* Mobile Viewport: Absolute slider deck layer to mimic a native application frame wrapper */
           <div className="relative flex h-full w-full overflow-hidden bg-background">
