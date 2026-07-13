@@ -147,7 +147,9 @@ export function ChatArea({
     prevFirstIdRef.current = first;
   }, [messages, isNearBottom]);
 
-  // Handle precise VisualViewport changes to eliminate bouncy gaps
+  // Handle precise VisualViewport changes to keep latest messages visible
+  // IMPORTANT: This effect only adjusts the scroll position of the messages container.
+  // It must NEVER touch the wallpaper element in any way.
   useEffect(() => {
     const onVV = () => {
       const container = scrollRef.current;
@@ -223,221 +225,300 @@ export function ChatArea({
   const isGroup = chat.type === "group" || chat.type === "channel";
   const showOnlineRing = !isGroup && chat.is_online;
 
+  /*
+   * ══════════════════════════════════════════════════════════════════════════
+   * THREE-LAYER ARCHITECTURE — wallpaper is completely decoupled
+   *
+   * Layer 0 (z-0):  WALLPAPER  — position:absolute, inset:0, covers full
+   *                               parent. Rendered once, no JS ever touches
+   *                               it after mount. No transforms, no resizes,
+   *                               no viewport listeners. Pure CSS, immovable.
+   *
+   * Layer 1 (z-10): HEADER     — position:relative, flex-shrink-0, sits at
+   *                               the top. Opaque background so wallpaper
+   *                               doesn't bleed through.
+   *
+   * Layer 2 (z-[1]): MESSAGES  — position:relative, flex-1, overflow-y:auto.
+   *                               Transparent background so wallpaper shows
+   *                               through. padding-bottom tracks input height
+   *                               so messages are always visible above it.
+   *
+   * Layer 3 (z-60): INPUT BAR  — position:fixed (in ChatInput component),
+   *                               tracks keyboard via visualViewport. Sits
+   *                               above everything. Only this element and the
+   *                               message scroll offset react to keyboard.
+   *
+   * The wallpaper (Layer 0) is ABSOLUTE within the parent container, NOT
+   * fixed. Why? On iOS Safari, position:fixed elements inside a transformed
+   * parent (the slide-in panel in ChatLayout) get scoped to that transform
+   * container rather than the viewport. Using absolute inside the already-
+   * viewport-filling parent achieves the same visual result without the iOS
+   * transform-scoping bug. The parent container in ChatLayout is already
+   * `absolute inset-0 w-full h-full`, so absolute here = full screen.
+   *
+   * CRITICAL: No JS effect, callback, or event listener in this component
+   * may reference, modify, or reposition the wallpaper element. It is
+   * render-once, CSS-only, immutable after mount.
+   * ══════════════════════════════════════════════════════════════════════════
+   */
+
   return (
-    <div className="flex flex-col h-full min-h-0 relative overflow-hidden select-none md:select-text">
-      {/* ── Fixed Wallpaper — never moves, even when keyboard opens ── */}
+    // Outer container: position:relative to anchor the absolute wallpaper.
+    // h-full fills the parent (which is already viewport-sized).
+    // overflow:hidden prevents any bleed. No flex here — we use the
+    // wallpaper as an absolute layer and everything else flows normally
+    // within a separate flex column.
+    <div
+      className="relative h-full w-full overflow-hidden select-none md:select-text"
+      style={{ isolation: 'isolate' }}
+    >
+      {/* ═══════════════════════════════════════════════════════════════════
+          LAYER 0: WALLPAPER — absolute, full-bleed, immovable, render-once.
+          This div is NEVER modified by JS after mount. No transforms, no
+          height changes, no resize listeners. It sits behind everything.
+          Using min-height:100dvh as a fallback for dynamic viewport height
+          on mobile browsers where 100% might not account for browser chrome.
+          ═══════════════════════════════════════════════════════════════════ */}
       <div
+        aria-hidden="true"
         className="chat-bg"
         style={{
-          position: 'fixed',
-          inset: 0,
-          width: '100vw',
-          height: '100vh',
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          width: '100%',
+          height: '100%',
+          minHeight: '100dvh',
           zIndex: 0,
           pointerEvents: 'none',
+          // GPU-composite this layer so it's on its own compositing layer
+          // and immune to repaints from sibling layout changes
+          willChange: 'auto',
+          contain: 'strict',
         }}
       />
-      {/* Sleek, Blended Header Bar */}
-      <div className="flex items-center gap-3 px-4 py-2 bg-card/90 backdrop-blur-md border-b border-border/60 flex-shrink-0 z-10 shadow-sm transition-all duration-200 relative">
 
-        <Button
-          variant="ghost"
-          size="icon"
-          className="md:hidden text-foreground hover:bg-muted/60 active:scale-95 transition-transform rounded-full w-9 h-9"
-          onClick={onBack}
-        >
-          <ArrowLeft className="w-5 h-5" />
-        </Button>
-
-        {/* Status Ring Well Integration */}
-        <div className="relative flex-shrink-0">
-          <div
-            className={`p-[2px] rounded-full transition-all duration-300 ${showOnlineRing ? "ring-2 ring-emerald-500 ring-offset-2 ring-offset-card animate-pulse" : "ring-1 ring-border"}`}
-          >
-            <Avatar className="w-9 h-9">
-              <AvatarImage src={chat.avatar_url} className="object-cover" />
-              <AvatarFallback className="bg-primary/10 text-primary font-medium text-sm">
-                {getInitials(chat.name || "U")}
-              </AvatarFallback>
-            </Avatar>
-          </div>
-          {showOnlineRing && (
-            <span className="absolute bottom-0 right-0 block h-2.5 w-2.5 rounded-full bg-emerald-500 ring-2 ring-card" />
-          )}
-        </div>
-
-        <div className="flex-1 min-w-0">
-          <h2 className="font-semibold text-[15px] text-foreground tracking-tight truncate leading-tight">
-            {chat.name}
-          </h2>
-          <p className="text-xs text-muted-foreground/90 font-medium tracking-wide mt-0.5 transition-all duration-300">
-            {typingUsers.length > 0 ? (
-              <span className="text-emerald-500 font-medium transition-all duration-200">
-                {typingUsers.join(", ")} typing...
-              </span>
-            ) : isGroup ? (
-              `${chat.member_count || 0} members`
-            ) : chat.is_online ? (
-              <span className="text-emerald-500 font-medium">online</span>
-            ) : (
-              "last seen recently"
-            )}
-          </p>
-        </div>
-
-        <div className="flex items-center gap-0.5">
-          {isGroup && (
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="w-9 h-9 text-muted-foreground hover:text-foreground hover:bg-muted/60 rounded-full"
-                >
-                  <Users className="w-[19px] h-[19px]" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent className="bg-popover text-popover-foreground text-xs font-medium rounded-lg shadow-md">
-                Members
-              </TooltipContent>
-            </Tooltip>
-          )}
-          {onOpenInfo && (
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="w-9 h-9 text-muted-foreground hover:text-foreground hover:bg-muted/60 rounded-full"
-                  onClick={onOpenInfo}
-                >
-                  <Info className="w-[19px] h-[19px]" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent className="bg-popover text-popover-foreground text-xs font-medium rounded-lg shadow-md">
-                Chat Info
-              </TooltipContent>
-            </Tooltip>
-          )}
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="w-9 h-9 text-muted-foreground hover:text-foreground hover:bg-muted/60 rounded-full"
-              >
-                <MoreVertical className="w-[19px] h-[19px]" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent className="bg-popover text-popover-foreground text-xs font-medium rounded-lg shadow-md">
-              More
-            </TooltipContent>
-          </Tooltip>
-        </div>
-      </div>
-
-      {/* Messages Scroll Area with Native Physics & Momentum */}
+      {/* ═══════════════════════════════════════════════════════════════════
+          CONTENT LAYERS (1-3): Header + Messages + Input
+          This flex column sits above the wallpaper. It fills the parent
+          and handles all layout/scroll. The wallpaper is NOT part of this
+          flex flow — it's a sibling absolute-positioned behind it.
+          ═══════════════════════════════════════════════════════════════════ */}
       <div
-        ref={scrollRef}
-        onScroll={handleScroll}
-        className="flex-1 min-h-0 overflow-y-auto chat-messages-scroll px-4 py-3 space-y-2 overscroll-contain relative z-[1]"
-        style={{
-          paddingBottom: inputHeight + 20,
-          scrollbarWidth: "none",
-          WebkitOverflowScrolling: "touch",
-          backgroundColor: 'transparent',
-        }}
+        className="relative flex flex-col h-full w-full"
+        style={{ zIndex: 1 }}
       >
-        <div className="max-w-3xl mx-auto space-y-1">
-          {hasMore && (
-            <div className="flex justify-center py-3">
-              <span className="text-[11px] font-medium bg-muted/50 backdrop-blur-sm border border-border/40 text-muted-foreground px-3 py-1 rounded-full shadow-sm">
-                {loadingOlder ? "Loading…" : "Scroll up for older messages"}
-              </span>
+        {/* ─── LAYER 1: HEADER BAR ─────────────────────────────────────── */}
+        <div className="flex items-center gap-3 px-4 py-2 bg-card/90 backdrop-blur-md border-b border-border/60 flex-shrink-0 z-10 shadow-sm transition-all duration-200">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="md:hidden text-foreground hover:bg-muted/60 active:scale-95 transition-transform rounded-full w-9 h-9"
+            onClick={onBack}
+          >
+            <ArrowLeft className="w-5 h-5" />
+          </Button>
+
+          {/* Status Ring Well Integration */}
+          <div className="relative flex-shrink-0">
+            <div
+              className={`p-[2px] rounded-full transition-all duration-300 ${showOnlineRing ? "ring-2 ring-emerald-500 ring-offset-2 ring-offset-card animate-pulse" : "ring-1 ring-border"}`}
+            >
+              <Avatar className="w-9 h-9">
+                <AvatarImage src={chat.avatar_url} className="object-cover" />
+                <AvatarFallback className="bg-primary/10 text-primary font-medium text-sm">
+                  {getInitials(chat.name || "U")}
+                </AvatarFallback>
+              </Avatar>
             </div>
-          )}
+            {showOnlineRing && (
+              <span className="absolute bottom-0 right-0 block h-2.5 w-2.5 rounded-full bg-emerald-500 ring-2 ring-card" />
+            )}
+          </div>
 
-          {messages.length === 0 ? (
-            <MessageSkeleton />
-          ) : (
-            messages.map((msg, i) => {
-              const prevMsg = messages[i - 1];
-              const showName =
-                isGroup &&
-                msg.sender_id !== currentUserId &&
-                (!prevMsg || prevMsg.sender_id !== msg.sender_id);
-              const isOwn = msg.sender_id === currentUserId;
-              const seen =
-                isOwn && othersLastReadAt
-                  ? new Date(msg.created_at) <= new Date(othersLastReadAt)
-                  : false;
+          <div className="flex-1 min-w-0">
+            <h2 className="font-semibold text-[15px] text-foreground tracking-tight truncate leading-tight">
+              {chat.name}
+            </h2>
+            <p className="text-xs text-muted-foreground/90 font-medium tracking-wide mt-0.5 transition-all duration-300">
+              {typingUsers.length > 0 ? (
+                <span className="text-emerald-500 font-medium transition-all duration-200">
+                  {typingUsers.join(", ")} typing...
+                </span>
+              ) : isGroup ? (
+                `${chat.member_count || 0} members`
+              ) : chat.is_online ? (
+                <span className="text-emerald-500 font-medium">online</span>
+              ) : (
+                "last seen recently"
+              )}
+            </p>
+          </div>
 
-              const bubble = (
-                <div
-                  key={msg.id}
-                  className="transform translate-z-0 transition-all duration-200 ease-out animate-in fade-in-40 slide-in-from-bottom-1"
-                >
-                  <MessageBubble
-                    message={msg}
-                    isOwn={isOwn}
-                    senderName={showName ? msg.sender?.display_name : undefined}
-                    seen={seen}
-                  />
-                </div>
-              );
-
-              if (showName && msg.sender?.display_name) {
-                return (
-                  <SenderHoverCard
-                    key={msg.id}
-                    name={msg.sender.display_name}
-                    userId={msg.sender_id}
+          <div className="flex items-center gap-0.5">
+            {isGroup && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="w-9 h-9 text-muted-foreground hover:text-foreground hover:bg-muted/60 rounded-full"
                   >
-                    <div className="focus:outline-none">{bubble}</div>
-                  </SenderHoverCard>
+                    <Users className="w-[19px] h-[19px]" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent className="bg-popover text-popover-foreground text-xs font-medium rounded-lg shadow-md">
+                  Members
+                </TooltipContent>
+              </Tooltip>
+            )}
+            {onOpenInfo && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="w-9 h-9 text-muted-foreground hover:text-foreground hover:bg-muted/60 rounded-full"
+                    onClick={onOpenInfo}
+                  >
+                    <Info className="w-[19px] h-[19px]" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent className="bg-popover text-popover-foreground text-xs font-medium rounded-lg shadow-md">
+                  Chat Info
+                </TooltipContent>
+              </Tooltip>
+            )}
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="w-9 h-9 text-muted-foreground hover:text-foreground hover:bg-muted/60 rounded-full"
+                >
+                  <MoreVertical className="w-[19px] h-[19px]" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent className="bg-popover text-popover-foreground text-xs font-medium rounded-lg shadow-md">
+                More
+              </TooltipContent>
+            </Tooltip>
+          </div>
+        </div>
+
+        {/* ─── LAYER 2: MESSAGES SCROLL AREA ───────────────────────────── */}
+        {/* Transparent background so the wallpaper (Layer 0) shows through.
+            padding-bottom tracks the input bar height so messages don't get
+            hidden behind it. This is the ONLY element that adjusts when the
+            keyboard opens (via scroll position, not layout changes). */}
+        <div
+          ref={scrollRef}
+          onScroll={handleScroll}
+          className="flex-1 min-h-0 overflow-y-auto px-4 py-3 space-y-2 overscroll-contain"
+          style={{
+            paddingBottom: inputHeight + 20,
+            scrollbarWidth: "none",
+            WebkitOverflowScrolling: "touch",
+            backgroundColor: 'transparent',
+          }}
+        >
+          <div className="max-w-3xl mx-auto space-y-1">
+            {hasMore && (
+              <div className="flex justify-center py-3">
+                <span className="text-[11px] font-medium bg-muted/50 backdrop-blur-sm border border-border/40 text-muted-foreground px-3 py-1 rounded-full shadow-sm">
+                  {loadingOlder ? "Loading…" : "Scroll up for older messages"}
+                </span>
+              </div>
+            )}
+
+            {messages.length === 0 ? (
+              <MessageSkeleton />
+            ) : (
+              messages.map((msg, i) => {
+                const prevMsg = messages[i - 1];
+                const showName =
+                  isGroup &&
+                  msg.sender_id !== currentUserId &&
+                  (!prevMsg || prevMsg.sender_id !== msg.sender_id);
+                const isOwn = msg.sender_id === currentUserId;
+                const seen =
+                  isOwn && othersLastReadAt
+                    ? new Date(msg.created_at) <= new Date(othersLastReadAt)
+                    : false;
+
+                const bubble = (
+                  <div
+                    key={msg.id}
+                    className="transform translate-z-0 transition-all duration-200 ease-out animate-in fade-in-40 slide-in-from-bottom-1"
+                  >
+                    <MessageBubble
+                      message={msg}
+                      isOwn={isOwn}
+                      senderName={showName ? msg.sender?.display_name : undefined}
+                      seen={seen}
+                    />
+                  </div>
                 );
-              }
 
-              return bubble;
-            })
-          )}
+                if (showName && msg.sender?.display_name) {
+                  return (
+                    <SenderHoverCard
+                      key={msg.id}
+                      name={msg.sender.display_name}
+                      userId={msg.sender_id}
+                    >
+                      <div className="focus:outline-none">{bubble}</div>
+                    </SenderHoverCard>
+                  );
+                }
 
-          {/* WhatsApp-Style Micro-Animated Typing Bubble */}
-          {typingUsers.length > 0 && (
-            <div className="flex items-center gap-2.5 px-4 py-2.5 max-w-[160px] bg-muted/70 backdrop-blur-sm text-xs text-muted-foreground font-medium rounded-2xl shadow-sm border border-border/30 animate-in fade-in-50 slide-in-from-bottom-2 duration-300">
-              <span className="flex items-center gap-1">
-                <span
-                  className="w-1.5 h-1.5 bg-primary/70 rounded-full animate-bounce"
-                  style={{ animationDelay: "0ms", animationDuration: "0.8s" }}
-                />
-                <span
-                  className="w-1.5 h-1.5 bg-primary/70 rounded-full animate-bounce"
-                  style={{ animationDelay: "200ms", animationDuration: "0.8s" }}
-                />
-                <span
-                  className="w-1.5 h-1.5 bg-primary/70 rounded-full animate-bounce"
-                  style={{ animationDelay: "400ms", animationDuration: "0.8s" }}
-                />
-              </span>
-              <span className="truncate tracking-wide text-[11px] text-muted-foreground/90">
-                typing…
-              </span>
-            </div>
-          )}
-          <div ref={bottomRef} className="h-px w-full" />
+                return bubble;
+              })
+            )}
+
+            {/* WhatsApp-Style Micro-Animated Typing Bubble */}
+            {typingUsers.length > 0 && (
+              <div className="flex items-center gap-2.5 px-4 py-2.5 max-w-[160px] bg-muted/70 backdrop-blur-sm text-xs text-muted-foreground font-medium rounded-2xl shadow-sm border border-border/30 animate-in fade-in-50 slide-in-from-bottom-2 duration-300">
+                <span className="flex items-center gap-1">
+                  <span
+                    className="w-1.5 h-1.5 bg-primary/70 rounded-full animate-bounce"
+                    style={{ animationDelay: "0ms", animationDuration: "0.8s" }}
+                  />
+                  <span
+                    className="w-1.5 h-1.5 bg-primary/70 rounded-full animate-bounce"
+                    style={{ animationDelay: "200ms", animationDuration: "0.8s" }}
+                  />
+                  <span
+                    className="w-1.5 h-1.5 bg-primary/70 rounded-full animate-bounce"
+                    style={{ animationDelay: "400ms", animationDuration: "0.8s" }}
+                  />
+                </span>
+                <span className="truncate tracking-wide text-[11px] text-muted-foreground/90">
+                  typing…
+                </span>
+              </div>
+            )}
+            <div ref={bottomRef} className="h-px w-full" />
+          </div>
         </div>
       </div>
 
-      {/* Floating Modern Action Bar Container */}
-      <div className="absolute bottom-0 left-0 right-0 z-20 pointer-events-none p-2 md:p-3 bg-gradient-to-t from-[hsl(var(--chat-bg))] via-[hsl(var(--chat-bg)/0.6)] to-transparent">
-        <div className="max-w-3xl mx-auto w-full pointer-events-auto transition-transform duration-200">
-          <ChatInput
-            onSend={onSendMessage}
-            onTyping={onTyping}
-            onHeightChange={setInputHeight}
-          />
-        </div>
-      </div>
+      {/* ═══════════════════════════════════════════════════════════════════
+          LAYER 3: INPUT BAR (ChatInput component)
+          This renders with position:fixed inside ChatInput itself —
+          it tracks keyboard height via visualViewport and floats above
+          everything. It is NOT part of the flex column above, so it
+          cannot cause layout shifts to the wallpaper or the scroll area.
+          The gradient wrapper is purely cosmetic — it fades into the
+          wallpaper color at the bottom of the screen.
+          ═══════════════════════════════════════════════════════════════════ */}
+      <ChatInput
+        onSend={onSendMessage}
+        onTyping={onTyping}
+        onHeightChange={setInputHeight}
+      />
     </div>
   );
 }
