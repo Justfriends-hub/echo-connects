@@ -79,28 +79,7 @@ export function ChatLayout() {
   const [prevWallpaper, setPrevWallpaper] = useState<string | null>(null);
   const [curWallpaper, setCurWallpaper] = useState<string | null>(currentChat?.wallpaper_url ?? null);
   const [curVisible, setCurVisible] = useState(true);
-  const wallpaperContainerRef = useRef<HTMLDivElement | null>(null);
-
-  // Create and manage fixed wallpaper element in DOM
-  useEffect(() => {
-    let container = document.getElementById('chat-wallpaper-container');
-    if (!container) {
-      container = document.createElement('div');
-      container.id = 'chat-wallpaper-container';
-      // Lock wallpaper to the initial layout viewport size so the keyboard
-      // opening does not resize or shift the underlying image.
-      const width = window.visualViewport?.width ?? window.innerWidth;
-      const height = window.visualViewport?.height ?? window.innerHeight;
-      container.style.cssText = `position:fixed;top:0;left:0;width:${width}px;height:${height}px;z-index:-1;pointer-events:none;overflow:hidden;`;
-      document.body.insertBefore(container, document.body.firstChild);
-    }
-    wallpaperContainerRef.current = container;
-    return () => {
-      // Keep the wallpaper container alive for the app lifecycle.
-    };
-  }, []);
-
-  // Update wallpaper content whenever it changes
+  // Update wallpaper content whenever the active chat changes.
   useEffect(() => {
     const next = currentChat?.wallpaper_url ?? null;
     if (next === curWallpaper) return;
@@ -117,35 +96,6 @@ export function ChatLayout() {
       window.clearTimeout(t2);
     };
   }, [currentChat?.wallpaper_url, curWallpaper]);
-
-  // Render wallpaper into the fixed container
-  useEffect(() => {
-    if (!wallpaperContainerRef.current) return;
-    const container = wallpaperContainerRef.current;
-
-    // Clear existing content
-    container.innerHTML = '';
-
-    // Add previous wallpaper (fading out)
-    if (prevWallpaper) {
-      const prevDiv = document.createElement('div');
-      prevDiv.style.cssText = `position:absolute;top:0;left:0;width:100%;height:100%;background-image:url(${prevWallpaper});background-size:cover;background-position:center;background-repeat:no-repeat;transition:opacity 300ms ease-out,transform 300ms ease-out;opacity:${curVisible ? 0 : 1};transform:${curVisible ? 'translateY(-10px) scale(0.98)' : 'translateY(0) scale(1)'};`;
-      container.appendChild(prevDiv);
-    }
-
-    // Add current wallpaper (fading in)
-    if (curWallpaper) {
-      const curDiv = document.createElement('div');
-      curDiv.style.cssText = `position:absolute;top:0;left:0;width:100%;height:100%;background-image:url(${curWallpaper});background-size:cover;background-position:center;background-repeat:no-repeat;transition:opacity 300ms ease-out,transform 300ms ease-out;opacity:${curVisible ? 1 : 0};transform:${curVisible ? 'translateY(0) scale(1)' : 'translateY(10px) scale(1.02)'};`;
-      container.appendChild(curDiv);
-    } else {
-      // Fallback: use chat-bg color
-      const bgDiv = document.createElement('div');
-      bgDiv.className = 'chat-bg';
-      bgDiv.style.cssText = 'position:absolute;inset:0;';
-      container.appendChild(bgDiv);
-    }
-  }, [prevWallpaper, curWallpaper, curVisible]);
 
   // Redirect to auth if signed out
   useEffect(() => {
@@ -237,6 +187,47 @@ export function ChatLayout() {
 
   return (
     <>
+      {/* Wallpaper layer (viewport-fixed sibling to the chat frame) */}
+      <div
+        aria-hidden
+        style={{ position: "fixed", inset: 0, zIndex: 0, pointerEvents: "none" }}
+      >
+        {prevWallpaper && (
+          <div
+            style={{
+              position: "absolute",
+              inset: 0,
+              backgroundImage: `url(${prevWallpaper})`,
+              backgroundSize: "cover",
+              backgroundPosition: "center",
+              backgroundRepeat: "no-repeat",
+              transition: "opacity 300ms ease-out, transform 300ms ease-out",
+              opacity: curVisible ? 0 : 1,
+              transform: curVisible ? "translateY(-10px) scale(0.98)" : "translateY(0) scale(1)",
+            }}
+          />
+        )}
+
+        {curWallpaper ? (
+          <div
+            key={curWallpaper}
+            style={{
+              position: "absolute",
+              inset: 0,
+              backgroundImage: `url(${curWallpaper})`,
+              backgroundSize: "cover",
+              backgroundPosition: "center",
+              backgroundRepeat: "no-repeat",
+              transition: "opacity 300ms ease-out, transform 300ms ease-out",
+              opacity: curVisible ? 1 : 0,
+              transform: curVisible ? "translateY(0) scale(1)" : "translateY(10px) scale(1.02)",
+            }}
+          />
+        ) : (
+          <div className="chat-bg" style={{ position: "absolute", inset: 0 }} />
+        )}
+      </div>
+
       {/* Main app container */}
       <div className="fixed inset-0 h-full w-full w-screen overflow-hidden bg-background pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)] pr-[env(safe-area-inset-right)] pl-[env(safe-area-inset-left)]">
         {isMobile ? (
