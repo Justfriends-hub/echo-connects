@@ -46,6 +46,13 @@ export default function Settings() {
   const [bubbleStyle, setBubbleStyle] = useState('rounded');
   const [language, setLanguage] = useState('en');
 
+  // Wallpaper preference
+  const [defaultWallpaper, setDefaultWallpaper] = useState<string | null>(profile?.default_wallpaper_url || null);
+
+  React.useEffect(() => {
+    setDefaultWallpaper(profile?.default_wallpaper_url || null);
+  }, [profile]);
+
   // Password state
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -279,6 +286,53 @@ export default function Settings() {
               </AccordionTrigger>
               <AccordionContent className="px-4 pb-4 space-y-4">
                 <div className="space-y-3">
+                  <Label className="text-xs text-muted-foreground">Chat Wallpaper</Label>
+                  <div className="flex items-center gap-3">
+                    <div className="grid grid-cols-4 gap-2 w-full">
+                      {[
+                        null,
+                        'https://images.unsplash.com/photo-1503264116251-35a269479413?w=1200&q=80&auto=format&fit=crop',
+                        'https://images.unsplash.com/photo-1502082553048-f009c37129b9?w=1200&q=80&auto=format&fit=crop',
+                        'https://images.unsplash.com/photo-1496307042754-b4aa456c4a2d?w=1200&q=80&auto=format&fit=crop',
+                      ].map((url, i) => (
+                        <button
+                          key={i}
+                          type="button"
+                          onClick={() => setDefaultWallpaper(url)}
+                          className={"rounded-lg border-2 overflow-hidden h-16 w-full focus:outline-none " + (defaultWallpaper === url ? 'ring-2 ring-primary' : 'ring-0')}
+                        >
+                          {url ? (
+                            <div style={{ backgroundImage: `url(${url})`, backgroundSize: 'cover', backgroundPosition: 'center', height: '100%' }} />
+                          ) : (
+                            <div className="flex items-center justify-center h-full bg-muted/20 text-xs text-muted-foreground">None</div>
+                          )}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="flex gap-2">
+                    <Button
+                      onClick={async () => {
+                        try {
+                          await updateProfile({ default_wallpaper_url: defaultWallpaper });
+                          toast.success('Wallpaper preference saved');
+                        } catch (err: any) {
+                          toast.error(err?.message || 'Failed to save wallpaper');
+                        }
+                      }}
+                      className="gap-2"
+                    >
+                      <Save className="w-4 h-4" />
+                      Save Wallpaper
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      onClick={() => setDefaultWallpaper(null)}
+                      className="gap-2"
+                    >
+                      Clear
+                    </Button>
+                  </div>
                   <div className="flex items-center gap-3">
                     <Checkbox id="notif-sounds" checked={notifSounds} onCheckedChange={(v) => setNotifSounds(!!v)} />
                     <Label htmlFor="notif-sounds" className="text-sm">Notification sounds</Label>

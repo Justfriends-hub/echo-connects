@@ -7,6 +7,7 @@ export interface UserProfile {
   email?: string;
   phone?: string;
   avatar_url?: string;
+  default_wallpaper_url?: string | null;
   bio?: string;
   is_bot: boolean;
   hide_phone: boolean;

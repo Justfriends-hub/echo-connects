@@ -95,11 +95,13 @@ export function ChatLayout() {
 
   // Wallpaper transition state
   const [prevWallpaper, setPrevWallpaper] = useState<string | null>(null);
-  const [curWallpaper, setCurWallpaper] = useState<string | null>(currentChat?.wallpaper_url ?? null);
+  const [curWallpaper, setCurWallpaper] = useState<string | null>(
+    currentChat?.wallpaper_url ?? profile?.default_wallpaper_url ?? null,
+  );
   const [curVisible, setCurVisible] = useState(true);
   // Update wallpaper content whenever the active chat changes.
   useEffect(() => {
-    const next = currentChat?.wallpaper_url ?? null;
+    const next = currentChat?.wallpaper_url ?? profile?.default_wallpaper_url ?? null;
     if (next === curWallpaper) return;
 
     setPrevWallpaper(curWallpaper);
