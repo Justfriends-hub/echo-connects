@@ -31,8 +31,11 @@ export default function ChatHeader({
 
   return (
     <div
-      className="chat-header fixed left-0 right-0 z-30 flex items-center gap-3 px-4 py-2 bg-card shadow-sm shadow-black/5 border-b border-border/70 transition-all duration-200 h-14"
-      style={{ top: typeof window !== 'undefined' ? 'env(safe-area-inset-top)' : 0 }}
+      className="chat-header fixed inset-x-0 top-0 z-30 flex items-center gap-3 px-4 py-2 bg-card shadow-sm shadow-black/5 border-b border-border/70 transition-all duration-200"
+      style={{
+        paddingTop: 'calc(env(safe-area-inset-top, 0px) + 0.5rem)',
+        minHeight: 'calc(3.5rem + env(safe-area-inset-top, 0px))',
+      }}
     >
       <Button
         variant="ghost"
