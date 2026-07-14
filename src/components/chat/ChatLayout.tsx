@@ -277,10 +277,31 @@ export function ChatLayout() {
         />,
         headerPortalEl,
       )}
-      <div className="fixed inset-0 h-full w-full w-screen overflow-hidden bg-transparent pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)] pr-[env(safe-area-inset-right)] pl-[env(safe-area-inset-left)]">
+      <div
+        style={{
+          position: 'fixed',
+          inset: 0,
+          height: '100dvh',
+          width: '100vw',
+          overflow: 'hidden',
+          backgroundColor: 'transparent',
+          paddingTop: 'env(safe-area-inset-top)',
+          paddingBottom: 'env(safe-area-inset-bottom)',
+          paddingLeft: 'env(safe-area-inset-left)',
+          paddingRight: 'env(safe-area-inset-right)',
+        }}
+      >
         {isMobile ? (
-          /* Mobile Viewport: Absolute slider deck layer to mimic a native application frame wrapper */
-          <div className="relative flex h-full w-full overflow-hidden bg-transparent">
+          <div
+            style={{
+              position: 'relative',
+              display: 'flex',
+              width: '100%',
+              height: '100%',
+              overflow: 'hidden',
+              backgroundColor: 'transparent',
+            }}
+          >
             {/* Sidebar Slide Control */}
             <div
               className={cn(
