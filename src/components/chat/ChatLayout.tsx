@@ -360,6 +360,20 @@ export function ChatLayout() {
               <SectionErrorBoundary onRetry={reloadChats}>
                 {chatContent}
               </SectionErrorBoundary>
+              <TextBar
+                onSend={handleSendMessage}
+                onTyping={currentChat && currentChat.type !== 'channel' ? notifyTyping : undefined}
+                disabled={!currentChat || currentChat.type === 'channel'}
+                placeholder={
+                  currentChat
+                    ? currentChat.type === 'channel'
+                      ? 'Posting is disabled in channels'
+                      : 'Message'
+                    : 'Select a chat to start typing'
+                }
+                onHeightChange={setInputHeight}
+                onKeyboardHeightChange={setKeyboardHeight}
+              />
             </div>
           </div>
         ) : (
@@ -406,10 +420,24 @@ export function ChatLayout() {
               className="w-[1.5px] bg-border/40 hover:bg-primary/20 transition-colors duration-200"
             />
 
-            <ResizablePanel defaultSize={70} className="bg-transparent">
+            <ResizablePanel defaultSize={70} className="bg-transparent relative">
               <SectionErrorBoundary onRetry={reloadChats}>
                 {chatContent}
               </SectionErrorBoundary>
+              <TextBar
+                onSend={handleSendMessage}
+                onTyping={currentChat && currentChat.type !== 'channel' ? notifyTyping : undefined}
+                disabled={!currentChat || currentChat.type === 'channel'}
+                placeholder={
+                  currentChat
+                    ? currentChat.type === 'channel'
+                      ? 'Posting is disabled in channels'
+                      : 'Message'
+                    : 'Select a chat to start typing'
+                }
+                onHeightChange={setInputHeight}
+                onKeyboardHeightChange={setKeyboardHeight}
+              />
             </ResizablePanel>
           </ResizablePanelGroup>
         )}
@@ -438,20 +466,20 @@ export function ChatLayout() {
         open={showStatusComposer}
         onClose={() => setShowStatusComposer(false)}
       />
-      <TextBar
-        onSend={handleSendMessage}
-        onTyping={currentChat && currentChat.type !== 'channel' ? notifyTyping : undefined}
-        disabled={!currentChat || currentChat.type === 'channel'}
-        placeholder={
-          currentChat
-            ? currentChat.type === 'channel'
+      {currentChat && (
+        <TextBar
+          onSend={handleSendMessage}
+          onTyping={currentChat.type !== 'channel' ? notifyTyping : undefined}
+          disabled={currentChat.type === 'channel'}
+          placeholder={
+            currentChat.type === 'channel'
               ? 'Posting is disabled in channels'
               : 'Message'
-            : 'Select a chat to start typing'
-        }
-        onHeightChange={setInputHeight}
-        onKeyboardHeightChange={setKeyboardHeight}
-      />
+          }
+          onHeightChange={setInputHeight}
+          onKeyboardHeightChange={setKeyboardHeight}
+        />
+      )}
 
       {/* Floating Network Notification pill banner matching native UI design aesthetics */}
       {!isOnline && (

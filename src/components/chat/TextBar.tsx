@@ -107,7 +107,7 @@ export default function TextBar({
     <div
       ref={containerRef}
       style={{
-        position: 'fixed',
+        position: 'absolute',
         left: 0,
         right: 0,
         bottom: `${keyboardHeight}px`,
@@ -204,14 +204,5 @@ export default function TextBar({
     </div>
   )
 
-  if (typeof document === 'undefined') return null
-
-  let portal = document.getElementById('chat-textbar-portal') as HTMLDivElement | null
-  if (!portal) {
-    portal = document.createElement('div')
-    portal.id = 'chat-textbar-portal'
-    document.body.appendChild(portal)
-  }
-
-  return createPortal(bar, portal)
+  return bar
 }
