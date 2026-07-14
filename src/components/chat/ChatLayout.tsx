@@ -1,8 +1,8 @@
 import React, { useState, useCallback, useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import { ChatSidebar } from "./ChatSidebar";
 import { ChatArea } from "./ChatArea";
-import ChatHeader from "./ChatHeader";
 import ChatHeader from "./ChatHeader";
 import { EmptyState } from "./EmptyState";
 import { NewChatDialog } from "./NewChatDialog";
@@ -76,6 +76,22 @@ export function ChatLayout() {
     typeof navigator !== "undefined" ? navigator.onLine : true,
   );
   const isMobile = useIsMobile();
+  const [headerPortalEl, setHeaderPortalEl] = useState<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (typeof document === 'undefined') return;
+    let el = document.getElementById('chat-header-portal') as HTMLDivElement | null;
+    if (!el) {
+      el = document.createElement('div');
+      el.id = 'chat-header-portal';
+      document.body.appendChild(el);
+    }
+    setHeaderPortalEl(el);
+    return () => {
+      // keep portal alive for app lifecycle
+    };
+  }, []);
+
 
   // Wallpaper transition state
   const [prevWallpaper, setPrevWallpaper] = useState<string | null>(null);
@@ -231,8 +247,8 @@ export function ChatLayout() {
       </div>
 
       {/* Main app container */}
-      {/* Chat header (fixed, sibling to the wallpaper and chat frame) */}
-      {currentChat && (
+      {/* Chat header (fixed, rendered into document.body via portal so it's outside any transformed ancestor) */}
+      {currentChat && headerPortalEl && createPortal(
         <ChatHeader
           chat={currentChat}
           typingUsers={typingUsers}
@@ -240,7 +256,8 @@ export function ChatLayout() {
           showOnlineRing={!((currentChat.type === "group" || currentChat.type === "channel")) && !!currentChat.is_online}
           onBack={() => setActiveChat(null)}
           onOpenInfo={() => setShowChatInfo(true)}
-        />
+        />,
+        headerPortalEl,
       )}
       <div className="fixed inset-0 h-full w-full w-screen overflow-hidden bg-background pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)] pr-[env(safe-area-inset-right)] pl-[env(safe-area-inset-left)]">
         {isMobile ? (
