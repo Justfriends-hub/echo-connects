@@ -301,10 +301,11 @@ export function ChatLayout() {
           maxWidth: viewportWidth ? `${viewportWidth}px` : '100vw',
           overflow: 'hidden',
           backgroundColor: 'transparent',
-          paddingTop: 'env(safe-area-inset-top)',
+          paddingTop: 'calc(env(safe-area-inset-top) + 3.5rem)',
           paddingBottom: 'env(safe-area-inset-bottom)',
           paddingLeft: 'env(safe-area-inset-left)',
           paddingRight: 'env(safe-area-inset-right)',
+          boxSizing: 'border-box',
         }}
       >
         {isMobile ? (
@@ -360,20 +361,6 @@ export function ChatLayout() {
               <SectionErrorBoundary onRetry={reloadChats}>
                 {chatContent}
               </SectionErrorBoundary>
-              <TextBar
-                onSend={handleSendMessage}
-                onTyping={currentChat && currentChat.type !== 'channel' ? notifyTyping : undefined}
-                disabled={!currentChat || currentChat.type === 'channel'}
-                placeholder={
-                  currentChat
-                    ? currentChat.type === 'channel'
-                      ? 'Posting is disabled in channels'
-                      : 'Message'
-                    : 'Select a chat to start typing'
-                }
-                onHeightChange={setInputHeight}
-                onKeyboardHeightChange={setKeyboardHeight}
-              />
             </div>
           </div>
         ) : (
@@ -424,20 +411,6 @@ export function ChatLayout() {
               <SectionErrorBoundary onRetry={reloadChats}>
                 {chatContent}
               </SectionErrorBoundary>
-              <TextBar
-                onSend={handleSendMessage}
-                onTyping={currentChat && currentChat.type !== 'channel' ? notifyTyping : undefined}
-                disabled={!currentChat || currentChat.type === 'channel'}
-                placeholder={
-                  currentChat
-                    ? currentChat.type === 'channel'
-                      ? 'Posting is disabled in channels'
-                      : 'Message'
-                    : 'Select a chat to start typing'
-                }
-                onHeightChange={setInputHeight}
-                onKeyboardHeightChange={setKeyboardHeight}
-              />
             </ResizablePanel>
           </ResizablePanelGroup>
         )}
