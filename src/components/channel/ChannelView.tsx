@@ -264,7 +264,7 @@ export function ChannelView({ chat, messages, currentUserId, onSendMessage, onBa
       {/* ── Channel Posts ─────────────────────────────────────────────────────── */}
       <div
         className="flex-1 min-h-0 overflow-y-auto chat-messages-scroll px-3 py-4"
-        style={{ paddingBottom: isAdmin ? inputHeight + 8 : 60 }}
+        style={{ paddingBottom: 60 }}
       >
         <div className="max-w-2xl mx-auto">
           {loading && messages.length === 0 ? (

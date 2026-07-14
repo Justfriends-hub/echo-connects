@@ -1,14 +1,8 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react'
 import { createPortal } from 'react-dom'
-import { Send, Paperclip, Smile, Mic, Keyboard } from 'lucide-react'
+import { Send, Paperclip, Mic } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
-
-function isTouchDevice(): boolean {
-  if (typeof window === 'undefined') return false
-  return 'ontouchstart' in window || navigator.maxTouchPoints > 0
-}
 
 interface ChatInputProps {
   onSend: (content: string) => void
@@ -18,10 +12,20 @@ interface ChatInputProps {
   onHeightChange?: (height: number) => void
 }
 
-export function ChatInput({ onSend, onTyping, disabled, placeholder = 'Message', onHeightChange }: ChatInputProps) {
+function isTouchDevice(): boolean {
+  if (typeof window === 'undefined') return false
+  return 'ontouchstart' in window || navigator.maxTouchPoints > 0
+}
+
+export function ChatInput({
+  onSend,
+  onTyping,
+  disabled,
+  placeholder = 'Message',
+  onHeightChange,
+}: ChatInputProps) {
   const [text, setText] = useState('')
-  const [nativeEmojiMode, setNativeEmojiMode] = useState(false)
-  const [keyboardBottom, setKeyboardBottom] = useState(0)
+  const [keyboardHeight, setKeyboardHeight] = useState(0)
   const [portalEl, setPortalEl] = useState<HTMLDivElement | null>(null)
 
   const textareaRef = useRef<HTMLTextAreaElement | null>(null)
@@ -30,11 +34,10 @@ export function ChatInput({ onSend, onTyping, disabled, placeholder = 'Message',
 
   const reportLayout = useCallback(() => {
     if (!wrapperRef.current) return
-    const height = wrapperRef.current.getBoundingClientRect().height
+    const height = Math.round(wrapperRef.current.getBoundingClientRect().height)
     onHeightChange?.(height)
   }, [onHeightChange])
 
-  // Auto-resize textarea
   useEffect(() => {
     const ta = textareaRef.current
     if (!ta) return
@@ -53,71 +56,48 @@ export function ChatInput({ onSend, onTyping, disabled, placeholder = 'Message',
       document.body.appendChild(el)
     }
     setPortalEl(el)
-
-    return () => {
-      // keep the portal container alive for the app lifecycle to avoid
-      // tearing down the fixed input while the chat remains mounted.
-    }
   }, [])
 
-  // Track visual viewport to determine keyboard inset. Do NOT modify documentRoot styles—only move the chat input.
+  useEffect(() => {
+    if (!wrapperRef.current || typeof ResizeObserver === 'undefined') return
+    const observer = new ResizeObserver(reportLayout)
+    observer.observe(wrapperRef.current)
+    return () => observer.disconnect()
+  }, [reportLayout])
+
   useEffect(() => {
     const vv = window.visualViewport
-    if (vv) {
-      let ticking = false
-      const update = () => {
-        if (ticking) return
-        ticking = true
-        window.requestAnimationFrame(() => {
-          const bottom = Math.max(0, window.innerHeight - (vv.offsetTop + vv.height))
-          setKeyboardBottom(bottom)
-          // notify listeners without touching root CSS vars
-          try { window.dispatchEvent(new CustomEvent('chat-visual-viewport', { detail: { bottom } })) } catch {}
-          ticking = false
-        })
-      }
-      update()
-      vv.addEventListener('resize', update)
-      vv.addEventListener('scroll', update)
-      return () => {
-        vv.removeEventListener('resize', update)
-        vv.removeEventListener('scroll', update)
-      }
-    }
+    let frameId = 0
 
-    // fallback
-    let ticking = false
-    const updateFallback = () => {
-      if (ticking) return
-      ticking = true
-      window.requestAnimationFrame(() => {
-        const bottom = Math.max(0, window.innerHeight - document.documentElement.clientHeight)
-        setKeyboardBottom(bottom)
-        try { window.dispatchEvent(new CustomEvent('chat-visual-viewport', { detail: { bottom } })) } catch {}
-        ticking = false
+    const updateInset = () => {
+      if (frameId) return
+      frameId = window.requestAnimationFrame(() => {
+        const bottom = vv
+          ? Math.max(0, window.innerHeight - (vv.offsetTop + vv.height))
+          : Math.max(0, window.innerHeight - document.documentElement.clientHeight)
+        setKeyboardHeight(bottom)
+        frameId = 0
       })
     }
-    window.addEventListener('resize', updateFallback)
-    updateFallback()
-    return () => window.removeEventListener('resize', updateFallback)
-  }, [])
 
-  const handleNativeEmojiToggle = () => {
-    const ta = textareaRef.current
-    if (!ta) return
-    if (isTouch) {
-      setNativeEmojiMode((p) => !p)
-      ta.blur()
-      setTimeout(() => ta.focus(), 60)
-    } else {
-      setNativeEmojiMode((p) => !p)
-      ta.focus()
+    if (vv) {
+      vv.addEventListener('resize', updateInset)
+      vv.addEventListener('scroll', updateInset)
+      updateInset()
+      return () => {
+        vv.removeEventListener('resize', updateInset)
+        vv.removeEventListener('scroll', updateInset)
+        if (frameId) window.cancelAnimationFrame(frameId)
+      }
     }
-  }
 
-  const handleFocus = () => {
-    if (nativeEmojiMode && !isTouch) setNativeEmojiMode(false)
-  }
+    window.addEventListener('resize', updateInset)
+    updateInset()
+    return () => {
+      window.removeEventListener('resize', updateInset)
+      if (frameId) window.cancelAnimationFrame(frameId)
+    }
+  }, [])
 
   const handleSend = useCallback(() => {
     const trimmed = text.trim()
@@ -125,9 +105,9 @@ export function ChatInput({ onSend, onTyping, disabled, placeholder = 'Message',
     onSend(trimmed)
     setText('')
     if (textareaRef.current) textareaRef.current.style.height = 'auto'
-  }, [text, disabled, onSend])
+  }, [disabled, onSend, text])
 
-  const handleKeyDown = (e: React.KeyboardEvent) => {
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault()
       handleSend()
@@ -142,69 +122,55 @@ export function ChatInput({ onSend, onTyping, disabled, placeholder = 'Message',
   const chatInput = (
     <div
       ref={wrapperRef}
-      className="w-full flex items-end gap-2 px-3 py-3 bg-background/90 border-t border-border/30 select-none backdrop-blur-xl transition-all duration-300 ease-out"
-      // keep the input pinned to the viewport; move it up by keyboard inset only
-      style={{ position: 'fixed', left: 0, right: 0, bottom: 0, zIndex: 60, transform: `translate3d(0, -${keyboardBottom}px, 0)`, willChange: 'transform' }}
+      className="w-full flex items-end gap-2 px-3 py-3 bg-background/90 border-t border-border/30 select-none backdrop-blur-xl"
+      style={{
+        position: 'fixed',
+        left: 0,
+        right: 0,
+        bottom: 0,
+        zIndex: 60,
+        transform: `translate3d(0, -${keyboardHeight}px, 0)`,
+        transition: 'transform 180ms ease-out',
+        willChange: 'transform',
+        paddingBottom: keyboardHeight === 0 ? 'env(safe-area-inset-bottom)' : undefined,
+      }}
     >
       <div className="flex-1 flex items-end bg-muted/50 focus-within:bg-muted/80 border border-border/30 rounded-[22px] px-2 py-1 transition-all duration-200 ease-in-out shadow-sm focus-within:shadow-md">
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              className="text-muted-foreground/80 hover:text-foreground h-9 w-9 rounded-full"
-              onClick={handleNativeEmojiToggle}
-              aria-label="Toggle native input type"
-            >
-              {nativeEmojiMode ? <Keyboard className="w-[21px] h-[21px] text-primary" /> : <Smile className="w-[21px] h-[21px]" />}
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent className="text-xs font-medium">Emoji Keyboard</TooltipContent>
-        </Tooltip>
-
         <textarea
           ref={textareaRef}
           value={text}
-          onFocus={handleFocus}
           onChange={handleChange}
           onKeyDown={handleKeyDown}
           placeholder={placeholder}
           rows={1}
           disabled={disabled}
-          inputMode={nativeEmojiMode ? 'search' : 'text'}
-          className={cn('flex-1 resize-none bg-transparent rounded-xl px-2 py-2 text-[15px] leading-relaxed text-foreground max-h-[140px]', 'placeholder:text-muted-foreground/60 focus:outline-none min-h-[36px] transition-all scrollbar-none')}
+          className={cn(
+            'flex-1 resize-none bg-transparent rounded-xl px-2 py-2 text-[15px] leading-relaxed text-foreground max-h-[140px]',
+            'placeholder:text-muted-foreground/60 focus:outline-none min-h-[36px] transition-all scrollbar-none',
+          )}
         />
-
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button variant="ghost" size="icon" className="text-muted-foreground/80 hover:text-foreground h-9 w-9 rounded-full">
-              <Paperclip className="w-[19px] h-[19px]" />
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent className="text-xs font-medium">Attach</TooltipContent>
-        </Tooltip>
       </div>
 
       <div className="flex-shrink-0 pb-[1px]">
         {text.trim() ? (
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button onClick={handleSend} size="icon" className="bg-primary text-primary-foreground rounded-full w-[40px] h-[40px]" disabled={disabled} id="send-message-btn">
-                <Send className="w-[17px] h-[17px] ml-[2px]" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent className="text-xs font-medium">Send</TooltipContent>
-          </Tooltip>
+          <Button
+            onClick={handleSend}
+            size="icon"
+            className="bg-primary text-primary-foreground rounded-full w-[40px] h-[40px]"
+            disabled={disabled}
+            id="send-message-btn"
+          >
+            <Send className="w-[17px] h-[17px] ml-[2px]" />
+          </Button>
         ) : (
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button variant="ghost" size="icon" className="bg-muted/40 w-[40px] h-[40px] rounded-full">
-                <Mic className="w-[19px] h-[19px]" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent className="text-xs font-medium">Voice note</TooltipContent>
-          </Tooltip>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="bg-muted/40 w-[40px] h-[40px] rounded-full"
+            disabled={disabled}
+          >
+            <Mic className="w-[19px] h-[19px]" />
+          </Button>
         )}
       </div>
     </div>

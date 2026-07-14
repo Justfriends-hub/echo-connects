@@ -29,6 +29,7 @@ interface ChatAreaProps {
   hasMore?: boolean;
   loadingOlder?: boolean;
   othersLastReadAt?: string | null;
+  inputHeight?: number;
   onOpenInfo?: () => void;
 }
 
@@ -115,13 +116,14 @@ export function ChatArea({
   hasMore,
   loadingOlder,
   othersLastReadAt,
+  inputHeight,
   onOpenInfo,
 }: ChatAreaProps) {
   const bottomRef = useRef<HTMLDivElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const prevFirstIdRef = useRef<string | null>(null);
   const [isNearBottom, setIsNearBottom] = useState(true);
-  // Input removed — keyboard and text bar disabled per request
+  // Message list only scrolls to stay visible above the fixed input bar.
 
   const handleScroll = useCallback(() => {
     const container = scrollRef.current;
@@ -146,10 +148,52 @@ export function ChatArea({
     prevFirstIdRef.current = first;
   }, [messages, isNearBottom]);
 
-  // Handle precise VisualViewport changes to keep latest messages visible
-  // IMPORTANT: This effect only adjusts the scroll position of the messages container.
-  // It must NEVER touch the wallpaper element in any way.
-  // VisualViewport handling removed since keyboard/input are disabled
+  useEffect(() => {
+    if (!isNearBottom || !bottomRef.current || !scrollRef.current) return
+
+    let frameId = 0
+    const updateVisibility = () => {
+      if (frameId) return
+      frameId = window.requestAnimationFrame(() => {
+        if (!bottomRef.current) {
+          frameId = 0
+          return
+        }
+
+        const rect = bottomRef.current.getBoundingClientRect()
+        const visibleBottom = window.visualViewport
+          ? window.visualViewport.offsetTop + window.visualViewport.height
+          : window.innerHeight
+        const obstruction = inputHeight ?? 0
+        const threshold = visibleBottom - obstruction - 8
+
+        if (rect.bottom > threshold) {
+          bottomRef.current.scrollIntoView({
+            behavior: 'smooth',
+            block: 'nearest',
+          })
+        }
+        frameId = 0
+      })
+    }
+
+    const vv = window.visualViewport
+    if (vv) {
+      vv.addEventListener('resize', updateVisibility)
+      vv.addEventListener('scroll', updateVisibility)
+    }
+    window.addEventListener('resize', updateVisibility)
+    updateVisibility()
+
+    return () => {
+      if (vv) {
+        vv.removeEventListener('resize', updateVisibility)
+        vv.removeEventListener('scroll', updateVisibility)
+      }
+      window.removeEventListener('resize', updateVisibility)
+      if (frameId) window.cancelAnimationFrame(frameId)
+    }
+  }, [inputHeight, isNearBottom, messages])
 
   const getInitials = (name: string) =>
     name
@@ -226,17 +270,17 @@ export function ChatArea({
 
         {/* ─── LAYER 2: MESSAGES SCROLL AREA (with top padding for header) ─────────────────────────── */}
         {/* Transparent background so the wallpaper (Layer 0) shows through.
-            padding-bottom tracks the input bar height so messages don't get
-            hidden behind it. pt-14 reserves space for the absolutely positioned header.
-            This is the ONLY element that adjusts when the keyboard opens (via scroll position, not layout changes). */}
+            padding-bottom tracks the input bar height at rest so the final
+            message remains visible above the fixed input bar. This container
+            does not resize with the keyboard; only the scroll position can move. */}
         <div
           ref={scrollRef}
           onScroll={handleScroll}
           className="flex-1 min-h-0 overflow-y-auto px-4 py-3 space-y-2 overscroll-contain pt-14"
           style={{
-            paddingBottom: 20,
-            scrollbarWidth: "none",
-            WebkitOverflowScrolling: "touch",
+            paddingBottom: inputHeight ? inputHeight + 14 : 24,
+            scrollbarWidth: 'none',
+            WebkitOverflowScrolling: 'touch',
             backgroundColor: 'transparent',
           }}
         >

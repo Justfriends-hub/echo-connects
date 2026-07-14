@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import { ChatSidebar } from "./ChatSidebar";
 import { ChatArea } from "./ChatArea";
+import ChatInput from "./ChatInput";
 import ChatHeader from "./ChatHeader";
 import { EmptyState } from "./EmptyState";
 import { NewChatDialog } from "./NewChatDialog";
@@ -72,6 +73,7 @@ export function ChatLayout() {
   const [showChatInfo, setShowChatInfo] = useState(false);
   const [showProfileDrawer, setShowProfileDrawer] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
+  const [inputHeight, setInputHeight] = useState(0);
   const [isOnline, setIsOnline] = useState(
     typeof navigator !== "undefined" ? navigator.onLine : true,
   );
@@ -398,6 +400,19 @@ export function ChatLayout() {
       <StatusComposer
         open={showStatusComposer}
         onClose={() => setShowStatusComposer(false)}
+      />
+      <ChatInput
+        onSend={handleSendMessage}
+        onTyping={currentChat && currentChat.type !== 'channel' ? notifyTyping : undefined}
+        disabled={!currentChat || currentChat.type === 'channel'}
+        placeholder={
+          currentChat
+            ? currentChat.type === 'channel'
+              ? 'Posting is disabled in channels'
+              : 'Message'
+            : 'Select a chat to start typing'
+        }
+        onHeightChange={setInputHeight}
       />
 
       {/* Floating Network Notification pill banner matching native UI design aesthetics */}
