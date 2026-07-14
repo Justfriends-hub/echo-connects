@@ -115,7 +115,7 @@ export function ChatLayout() {
       window.clearTimeout(t1);
       window.clearTimeout(t2);
     };
-  }, [currentChat?.wallpaper_url, curWallpaper]);
+  }, [currentChat?.wallpaper_url, profile?.default_wallpaper_url, curWallpaper]);
 
   // Redirect to auth if signed out
   useEffect(() => {
