@@ -285,14 +285,7 @@ export function ChatArea({
         className="relative flex flex-col h-full w-full"
         style={{ zIndex: 1 }}
       >
-        <ChatHeader
-          chat={chat}
-          typingUsers={typingUsers}
-          isGroup={isGroup}
-          showOnlineRing={showOnlineRing}
-          onBack={onBack}
-          onOpenInfo={onOpenInfo}
-        />
+        {/* Header rendered at layout level (ChatLayout) to keep it viewport-fixed */}
 
         {/* ─── LAYER 2: MESSAGES SCROLL AREA (with top padding for header) ─────────────────────────── */}
         {/* Transparent background so the wallpaper (Layer 0) shows through.
