@@ -2,6 +2,8 @@ import React, { useState, useCallback, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { ChatSidebar } from "./ChatSidebar";
 import { ChatArea } from "./ChatArea";
+import ChatHeader from "./ChatHeader";
+import ChatHeader from "./ChatHeader";
 import { EmptyState } from "./EmptyState";
 import { NewChatDialog } from "./NewChatDialog";
 import { ChatInfoSheet } from "./ChatInfoSheet";
