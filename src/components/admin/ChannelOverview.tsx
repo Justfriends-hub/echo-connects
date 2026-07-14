@@ -1,12 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { Eye, EyeOff, Users, TrendingUp, Megaphone } from 'lucide-react';
+import { Users, TrendingUp, Megaphone } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ChartConfig, ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, ResponsiveContainer } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid } from 'recharts';
 import { supabase } from '@/integrations/supabase/client';
 
 interface ChannelData {
@@ -18,8 +17,8 @@ interface ChannelData {
 }
 
 const chartConfig: ChartConfig = {
-  real_members: { label: "Real Members", color: "hsl(142 70% 49%)" },
-  boosted_count: { label: "Boosted", color: "hsl(200 80% 55%)" },
+  real_members: { label: 'Real Members', color: 'hsl(142 70% 49%)' },
+  boosted_count: { label: 'Boosted', color: 'hsl(200 80% 55%)' },
 };
 
 export function ChannelOverview({ isSuperAdmin }: { isSuperAdmin: boolean }) {
@@ -33,95 +32,108 @@ export function ChannelOverview({ isSuperAdmin }: { isSuperAdmin: boolean }) {
 
   const fetchChannels = async () => {
     setLoading(true);
-    const { data: chats } = await supabase
+    const { data: chats, error: chatsError } = await supabase
       .from('chats')
       .select('id, name')
       .eq('type', 'channel');
 
-    if (!chats) { setLoading(false); return; }
-
-    const channelData: ChannelData[] = [];
-    for (const chat of chats) {
-      const { count: realMembers } = await supabase
-        .from('chat_members')
-        .select('*', { count: 'exact', head: true })
-        .eq('chat_id', chat.id);
-
-      const { data: boostData } = await supabase
-        .rpc('get_visible_boost', { _chat_id: chat.id });
-
-      channelData.push({
-        id: chat.id,
-        name: chat.name || 'Unnamed Channel',
-        real_members: realMembers || 0,
-        boosted_count: (boostData as number) || 0,
-        visible_total: (realMembers || 0) + ((boostData as number) || 0),
-      });
+    if (chatsError || !chats) {
+      console.error('[ChannelOverview] Failed to load channels', chatsError);
+      setChannels([]);
+      setLoading(false);
+      return;
     }
+
+    const channelData = await Promise.all(
+      chats.map(async (chat) => {
+        const { count: realMembers } = await supabase
+          .from('chat_members')
+          .select('*', { count: 'exact', head: true })
+          .eq('chat_id', chat.id);
+
+        const { data: boostData, error: boostError } = await supabase.rpc('get_visible_boost', { _chat_id: chat.id });
+        const boostCount = boostError ? 0 : (boostData as number) || 0;
+
+        return {
+          id: chat.id,
+          name: chat.name || 'Unnamed Channel',
+          real_members: realMembers || 0,
+          boosted_count: boostCount,
+          visible_total: (realMembers || 0) + boostCount,
+        };
+      })
+    );
+
     setChannels(channelData);
     setLoading(false);
   };
 
-  const demoChannels: ChannelData[] = channels.length > 0 ? channels : [
-    { id: 'd1', name: 'Tech News', real_members: 1247, boosted_count: 3276, visible_total: 4523 },
-    { id: 'd2', name: 'Crypto Alerts', real_members: 892, boosted_count: 5108, visible_total: 6000 },
-    { id: 'd3', name: 'Music Vibes', real_members: 340, boosted_count: 1660, visible_total: 2000 },
-  ];
-
   const getDisplayCount = (ch: ChannelData) => {
     switch (viewMode) {
-      case 'real': return ch.real_members;
-      case 'boosted': return ch.boosted_count;
-      default: return ch.visible_total;
+      case 'real':
+        return ch.real_members;
+      case 'boosted':
+        return ch.boosted_count;
+      default:
+        return ch.visible_total;
     }
   };
 
+  const totalRealMembers = channels.reduce((sum, c) => sum + c.real_members, 0);
+  const totalVisible = channels.reduce((sum, c) => sum + c.visible_total, 0);
+
   return (
     <div className="space-y-4">
-      {/* Stats Row */}
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         <Card className="bg-card border-border">
           <CardContent className="p-4 text-center">
             <Megaphone className="w-5 h-5 text-primary mx-auto mb-1" />
-            {loading ? <Skeleton className="h-8 w-12 mx-auto" /> :
-              <div className="text-2xl font-bold text-foreground">{demoChannels.length}</div>
-            }
+            {loading ? (
+              <Skeleton className="h-8 w-12 mx-auto" />
+            ) : (
+              <div className="text-2xl font-bold text-foreground">{channels.length}</div>
+            )}
             <div className="text-xs text-muted-foreground">Channels</div>
           </CardContent>
         </Card>
+
         <Card className="bg-card border-border">
           <CardContent className="p-4 text-center">
             <Users className="w-5 h-5 text-online mx-auto mb-1" />
-            {loading ? <Skeleton className="h-8 w-16 mx-auto" /> :
-              <div className="text-2xl font-bold text-foreground">
-                {demoChannels.reduce((a, c) => a + c.real_members, 0).toLocaleString()}
-              </div>
-            }
+            {loading ? (
+              <Skeleton className="h-8 w-16 mx-auto" />
+            ) : (
+              <div className="text-2xl font-bold text-foreground">{totalRealMembers.toLocaleString()}</div>
+            )}
             <div className="text-xs text-muted-foreground">Real Members</div>
           </CardContent>
         </Card>
+
         <Card className="bg-card border-border">
           <CardContent className="p-4 text-center">
             <TrendingUp className="w-5 h-5 text-primary mx-auto mb-1" />
-            {loading ? <Skeleton className="h-8 w-16 mx-auto" /> :
-              <div className="text-2xl font-bold text-foreground">
-                {demoChannels.reduce((a, c) => a + c.visible_total, 0).toLocaleString()}
-              </div>
-            }
+            {loading ? (
+              <Skeleton className="h-8 w-16 mx-auto" />
+            ) : (
+              <div className="text-2xl font-bold text-foreground">{totalVisible.toLocaleString()}</div>
+            )}
             <div className="text-xs text-muted-foreground">Visible Total</div>
           </CardContent>
         </Card>
       </div>
 
-      {/* Chart */}
       <Card className="bg-card border-border">
         <CardContent className="p-4">
           <h3 className="text-sm font-medium text-foreground mb-3">Subscriber Breakdown</h3>
           {loading ? (
             <Skeleton className="h-48 w-full" />
+          ) : channels.length === 0 ? (
+            <div className="rounded-xl border border-dashed border-border/50 p-8 text-center text-sm text-muted-foreground">
+              No channels found yet. Create a channel to begin monitoring subscriber activity.
+            </div>
           ) : (
             <ChartContainer config={chartConfig} className="h-48 w-full">
-              <BarChart data={demoChannels} margin={{ top: 5, right: 5, bottom: 5, left: 5 }}>
+              <BarChart data={channels} margin={{ top: 5, right: 5, bottom: 5, left: 5 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="hsl(210 11% 25%)" />
                 <XAxis dataKey="name" tick={{ fontSize: 11, fill: 'hsl(210 12% 55%)' }} />
                 <YAxis tick={{ fontSize: 11, fill: 'hsl(210 12% 55%)' }} />
@@ -134,7 +146,6 @@ export function ChannelOverview({ isSuperAdmin }: { isSuperAdmin: boolean }) {
         </CardContent>
       </Card>
 
-      {/* View Toggle */}
       {isSuperAdmin && (
         <div className="flex items-center gap-3">
           <span className="text-xs text-muted-foreground">View:</span>
@@ -146,7 +157,6 @@ export function ChannelOverview({ isSuperAdmin }: { isSuperAdmin: boolean }) {
         </div>
       )}
 
-      {/* Data Table */}
       <Card className="bg-card border-border">
         <CardContent className="p-0">
           {loading ? (
@@ -159,6 +169,10 @@ export function ChannelOverview({ isSuperAdmin }: { isSuperAdmin: boolean }) {
                   <Skeleton className="h-4 w-12" />
                 </div>
               ))}
+            </div>
+          ) : channels.length === 0 ? (
+            <div className="p-8 text-center text-sm text-muted-foreground">
+              No channel analytics are available yet.
             </div>
           ) : (
             <Table>
@@ -173,7 +187,7 @@ export function ChannelOverview({ isSuperAdmin }: { isSuperAdmin: boolean }) {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {demoChannels.map(channel => (
+                {channels.map((channel) => (
                   <TableRow key={channel.id} className="border-border">
                     <TableCell className="font-medium text-sm">
                       <div className="flex items-center gap-2">

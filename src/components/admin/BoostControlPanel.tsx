@@ -15,13 +15,11 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 
-interface BoostConfig {
-  channelId: string;
-  channelName: string;
-  currentBoost: number;
-  targetCount: number;
-  mode: 'instant' | 'gradual';
-  durationHours: number;
+interface ChannelSetting {
+  boost_target: number;
+  boost_mode: 'instant' | 'gradual';
+  boost_start_time: string | null;
+  boost_end_time: string | null;
 }
 
 export function BoostControlPanel() {
@@ -32,22 +30,78 @@ export function BoostControlPanel() {
   const [durationHours, setDurationHours] = useState([24]);
   const [applying, setApplying] = useState(false);
   const [scheduleDate, setScheduleDate] = useState<Date | undefined>(undefined);
-  const [activeBoost, setActiveBoost] = useState(false);
-  const [boostProgress, setBoostProgress] = useState(0);
+  const [settings, setSettings] = useState<ChannelSetting | null>(null);
+  const [loadingSettings, setLoadingSettings] = useState(false);
+  const [loadingChannels, setLoadingChannels] = useState(true);
 
   useEffect(() => {
     fetchChannels();
-    // Simulate an active boost for demo
-    setActiveBoost(true);
-    setBoostProgress(62);
   }, []);
 
+  useEffect(() => {
+    if (selectedChannel) {
+      loadChannelSettings(selectedChannel);
+    } else {
+      setSettings(null);
+    }
+  }, [selectedChannel]);
+
   const fetchChannels = async () => {
-    const { data } = await supabase
+    setLoadingChannels(true);
+    const { data, error } = await supabase
       .from('chats')
       .select('id, name')
       .eq('type', 'channel');
-    setChannels(data || []);
+
+    if (error) {
+      console.error('[BoostControlPanel] fetchChannels', error);
+      toast.error('Unable to load channels');
+      setChannels([]);
+    } else {
+      setChannels(data || []);
+    }
+    setLoadingChannels(false);
+  };
+
+  const loadChannelSettings = async (chatId: string) => {
+    setLoadingSettings(true);
+    const { data, error } = await supabase
+      .from('channel_settings')
+      .select('boost_target, boost_mode, boost_start_time, boost_end_time')
+      .eq('chat_id', chatId)
+      .single();
+
+    if (error && error.code !== 'PGRST116') {
+      console.error('[BoostControlPanel] loadChannelSettings', error);
+      toast.error('Unable to load channel settings');
+      setSettings(null);
+    } else if (data) {
+      setSettings(data as ChannelSetting);
+      setTargetCount(String(data.boost_target || ''));
+      setBoostMode(data.boost_mode || 'gradual');
+      if (data.boost_mode === 'gradual' && data.boost_start_time && data.boost_end_time) {
+        const start = new Date(data.boost_start_time).getTime();
+        const end = new Date(data.boost_end_time).getTime();
+        setDurationHours([Math.max(1, Math.round((end - start) / 3600000))]);
+      }
+    } else {
+      setSettings(null);
+      setTargetCount('');
+      setBoostMode('gradual');
+      setDurationHours([24]);
+    }
+    setLoadingSettings(false);
+  };
+
+  const calculateProgress = () => {
+    if (!settings) return 0;
+    if (settings.boost_mode === 'instant') return settings.boost_target > 0 ? 100 : 0;
+    if (!settings.boost_start_time || !settings.boost_end_time) return 0;
+    const now = Date.now();
+    const start = new Date(settings.boost_start_time).getTime();
+    const end = new Date(settings.boost_end_time).getTime();
+    if (end <= start) return 0;
+    return Math.min(100, Math.max(0, Math.round(((now - start) / (end - start)) * 100)));
   };
 
   const applyBoost = async () => {
@@ -62,57 +116,59 @@ export function BoostControlPanel() {
 
     const { error } = await supabase
       .from('channel_settings')
-      .upsert({
-        chat_id: selectedChannel,
-        boost_target: parseInt(targetCount),
-        boost_mode: boostMode,
-        boost_start_time: boostMode === 'gradual' ? now.toISOString() : null,
-        boost_end_time: boostMode === 'gradual' ? endTime.toISOString() : null,
-      }, { onConflict: 'chat_id' });
+      .upsert(
+        {
+          chat_id: selectedChannel,
+          boost_target: parseInt(targetCount, 10),
+          boost_mode: boostMode,
+          boost_start_time: boostMode === 'gradual' ? now.toISOString() : null,
+          boost_end_time: boostMode === 'gradual' ? endTime.toISOString() : null,
+        },
+        { onConflict: 'chat_id' }
+      );
 
     setApplying(false);
     if (error) {
+      console.error('[BoostControlPanel] applyBoost', error);
       toast.error('Failed to apply boost');
-    } else {
-      toast.success(`Boost applied: +${targetCount} subscribers ${boostMode === 'gradual' ? `over ${durationHours[0]}h` : 'instantly'}`);
-      setActiveBoost(true);
+      return;
     }
+
+    toast.success(
+      `Boost applied: +${targetCount} subscribers ${boostMode === 'gradual' ? `over ${durationHours[0]}h` : 'instantly'}`
+    );
+    loadChannelSettings(selectedChannel);
   };
 
-  const displayChannels = channels.length > 0 ? channels : [
-    { id: 'demo1', name: 'Tech News' },
-    { id: 'demo2', name: 'Crypto Alerts' },
-    { id: 'demo3', name: 'Music Vibes' },
-  ];
+  const selectedChannelName = channels.find((ch) => ch.id === selectedChannel)?.name;
+  const progress = calculateProgress();
+  const boostActive = !!settings && settings.boost_target > 0;
 
   return (
     <div className="space-y-4">
-      {/* Active Boost Alert */}
-      {activeBoost && (
+      {boostActive && (
         <Alert className="border-primary/30 bg-primary/5">
           <TrendingUp className="h-4 w-4 text-primary" />
           <AlertTitle className="text-sm">Boost Active</AlertTitle>
           <AlertDescription className="text-xs text-muted-foreground">
-            <span>Gradual boost is in progress. {boostProgress}% complete.</span>
-            <Progress value={boostProgress} className="h-1.5 mt-2" />
+            <span>{selectedChannelName || 'Selected channel'} boost is active. {progress}% complete.</span>
+            <Progress value={progress} className="h-1.5 mt-2" />
           </AlertDescription>
         </Alert>
       )}
 
-      {/* Info Banner */}
       <Card className="bg-primary/5 border-primary/20">
         <CardContent className="p-4 flex items-start gap-3">
           <TrendingUp className="w-5 h-5 text-primary mt-0.5 flex-shrink-0" />
           <div>
             <p className="text-sm font-medium text-foreground">Subscriber Boost</p>
             <p className="text-xs text-muted-foreground mt-0.5">
-              Inflate visible subscriber counts. Gradual mode uses a natural cubic ease-out curve for realistic growth.
+              Live boost settings are sourced from Supabase channel settings so admins can manage counts from the real app data.
             </p>
           </div>
         </CardContent>
       </Card>
 
-      {/* Boost Form */}
       <Card className="bg-card border-border">
         <CardHeader className="pb-3">
           <CardTitle className="text-base text-foreground flex items-center gap-2">
@@ -121,22 +177,22 @@ export function BoostControlPanel() {
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          {/* Channel Selection */}
           <div className="space-y-1.5">
             <Label className="text-xs text-muted-foreground">Channel</Label>
             <Select value={selectedChannel} onValueChange={setSelectedChannel}>
               <SelectTrigger className="bg-secondary border-border">
-                <SelectValue placeholder="Select channel" />
+                <SelectValue placeholder={loadingChannels ? 'Loading channels...' : 'Select channel'} />
               </SelectTrigger>
               <SelectContent>
-                {displayChannels.map(ch => (
-                  <SelectItem key={ch.id} value={ch.id}>{ch.name}</SelectItem>
+                {channels.map((ch) => (
+                  <SelectItem key={ch.id} value={ch.id}>
+                    {ch.name}
+                  </SelectItem>
                 ))}
               </SelectContent>
             </Select>
           </div>
 
-          {/* Target Count */}
           <div className="space-y-1.5">
             <Label className="text-xs text-muted-foreground flex items-center gap-1.5">
               <Target className="w-3.5 h-3.5" />
@@ -146,12 +202,11 @@ export function BoostControlPanel() {
               type="number"
               placeholder="e.g. 5000"
               value={targetCount}
-              onChange={e => setTargetCount(e.target.value)}
+              onChange={(e) => setTargetCount(e.target.value)}
               className="bg-secondary border-border"
             />
           </div>
 
-          {/* Mode */}
           <div className="space-y-1.5">
             <Label className="text-xs text-muted-foreground">Boost Mode</Label>
             <div className="grid grid-cols-2 gap-2">
@@ -182,20 +237,13 @@ export function BoostControlPanel() {
             </div>
           </div>
 
-          {/* Duration Slider (gradual only) */}
           {boostMode === 'gradual' && (
             <div className="space-y-2 animate-fade-in">
               <Label className="text-xs text-muted-foreground">Duration: {durationHours[0]} hours</Label>
-              <Slider
-                value={durationHours}
-                onValueChange={setDurationHours}
-                min={1}
-                max={720}
-                step={1}
-              />
+              <Slider value={durationHours} onValueChange={setDurationHours} min={1} max={720} step={1} />
               <div className="flex justify-between text-[10px] text-muted-foreground">
                 <span>1h</span>
-                <span>~{Math.round(parseInt(targetCount || '0') / Math.max(1, durationHours[0]))} subs/hour</span>
+                <span>~{Math.round(parseInt(targetCount || '0', 10) / Math.max(1, durationHours[0]))} subs/hour</span>
                 <span>30 days</span>
               </div>
             </div>
@@ -203,7 +251,6 @@ export function BoostControlPanel() {
 
           <Separator />
 
-          {/* Schedule Date */}
           <div className="space-y-1.5">
             <Label className="text-xs text-muted-foreground">Schedule Start (optional)</Label>
             <Popover>
@@ -224,7 +271,7 @@ export function BoostControlPanel() {
             </Popover>
           </div>
 
-          <Button onClick={applyBoost} className="w-full" disabled={applying}>
+          <Button onClick={applyBoost} className="w-full" disabled={applying || !selectedChannel || !targetCount}>
             {applying ? 'Applying...' : `Apply ${boostMode === 'instant' ? 'Instant' : 'Gradual'} Boost`}
           </Button>
         </CardContent>

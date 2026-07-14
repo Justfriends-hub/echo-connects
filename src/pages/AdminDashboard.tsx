@@ -1,21 +1,76 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { ArrowLeft, Shield, Users, MessageSquare, TrendingUp, Home } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from '@/components/ui/breadcrumb';
-import { NavigationMenu, NavigationMenuContent, NavigationMenuItem, NavigationMenuLink, NavigationMenuList, NavigationMenuTrigger, navigationMenuTriggerStyle } from '@/components/ui/navigation-menu';
+import { NavigationMenu, NavigationMenuContent, NavigationMenuItem, NavigationMenuLink, NavigationMenuList, NavigationMenuTrigger } from '@/components/ui/navigation-menu';
 import { Separator } from '@/components/ui/separator';
 import { useNavigate } from 'react-router-dom';
 import { useUserRole } from '@/hooks/useUserRole';
+import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/integrations/supabase/client';
+import { Card, CardContent } from '@/components/ui/card';
+import { Skeleton } from '@/components/ui/skeleton';
 import { ChannelOverview } from '@/components/admin/ChannelOverview';
 import { BoostControlPanel } from '@/components/admin/BoostControlPanel';
 import { CommentApprovalQueue } from '@/components/admin/CommentApprovalQueue';
 
 export default function AdminDashboard() {
   const navigate = useNavigate();
-  const { role } = useUserRole();
-  const isSuperAdmin = role === 'super_admin';
-  const [activeTab, setActiveTab] = React.useState('channels');
+  const { user } = useAuth();
+  const { isAdmin, isSuperAdmin, loading: roleLoading } = useUserRole();
+  const [activeTab, setActiveTab] = useState('channels');
+  const [stats, setStats] = useState({ users: 0, channels: 0, pendingComments: 0, activeBoosts: 0 });
+  const [statsLoading, setStatsLoading] = useState(true);
+
+  useEffect(() => {
+    if (!roleLoading && isAdmin) {
+      loadStats();
+    }
+  }, [isAdmin, roleLoading]);
+
+  const loadStats = async () => {
+    setStatsLoading(true);
+    const [usersResult, channelsResult, pendingResult, boostsResult] = await Promise.all([
+      supabase.from('profiles').select('id', { count: 'exact', head: true }),
+      supabase.from('chats').select('id', { count: 'exact', head: true }).eq('type', 'channel'),
+      supabase.from('comments').select('id', { count: 'exact', head: true }).eq('status', 'pending'),
+      supabase.from('channel_settings').select('chat_id', { count: 'exact', head: true }).gt('boost_target', 0),
+    ]);
+
+    setStats({
+      users: usersResult.count ?? 0,
+      channels: channelsResult.count ?? 0,
+      pendingComments: pendingResult.count ?? 0,
+      activeBoosts: boostsResult.count ?? 0,
+    });
+    setStatsLoading(false);
+  };
+
+  if (roleLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background p-4">
+        <Skeleton className="h-10 w-72" />
+      </div>
+    );
+  }
+
+  if (!isAdmin) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background p-4">
+        <Card className="max-w-lg w-full border-border">
+          <CardContent className="space-y-4 text-center">
+            <Shield className="mx-auto h-10 w-10 text-destructive" />
+            <h1 className="text-lg font-semibold text-foreground">Admin Access Required</h1>
+            <p className="text-sm text-muted-foreground">
+              You do not have permission to view the admin dashboard. Contact a super admin if you believe this is an error.
+            </p>
+            <Button className="mx-auto" onClick={() => navigate('/')}>Go Home</Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   const tabLabels: Record<string, string> = {
     channels: 'Channels',
@@ -25,16 +80,17 @@ export default function AdminDashboard() {
 
   return (
     <div className="min-h-screen flex flex-col bg-background">
-      {/* Header */}
       <div className="flex items-center gap-3 p-4 border-b border-border bg-card sticky top-0 z-40">
         <Button variant="ghost" size="icon" onClick={() => navigate(-1)}>
           <ArrowLeft className="w-5 h-5" />
         </Button>
         <Shield className="w-5 h-5 text-primary" />
-        <h1 className="text-lg font-semibold text-foreground">Admin Dashboard</h1>
+        <div>
+          <h1 className="text-lg font-semibold text-foreground">Admin Dashboard</h1>
+          <p className="text-xs text-muted-foreground">Signed in as {user?.user_metadata?.display_name || user?.email || 'Admin'}</p>
+        </div>
       </div>
 
-      {/* Breadcrumb */}
       <div className="px-4 py-2 bg-card/50 border-b border-border">
         <Breadcrumb>
           <BreadcrumbList>
@@ -56,7 +112,6 @@ export default function AdminDashboard() {
         </Breadcrumb>
       </div>
 
-      {/* Navigation Menu */}
       <div className="px-4 pt-3">
         <NavigationMenu>
           <NavigationMenuList>
@@ -67,21 +122,21 @@ export default function AdminDashboard() {
                   <NavigationMenuLink asChild>
                     <button onClick={() => setActiveTab('channels')} className="block w-full text-left rounded-md p-3 hover:bg-accent transition-colors">
                       <div className="text-sm font-medium text-foreground">Channel Overview</div>
-                      <p className="text-xs text-muted-foreground mt-0.5">View all channels, members, and stats</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">View channels, members, and stats</p>
                     </button>
                   </NavigationMenuLink>
                   {isSuperAdmin && (
                     <NavigationMenuLink asChild>
                       <button onClick={() => setActiveTab('boost')} className="block w-full text-left rounded-md p-3 hover:bg-accent transition-colors">
                         <div className="text-sm font-medium text-foreground">Boost Control</div>
-                        <p className="text-xs text-muted-foreground mt-0.5">Manage subscriber count boosts</p>
+                        <p className="text-xs text-muted-foreground mt-0.5">Manage channel boost settings</p>
                       </button>
                     </NavigationMenuLink>
                   )}
                   <NavigationMenuLink asChild>
                     <button onClick={() => setActiveTab('comments')} className="block w-full text-left rounded-md p-3 hover:bg-accent transition-colors">
                       <div className="text-sm font-medium text-foreground">Comment Queue</div>
-                      <p className="text-xs text-muted-foreground mt-0.5">Approve or reject pending comments</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">Approve pending user comments</p>
                     </button>
                   </NavigationMenuLink>
                 </div>
@@ -93,9 +148,28 @@ export default function AdminDashboard() {
 
       <Separator className="mx-4 mt-2" />
 
-      {/* Content */}
       <div className="flex-1 overflow-y-auto p-4">
-        <div className="max-w-3xl mx-auto">
+        <div className="max-w-3xl mx-auto space-y-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3">
+            {[
+              { label: 'Users', value: stats.users, loading: statsLoading },
+              { label: 'Channels', value: stats.channels, loading: statsLoading },
+              { label: 'Pending Comments', value: stats.pendingComments, loading: statsLoading },
+              { label: 'Active Boosts', value: stats.activeBoosts, loading: statsLoading },
+            ].map((stat) => (
+              <Card key={stat.label} className="bg-card border-border">
+                <CardContent className="p-4 text-center">
+                  {stat.loading ? (
+                    <Skeleton className="h-8 w-20 mx-auto" />
+                  ) : (
+                    <div className="text-2xl font-bold text-foreground">{stat.value.toLocaleString()}</div>
+                  )}
+                  <div className="text-xs text-muted-foreground">{stat.label}</div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+
           <Tabs value={activeTab} onValueChange={setActiveTab}>
             <TabsList className="bg-card border border-border w-full grid grid-cols-3 mb-4">
               <TabsTrigger value="channels" className="gap-1.5 text-xs">

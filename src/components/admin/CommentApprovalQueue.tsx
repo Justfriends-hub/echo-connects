@@ -39,14 +39,37 @@ export function CommentApprovalQueue() {
 
   const fetchComments = async () => {
     setLoading(true);
-    let query = supabase.from('comments').select('*').order('created_at', { ascending: false }).limit(50);
-    
+    let query = supabase
+      .from('comments')
+      .select('id, content, user_id, message_id, created_at, status, user:user_id (username, display_name)')
+      .order('created_at', { ascending: false })
+      .limit(50);
+
     if (filter === 'pending') {
       query = query.eq('status', 'pending');
     }
 
-    const { data } = await query;
-    setComments((data as PendingComment[]) || []);
+    const { data, error } = await query;
+    if (error) {
+      console.error('[CommentApprovalQueue] fetchComments', error);
+      toast.error('Unable to load comments');
+      setComments([]);
+      setLoading(false);
+      return;
+    }
+
+    const normalized = (data || []).map((comment: any) => ({
+      id: comment.id,
+      content: comment.content,
+      user_id: comment.user_id,
+      message_id: comment.message_id,
+      created_at: comment.created_at,
+      status: comment.status,
+      username: comment.user?.username || 'user',
+      display_name: comment.user?.display_name || 'Unknown',
+    }));
+
+    setComments(normalized);
     setLoading(false);
     setPage(1);
     setSelected(new Set());
@@ -59,83 +82,78 @@ export function CommentApprovalQueue() {
       .eq('id', commentId);
 
     if (error) {
+      console.error('[CommentApprovalQueue] handleAction', error);
       toast.error('Failed to update comment');
       return;
     }
 
-    setComments(prev => prev.map(c => c.id === commentId ? { ...c, status: action } : c));
-    setSelected(prev => { const n = new Set(prev); n.delete(commentId); return n; });
+    setComments((prev) => prev.filter((comment) => comment.id !== commentId));
+    setSelected((prev) => {
+      const next = new Set(prev);
+      next.delete(commentId);
+      return next;
+    });
     toast.success(action === 'approved' ? 'Comment approved' : 'Comment rejected');
   };
 
   const handleBulkReject = async () => {
-    for (const id of selected) {
-      await handleAction(id, 'rejected');
-    }
+    const ids = Array.from(selected);
+    await Promise.all(ids.map((id) => handleAction(id, 'rejected')));
     setSelected(new Set());
-    toast.success(`${selected.size} comments rejected`);
+    toast.success(`${ids.length} comments rejected`);
   };
 
   const handleBulkApprove = async () => {
-    for (const id of selected) {
-      await handleAction(id, 'approved');
-    }
+    const ids = Array.from(selected);
+    await Promise.all(ids.map((id) => handleAction(id, 'approved')));
     setSelected(new Set());
-    toast.success(`${selected.size} comments approved`);
+    toast.success(`${ids.length} comments approved`);
   };
 
   const toggleSelect = (id: string) => {
-    setSelected(prev => {
-      const n = new Set(prev);
-      if (n.has(id)) n.delete(id); else n.add(id);
-      return n;
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
     });
   };
 
+  const paginatedComments = comments.slice((page - 1) * PER_PAGE, page * PER_PAGE);
+
   const toggleSelectAll = () => {
-    const pageComments = paginatedComments;
-    if (selected.size === pageComments.length) {
+    if (selected.size === paginatedComments.length) {
       setSelected(new Set());
     } else {
-      setSelected(new Set(pageComments.map(c => c.id)));
+      setSelected(new Set(paginatedComments.map((c) => c.id)));
     }
   };
 
-  // Demo data
-  const demoComments: PendingComment[] = comments.length > 0 ? comments : [
-    { id: 'dc1', content: 'This is amazing! 🔥 When is the next update dropping?', user_id: 'u1', message_id: 'm1', created_at: new Date(Date.now() - 300000).toISOString(), status: 'pending', display_name: 'Sarah K.', username: 'sarah_k' },
-    { id: 'dc2', content: 'Can you do a tutorial on this topic?', user_id: 'u2', message_id: 'm1', created_at: new Date(Date.now() - 600000).toISOString(), status: 'pending', display_name: 'Mike O.', username: 'mike_o' },
-    { id: 'dc3', content: 'First! Great content as always 👏', user_id: 'u3', message_id: 'm2', created_at: new Date(Date.now() - 1800000).toISOString(), status: 'pending', display_name: 'Tunde A.', username: 'tunde_a' },
-    { id: 'dc4', content: 'Please share more about the premium features', user_id: 'u4', message_id: 'm2', created_at: new Date(Date.now() - 3600000).toISOString(), status: 'pending', display_name: 'Funke B.', username: 'funke_b' },
-    { id: 'dc5', content: 'Nice one! Keep it up 💪', user_id: 'u5', message_id: 'm3', created_at: new Date(Date.now() - 5400000).toISOString(), status: 'pending', display_name: 'James D.', username: 'james_d' },
-    { id: 'dc6', content: 'I have a question about the pricing model?', user_id: 'u6', message_id: 'm3', created_at: new Date(Date.now() - 7200000).toISOString(), status: 'pending', display_name: 'Blessing E.', username: 'blessing_e' },
-  ];
-
-  const pendingCount = demoComments.filter(c => c.status === 'pending').length;
-  const totalPages = Math.ceil(demoComments.length / PER_PAGE);
-  const paginatedComments = demoComments.slice((page - 1) * PER_PAGE, page * PER_PAGE);
+  const pendingCount = comments.filter((c) => c.status === 'pending').length;
+  const totalPages = Math.ceil(comments.length / PER_PAGE);
 
   return (
     <div className="space-y-4">
-      {/* Info Banner */}
       <Card className="bg-destructive/5 border-destructive/20">
         <CardContent className="p-4 flex items-start gap-3">
           <Eye className="w-5 h-5 text-destructive mt-0.5 flex-shrink-0" />
           <div>
             <p className="text-sm font-medium text-foreground">Hidden Approval Queue</p>
             <p className="text-xs text-muted-foreground mt-0.5">
-              Users see their comments as "posted" but they remain invisible to others until approved.
+              Users see their comments as posted, but they remain invisible to others until approved.
             </p>
           </div>
         </CardContent>
       </Card>
 
-      {/* Controls */}
       <div className="flex items-center justify-between gap-2 flex-wrap">
         <div className="flex gap-2">
-          <Button variant={filter === 'pending' ? 'default' : 'outline'} size="sm"
+          <Button
+            variant={filter === 'pending' ? 'default' : 'outline'}
+            size="sm"
             onClick={() => setFilter('pending')}
-            className={filter === 'pending' ? '' : 'border-border text-muted-foreground'}>
+            className={filter === 'pending' ? '' : 'border-border text-muted-foreground'}
+          >
             <Clock className="w-3.5 h-3.5 mr-1.5" />
             Pending
             {pendingCount > 0 && (
@@ -144,9 +162,12 @@ export function CommentApprovalQueue() {
               </Badge>
             )}
           </Button>
-          <Button variant={filter === 'all' ? 'default' : 'outline'} size="sm"
+          <Button
+            variant={filter === 'all' ? 'default' : 'outline'}
+            size="sm"
             onClick={() => setFilter('all')}
-            className={filter === 'all' ? '' : 'border-border text-muted-foreground'}>
+            className={filter === 'all' ? '' : 'border-border text-muted-foreground'}
+          >
             All
           </Button>
         </div>
@@ -157,7 +178,6 @@ export function CommentApprovalQueue() {
         </div>
       </div>
 
-      {/* Bulk Actions */}
       {selected.size > 0 && (
         <div className="flex items-center gap-2 p-2 bg-primary/5 rounded-lg border border-primary/20 animate-fade-in">
           <span className="text-xs text-foreground font-medium">{selected.size} selected</span>
@@ -189,7 +209,6 @@ export function CommentApprovalQueue() {
         </div>
       )}
 
-      {/* Select All */}
       <div className="flex items-center gap-2 px-1">
         <Checkbox
           checked={paginatedComments.length > 0 && selected.size === paginatedComments.length}
@@ -198,7 +217,6 @@ export function CommentApprovalQueue() {
         <span className="text-xs text-muted-foreground">Select all on this page</span>
       </div>
 
-      {/* Comment List */}
       <div className="space-y-2">
         {loading ? (
           [...Array(3)].map((_, i) => (
@@ -216,11 +234,11 @@ export function CommentApprovalQueue() {
           <Card className="bg-card border-border">
             <CardContent className="p-8 text-center">
               <MessageSquare className="w-8 h-8 text-muted-foreground mx-auto mb-2" />
-              <p className="text-sm text-muted-foreground">No pending comments</p>
+              <p className="text-sm text-muted-foreground">No comments match this filter.</p>
             </CardContent>
           </Card>
         ) : (
-          paginatedComments.map(comment => (
+          paginatedComments.map((comment) => (
             <Card key={comment.id} className="bg-card border-border">
               <CardContent className="p-3">
                 <div className="flex items-start gap-3">
@@ -236,14 +254,16 @@ export function CommentApprovalQueue() {
                   </Avatar>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
-                      <span className="text-sm font-medium text-foreground">{comment.display_name || 'Unknown'}</span>
-                      <span className="text-[10px] text-muted-foreground">@{comment.username || 'user'}</span>
+                      <span className="text-sm font-medium text-foreground">{comment.display_name}</span>
+                      <span className="text-[10px] text-muted-foreground">@{comment.username}</span>
                       <Badge
                         variant="outline"
                         className={`text-[10px] ml-auto ${
-                          comment.status === 'pending' ? 'border-yellow-500/50 text-yellow-500' :
-                          comment.status === 'approved' ? 'border-online text-online' :
-                          'border-destructive text-destructive'
+                          comment.status === 'pending'
+                            ? 'border-yellow-500/50 text-yellow-500'
+                            : comment.status === 'approved'
+                            ? 'border-online text-online'
+                            : 'border-destructive text-destructive'
                         }`}
                       >
                         {comment.status}
@@ -251,17 +271,23 @@ export function CommentApprovalQueue() {
                     </div>
                     <p className={`text-sm text-foreground/80 mt-1 ${compactView ? 'line-clamp-1' : ''}`}>{comment.content}</p>
                     <div className="flex items-center justify-between mt-2">
-                      <span className="text-[10px] text-muted-foreground">
-                        {new Date(comment.created_at).toLocaleString()}
-                      </span>
+                      <span className="text-[10px] text-muted-foreground">{new Date(comment.created_at).toLocaleString()}</span>
                       {comment.status === 'pending' && (
                         <div className="flex gap-1.5">
-                          <Button size="sm" variant="ghost" className="h-7 px-2 text-online hover:text-online hover:bg-online/10"
-                            onClick={() => handleAction(comment.id, 'approved')}>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="h-7 px-2 text-online hover:text-online hover:bg-online/10"
+                            onClick={() => handleAction(comment.id, 'approved')}
+                          >
                             <Check className="w-3.5 h-3.5 mr-1" /> Approve
                           </Button>
-                          <Button size="sm" variant="ghost" className="h-7 px-2 text-destructive hover:text-destructive hover:bg-destructive/10"
-                            onClick={() => handleAction(comment.id, 'rejected')}>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="h-7 px-2 text-destructive hover:text-destructive hover:bg-destructive/10"
+                            onClick={() => handleAction(comment.id, 'rejected')}
+                          >
                             <X className="w-3.5 h-3.5 mr-1" /> Reject
                           </Button>
                         </div>
@@ -275,12 +301,11 @@ export function CommentApprovalQueue() {
         )}
       </div>
 
-      {/* Pagination */}
       {totalPages > 1 && (
         <Pagination>
           <PaginationContent>
             <PaginationItem>
-              <PaginationPrevious onClick={() => setPage(p => Math.max(1, p - 1))} className={page === 1 ? 'pointer-events-none opacity-50' : 'cursor-pointer'} />
+              <PaginationPrevious onClick={() => setPage((p) => Math.max(1, p - 1))} className={page === 1 ? 'pointer-events-none opacity-50' : 'cursor-pointer'} />
             </PaginationItem>
             {[...Array(totalPages)].map((_, i) => (
               <PaginationItem key={i}>
@@ -290,7 +315,7 @@ export function CommentApprovalQueue() {
               </PaginationItem>
             ))}
             <PaginationItem>
-              <PaginationNext onClick={() => setPage(p => Math.min(totalPages, p + 1))} className={page === totalPages ? 'pointer-events-none opacity-50' : 'cursor-pointer'} />
+              <PaginationNext onClick={() => setPage((p) => Math.min(totalPages, p + 1))} className={page === totalPages ? 'pointer-events-none opacity-50' : 'cursor-pointer'} />
             </PaginationItem>
           </PaginationContent>
         </Pagination>
