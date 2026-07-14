@@ -221,6 +221,7 @@ export function ChatLayout() {
         onBack={() => setActiveChat(null)}
         typingUsers={typingUsers}
         onTyping={notifyTyping}
+        inputHeight={inputHeight}
         onLoadOlder={loadOlder}
         hasMore={hasMore}
         loadingOlder={loadingOlder}
