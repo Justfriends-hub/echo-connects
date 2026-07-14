@@ -118,6 +118,7 @@ export function ChatArea({
   loadingOlder,
   othersLastReadAt,
   inputHeight,
+  keyboardHeight,
   onOpenInfo,
 }: ChatAreaProps) {
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -194,7 +195,7 @@ export function ChatArea({
       window.removeEventListener('resize', updateVisibility)
       if (frameId) window.cancelAnimationFrame(frameId)
     }
-  }, [inputHeight, isNearBottom, messages])
+  }, [inputHeight, keyboardHeight, isNearBottom, messages])
 
   const getInitials = (name: string) =>
     name
