@@ -156,13 +156,51 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         throw authError;
       }
     }
-
-    const { error } = await (supabase as any).from('profiles').update(data).eq('id', user.id);
-    if (error) {
-      throw error;
+    // Update the profiles row but avoid PATCHing any optional UI-only
+    // columns that may not exist in the DB schema (like
+    // `default_wallpaper_url`). We remove those keys from the main
+    // update payload, then attempt to apply them separately with a
+    // safe fallback to auth metadata.
+    const dbUpdate: Record<string, any> = { ...data } as any;
+    // Remove UI-only or optional keys that might not exist in the DB
+    // to prevent 400 Bad Request errors from the REST endpoint.
+    if (dbUpdate.default_wallpaper_url !== undefined) {
+      delete dbUpdate.default_wallpaper_url;
     }
 
-    setProfile(prev => prev ? { ...prev, ...data } : null);
+    if (Object.keys(dbUpdate).length > 0) {
+      const { error } = await (supabase as any).from('profiles').update(dbUpdate).eq('id', user.id);
+      if (!error) {
+        setProfile(prev => prev ? { ...prev, ...dbUpdate } : prev);
+      } else {
+        console.warn('[Auth] profiles update failed for fields', Object.keys(dbUpdate), error.message || error);
+      }
+    }
+
+    // Now handle default_wallpaper_url separately so its absence in the
+    // DB schema doesn't cause the whole update to fail.
+    if (data.default_wallpaper_url !== undefined) {
+      try {
+        const { error: wallErr } = await (supabase as any)
+          .from('profiles')
+          .update({ default_wallpaper_url: data.default_wallpaper_url })
+          .eq('id', user.id);
+        if (wallErr) throw wallErr;
+        setProfile(prev => prev ? { ...prev, default_wallpaper_url: data.default_wallpaper_url } : prev);
+      } catch (err: any) {
+        // If updating the profiles table fails (missing column), fall
+        // back to storing the preference in auth user metadata so the
+        // app still works without a DB migration.
+        console.warn('[Auth] profiles column update failed, falling back to metadata', err?.message || err);
+        try {
+          const { error: metaErr } = await supabase.auth.updateUser({ data: { default_wallpaper_url: data.default_wallpaper_url } });
+          if (metaErr) throw metaErr;
+          setProfile(prev => prev ? { ...prev, default_wallpaper_url: data.default_wallpaper_url } : prev);
+        } catch (metaErr: any) {
+          console.error('[Auth] failed to write default_wallpaper_url to metadata', metaErr);
+        }
+      }
+    }
   };
 
   return (
