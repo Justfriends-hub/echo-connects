@@ -14,7 +14,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { ChannelPost } from './ChannelPost';
-import { ChatInput } from '@/components/chat/ChatInput';
+// ChatInput removed — input and keyboard disabled
 import { ChannelComments } from './ChannelComments';
 import type { Chat, Message } from '@/types/chat';
 import { supabase } from '@/integrations/supabase/client';
@@ -53,7 +53,7 @@ export function ChannelView({ chat, messages, currentUserId, onSendMessage, onBa
   const [commentsEnabled, setCommentsEnabled] = useState(false);
   const [muted, setMuted] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [inputHeight, setInputHeight] = useState(68);
+  // inputHeight not used since input removed
 
   const isAdmin = memberRole === 'owner' || memberRole === 'admin';
 
@@ -328,19 +328,7 @@ export function ChannelView({ chat, messages, currentUserId, onSendMessage, onBa
         </div>
       </div>
 
-      {/* ── Admin Post Bar / Member Lock Bar ─────────────────────────────────── */}
-      {isAdmin ? (
-        <ChatInput
-          onSend={onSendMessage}
-          placeholder="Broadcast to channel…"
-          onHeightChange={setInputHeight}
-        />
-      ) : (
-        <div className="chat-input-fixed flex items-center justify-center gap-2 p-3 bg-card border-t border-border text-muted-foreground text-sm">
-          <Lock className="w-4 h-4 flex-shrink-0" />
-          <span className="text-xs">Only admins can post in this channel</span>
-        </div>
-      )}
+      {/* ── Posting UI removed — channel is read-only in this build */}
 
       {/* ── Comments Side Panel ──────────────────────────────────────────────── */}
       {showComments && selectedMessage && (

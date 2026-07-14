@@ -15,7 +15,6 @@ import {
 } from "@/components/ui/tooltip";
 import { Separator } from "@/components/ui/separator";
 import { MessageBubble } from "./MessageBubble";
-import { ChatInput } from "./ChatInput";
 import type { Chat, Message } from "@/types/chat";
 
 interface ChatAreaProps {
@@ -122,7 +121,7 @@ export function ChatArea({
   const scrollRef = useRef<HTMLDivElement>(null);
   const prevFirstIdRef = useRef<string | null>(null);
   const [isNearBottom, setIsNearBottom] = useState(true);
-  const [inputHeight, setInputHeight] = useState(68);
+  // Input removed — keyboard and text bar disabled per request
 
   const handleScroll = useCallback(() => {
     const container = scrollRef.current;
@@ -150,69 +149,7 @@ export function ChatArea({
   // Handle precise VisualViewport changes to keep latest messages visible
   // IMPORTANT: This effect only adjusts the scroll position of the messages container.
   // It must NEVER touch the wallpaper element in any way.
-  useEffect(() => {
-    const onVV = () => {
-      const container = scrollRef.current;
-      const bottomAnchor = bottomRef.current;
-      if (!container || !bottomAnchor) return;
-
-      const nearBottom =
-        container.scrollHeight - container.scrollTop - container.clientHeight <
-        160;
-      if (!nearBottom) return;
-
-      const vv = window.visualViewport;
-      const viewportBottom = vv ? vv.offsetTop + vv.height : window.innerHeight;
-      const inputTop = viewportBottom - inputHeight;
-      const bottomRect = bottomAnchor.getBoundingClientRect();
-
-      if (bottomRect.bottom > inputTop) {
-        bottomAnchor.scrollIntoView({ behavior: "smooth", block: "nearest" });
-      }
-    };
-
-    const vv = window.visualViewport;
-    if (vv) {
-      let ticking = false;
-      const update = () => {
-        if (ticking) return;
-        ticking = true;
-        window.requestAnimationFrame(() => {
-          onVV();
-          ticking = false;
-        });
-      };
-      vv.addEventListener("resize", update);
-      vv.addEventListener("scroll", update);
-      return () => {
-        vv.removeEventListener("resize", update);
-        vv.removeEventListener("scroll", update);
-      };
-    }
-
-    let ticking = false;
-    const updateFallback = () => {
-      if (ticking) return;
-      ticking = true;
-      window.requestAnimationFrame(() => {
-        onVV();
-        ticking = false;
-      });
-    };
-
-    window.addEventListener(
-      "chat-visual-viewport",
-      updateFallback as EventListener,
-    );
-    window.addEventListener("resize", updateFallback);
-    return () => {
-      window.removeEventListener(
-        "chat-visual-viewport",
-        updateFallback as EventListener,
-      );
-      window.removeEventListener("resize", updateFallback);
-    };
-  }, [inputHeight]);
+  // VisualViewport handling removed since keyboard/input are disabled
 
   const getInitials = (name: string) =>
     name
@@ -297,7 +234,7 @@ export function ChatArea({
           onScroll={handleScroll}
           className="flex-1 min-h-0 overflow-y-auto px-4 py-3 space-y-2 overscroll-contain pt-14"
           style={{
-            paddingBottom: inputHeight + 20,
+            paddingBottom: 20,
             scrollbarWidth: "none",
             WebkitOverflowScrolling: "touch",
             backgroundColor: 'transparent',
@@ -393,11 +330,7 @@ export function ChatArea({
           The gradient wrapper is purely cosmetic — it fades into the
           wallpaper color at the bottom of the screen.
           ═══════════════════════════════════════════════════════════════════ */}
-      <ChatInput
-        onSend={onSendMessage}
-        onTyping={onTyping}
-        onHeightChange={setInputHeight}
-      />
+          {/* Chat input removed — no input or keyboard */}
     </div>
   );
 }
