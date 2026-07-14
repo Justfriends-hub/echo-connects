@@ -74,6 +74,8 @@ export function ChatLayout() {
   const [showProfileDrawer, setShowProfileDrawer] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
   const [inputHeight, setInputHeight] = useState(0);
+  const [viewportHeight, setViewportHeight] = useState<number | null>(null);
+  const [viewportWidth, setViewportWidth] = useState<number | null>(null);
   const [isOnline, setIsOnline] = useState(
     typeof navigator !== "undefined" ? navigator.onLine : true,
   );
@@ -92,6 +94,15 @@ export function ChatLayout() {
     return () => {
       // keep portal alive for app lifecycle
     };
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const vv = window.visualViewport;
+    const height = vv ? vv.height : window.innerHeight;
+    const width = vv ? vv.width : window.innerWidth;
+    setViewportHeight(height);
+    setViewportWidth(width);
   }, []);
 
 
@@ -281,8 +292,10 @@ export function ChatLayout() {
         style={{
           position: 'fixed',
           inset: 0,
-          height: '100dvh',
-          width: '100vw',
+          height: viewportHeight ? `${viewportHeight}px` : '100dvh',
+          width: viewportWidth ? `${viewportWidth}px` : '100vw',
+          maxHeight: viewportHeight ? `${viewportHeight}px` : '100dvh',
+          maxWidth: viewportWidth ? `${viewportWidth}px` : '100vw',
           overflow: 'hidden',
           backgroundColor: 'transparent',
           paddingTop: 'env(safe-area-inset-top)',
