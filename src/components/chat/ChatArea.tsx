@@ -30,6 +30,7 @@ interface ChatAreaProps {
   loadingOlder?: boolean;
   othersLastReadAt?: string | null;
   inputHeight?: number;
+  keyboardHeight?: number;
   onOpenInfo?: () => void;
 }
 
@@ -164,7 +165,7 @@ export function ChatArea({
         const visibleBottom = window.visualViewport
           ? window.visualViewport.offsetTop + window.visualViewport.height
           : window.innerHeight
-        const obstruction = inputHeight ?? 0
+        const obstruction = (inputHeight ?? 0) + (keyboardHeight ?? 0)
         const threshold = visibleBottom - obstruction - 8
 
         if (rect.bottom > threshold) {
@@ -276,7 +277,7 @@ export function ChatArea({
     WebkitOverflowScrolling: 'touch',
     backgroundColor: 'transparent',
     boxSizing: 'border-box',
-    paddingBottom: inputHeight ? inputHeight + 14 : 24,
+    paddingBottom: (inputHeight ?? 0) + (keyboardHeight ?? 0) + 14,
   }
 
   return (

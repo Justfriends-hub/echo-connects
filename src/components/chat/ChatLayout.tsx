@@ -74,6 +74,7 @@ export function ChatLayout() {
   const [showProfileDrawer, setShowProfileDrawer] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
   const [inputHeight, setInputHeight] = useState(0);
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
   const [viewportHeight, setViewportHeight] = useState<number | null>(null);
   const [viewportWidth, setViewportWidth] = useState<number | null>(null);
   const [isOnline, setIsOnline] = useState(
@@ -222,6 +223,7 @@ export function ChatLayout() {
         typingUsers={typingUsers}
         onTyping={notifyTyping}
         inputHeight={inputHeight}
+        keyboardHeight={keyboardHeight}
         onLoadOlder={loadOlder}
         hasMore={hasMore}
         loadingOlder={loadingOlder}
@@ -448,6 +450,7 @@ export function ChatLayout() {
             : 'Select a chat to start typing'
         }
         onHeightChange={setInputHeight}
+        onKeyboardHeightChange={setKeyboardHeight}
       />
 
       {/* Floating Network Notification pill banner matching native UI design aesthetics */}

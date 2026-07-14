@@ -8,6 +8,7 @@ interface TextBarProps {
   disabled?: boolean
   placeholder?: string
   onHeightChange?: (height: number) => void
+  onKeyboardHeightChange?: (height: number) => void
 }
 
 export default function TextBar({
@@ -16,6 +17,7 @@ export default function TextBar({
   disabled,
   placeholder = 'Message',
   onHeightChange,
+  onKeyboardHeightChange,
 }: TextBarProps) {
   const [text, setText] = useState('')
   const [keyboardHeight, setKeyboardHeight] = useState(0)
@@ -46,6 +48,7 @@ export default function TextBar({
           ? Math.max(0, window.innerHeight - (vv.offsetTop + vv.height))
           : Math.max(0, window.innerHeight - document.documentElement.clientHeight)
         setKeyboardHeight(bottom)
+        onKeyboardHeightChange?.(bottom)
         rafRef.current = null
       })
     }
@@ -60,7 +63,10 @@ export default function TextBar({
     }
 
     const onFocusIn = () => setTimeout(update, 50)
-    const onFocusOut = () => setKeyboardHeight(0)
+    const onFocusOut = () => {
+      setKeyboardHeight(0)
+      onKeyboardHeightChange?.(0)
+    }
     window.addEventListener('focusin', onFocusIn)
     window.addEventListener('focusout', onFocusOut)
 
@@ -75,7 +81,7 @@ export default function TextBar({
       window.removeEventListener('focusout', onFocusOut)
       if (rafRef.current) window.cancelAnimationFrame(rafRef.current)
     }
-  }, [])
+  }, [onKeyboardHeightChange])
 
   const handleSend = useCallback(() => {
     const trimmed = text.trim()
