@@ -3,7 +3,7 @@ import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import { ChatSidebar } from "./ChatSidebar";
 import { ChatArea } from "./ChatArea";
-import ChatInput from "./ChatInput";
+import TextBar from "./TextBar";
 import ChatHeader from "./ChatHeader";
 import { EmptyState } from "./EmptyState";
 import { NewChatDialog } from "./NewChatDialog";
@@ -435,7 +435,7 @@ export function ChatLayout() {
         open={showStatusComposer}
         onClose={() => setShowStatusComposer(false)}
       />
-      <ChatInput
+      <TextBar
         onSend={handleSendMessage}
         onTyping={currentChat && currentChat.type !== 'channel' ? notifyTyping : undefined}
         disabled={!currentChat || currentChat.type === 'channel'}
