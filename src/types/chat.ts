@@ -20,6 +20,7 @@ export interface Chat {
   type: 'direct' | 'group' | 'channel';
   name?: string;
   avatar_url?: string;
+  wallpaper_url?: string | null;
   description?: string;
   created_by: string;
   created_at: string;

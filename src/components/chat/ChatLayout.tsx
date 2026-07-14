@@ -259,10 +259,10 @@ export function ChatLayout() {
         />,
         headerPortalEl,
       )}
-      <div className="fixed inset-0 h-full w-full w-screen overflow-hidden bg-background pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)] pr-[env(safe-area-inset-right)] pl-[env(safe-area-inset-left)]">
+      <div className="fixed inset-0 h-full w-full w-screen overflow-hidden bg-transparent pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)] pr-[env(safe-area-inset-right)] pl-[env(safe-area-inset-left)]">
         {isMobile ? (
           /* Mobile Viewport: Absolute slider deck layer to mimic a native application frame wrapper */
-          <div className="relative flex h-full w-full overflow-hidden bg-background">
+          <div className="relative flex h-full w-full overflow-hidden bg-transparent">
             {/* Sidebar Slide Control */}
             <div
               className={cn(
@@ -298,7 +298,7 @@ export function ChatLayout() {
             {/* Chat Frame Slide Layer */}
             <div
               className={cn(
-                "absolute inset-0 w-full h-full z-20 transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] will-change-transform bg-background shadow-2xl",
+                "absolute inset-0 w-full h-full z-20 transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] will-change-transform bg-transparent shadow-2xl",
                 activeChat ? "translate-x-0" : "translate-x-full",
               )}
             >
@@ -311,7 +311,7 @@ export function ChatLayout() {
           /* Desktop Frame Layout via Custom Resizable Hardware Layer Blocks */
           <ResizablePanelGroup
             direction="horizontal"
-            className="h-full w-full bg-background"
+            className="h-full w-full bg-transparent"
           >
             <ResizablePanel
               defaultSize={30}
@@ -351,7 +351,7 @@ export function ChatLayout() {
               className="w-[1.5px] bg-border/40 hover:bg-primary/20 transition-colors duration-200"
             />
 
-            <ResizablePanel defaultSize={70} className="bg-background">
+            <ResizablePanel defaultSize={70} className="bg-transparent">
               <SectionErrorBoundary onRetry={reloadChats}>
                 {chatContent}
               </SectionErrorBoundary>

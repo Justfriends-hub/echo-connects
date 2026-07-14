@@ -169,7 +169,7 @@ export function ChannelView({ chat, messages, currentUserId, onSendMessage, onBa
   }, [messages]);
 
   return (
-    <div className="flex flex-col h-full min-h-0 chat-bg">
+    <div className="flex flex-col h-full min-h-0 bg-transparent">
       {/* ── Channel Header ──────────────────────────────────────────────────── */}
       <div className="flex items-center gap-3 px-4 py-2.5 bg-card border-b border-border flex-shrink-0 pwa-no-select">
         <Button variant="ghost" size="icon" className="md:hidden text-foreground" onClick={onBack}>
