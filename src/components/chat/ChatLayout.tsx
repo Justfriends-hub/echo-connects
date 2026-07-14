@@ -95,13 +95,27 @@ export function ChatLayout() {
 
   // Wallpaper transition state
   const [prevWallpaper, setPrevWallpaper] = useState<string | null>(null);
+  const [localWallpaper, setLocalWallpaper] = useState<string | null>(
+    typeof window !== 'undefined' ? window.localStorage.getItem('echo.local_wallpaper') : null,
+  );
+
+  useEffect(() => {
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === 'echo.local_wallpaper') {
+        setLocalWallpaper(e.newValue);
+      }
+    };
+    window.addEventListener('storage', onStorage);
+    return () => window.removeEventListener('storage', onStorage);
+  }, []);
+
   const [curWallpaper, setCurWallpaper] = useState<string | null>(
-    currentChat?.wallpaper_url ?? profile?.default_wallpaper_url ?? null,
+    currentChat?.wallpaper_url ?? profile?.default_wallpaper_url ?? localWallpaper ?? null,
   );
   const [curVisible, setCurVisible] = useState(true);
   // Update wallpaper content whenever the active chat changes.
   useEffect(() => {
-    const next = currentChat?.wallpaper_url ?? profile?.default_wallpaper_url ?? null;
+    const next = currentChat?.wallpaper_url ?? profile?.default_wallpaper_url ?? localWallpaper ?? null;
     if (next === curWallpaper) return;
 
     setPrevWallpaper(curWallpaper);

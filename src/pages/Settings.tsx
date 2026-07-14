@@ -50,8 +50,12 @@ export default function Settings() {
   const [defaultWallpaper, setDefaultWallpaper] = useState<string | null>(profile?.default_wallpaper_url || null);
 
   React.useEffect(() => {
-    setDefaultWallpaper(profile?.default_wallpaper_url || null);
+    // Prefer profile value, but fall back to a locally-stored wallpaper if present
+    const local = typeof window !== 'undefined' ? window.localStorage.getItem('echo.local_wallpaper') : null;
+    setDefaultWallpaper(profile?.default_wallpaper_url ?? local ?? null);
   }, [profile]);
+
+  const [localOnly, setLocalOnly] = useState(false);
 
   // Password state
   const [password, setPassword] = useState('');
@@ -310,10 +314,28 @@ export default function Settings() {
                       ))}
                     </div>
                   </div>
+                  <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-2">
+                      <Checkbox id="local-only" checked={localOnly} onCheckedChange={(v) => setLocalOnly(!!v)} />
+                      <Label htmlFor="local-only" className="text-sm">Store locally (device only)</Label>
+                    </div>
+                  </div>
+
                   <div className="flex gap-2">
                     <Button
                       onClick={async () => {
                         try {
+                          if (localOnly) {
+                            if (defaultWallpaper) {
+                              window.localStorage.setItem('echo.local_wallpaper', defaultWallpaper);
+                            } else {
+                              window.localStorage.removeItem('echo.local_wallpaper');
+                            }
+                            setDefaultWallpaper(defaultWallpaper);
+                            toast.success('Wallpaper saved locally');
+                            return;
+                          }
+
                           await updateProfile({ default_wallpaper_url: defaultWallpaper });
                           toast.success('Wallpaper preference saved');
                         } catch (err: any) {
@@ -327,7 +349,10 @@ export default function Settings() {
                     </Button>
                     <Button
                       variant="ghost"
-                      onClick={() => setDefaultWallpaper(null)}
+                      onClick={() => {
+                        setDefaultWallpaper(null);
+                        if (localOnly) window.localStorage.removeItem('echo.local_wallpaper');
+                      }}
                       className="gap-2"
                     >
                       Clear
