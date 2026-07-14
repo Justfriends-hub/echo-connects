@@ -3,6 +3,7 @@ import { MoreVertical, Users, Info } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { ChatInput } from "./ChatInput";
 import {
   HoverCard,
   HoverCardContent,
@@ -121,7 +122,7 @@ export function ChatArea({
   const scrollRef = useRef<HTMLDivElement>(null);
   const prevFirstIdRef = useRef<string | null>(null);
   const [isNearBottom, setIsNearBottom] = useState(true);
-  // Input removed — keyboard and text bar disabled per request
+  const [inputHeight, setInputHeight] = useState(0);
 
   const handleScroll = useCallback(() => {
     const container = scrollRef.current;
@@ -131,6 +132,57 @@ export function ChatArea({
       120;
     setIsNearBottom(atBottom);
   }, []);
+
+  const scrollLastMessageIntoView = useCallback(() => {
+    if (!isNearBottom) return;
+    const container = scrollRef.current;
+    const bottom = bottomRef.current;
+    if (!container || !bottom) return;
+
+    const vv = window.visualViewport;
+    const viewportBottom = vv ? vv.offsetTop + vv.height : window.innerHeight;
+    const sentinelRect = bottom.getBoundingClientRect();
+    const safetyMargin = 12;
+    const threshold = viewportBottom - inputHeight - safetyMargin;
+
+    if (sentinelRect.bottom > threshold) {
+      bottom.scrollIntoView({ block: 'nearest' });
+    }
+  }, [inputHeight, isNearBottom]);
+
+  useEffect(() => {
+    scrollLastMessageIntoView();
+  }, [scrollLastMessageIntoView]);
+
+  useEffect(() => {
+    const vv = window.visualViewport;
+    let queued = false;
+
+    const handleViewportChange = () => {
+      if (queued) return;
+      queued = true;
+      window.requestAnimationFrame(() => {
+        scrollLastMessageIntoView();
+        queued = false;
+      });
+    };
+
+    if (vv) {
+      vv.addEventListener('resize', handleViewportChange);
+      vv.addEventListener('scroll', handleViewportChange);
+      return () => {
+        vv.removeEventListener('resize', handleViewportChange);
+        vv.removeEventListener('scroll', handleViewportChange);
+      };
+    }
+
+    window.addEventListener('chat-visual-viewport', handleViewportChange as EventListener);
+    window.addEventListener('resize', handleViewportChange);
+    return () => {
+      window.removeEventListener('chat-visual-viewport', handleViewportChange as EventListener);
+      window.removeEventListener('resize', handleViewportChange);
+    };
+  }, [scrollLastMessageIntoView]);
 
   // Auto-scroll to bottom dynamically & seamlessly
   useEffect(() => {
@@ -234,7 +286,7 @@ export function ChatArea({
           onScroll={handleScroll}
           className="flex-1 min-h-0 overflow-y-auto px-4 py-3 space-y-2 overscroll-contain pt-14"
           style={{
-            paddingBottom: 20,
+            paddingBottom: Math.max(inputHeight, 20),
             scrollbarWidth: "none",
             WebkitOverflowScrolling: "touch",
             backgroundColor: 'transparent',
@@ -327,10 +379,16 @@ export function ChatArea({
           it tracks keyboard height via visualViewport and floats above
           everything. It is NOT part of the flex column above, so it
           cannot cause layout shifts to the wallpaper or the scroll area.
-          The gradient wrapper is purely cosmetic — it fades into the
-          wallpaper color at the bottom of the screen.
+          padding-bottom on the messages container tracks the input bar
+          height so the last message remains visible at rest.
           ═══════════════════════════════════════════════════════════════════ */}
-          {/* Chat input removed — no input or keyboard */}
+      <ChatInput
+        onSend={onSendMessage}
+        onTyping={onTyping}
+        disabled={false}
+        placeholder="Message"
+        onHeightChange={setInputHeight}
+      />
     </div>
   );
 }

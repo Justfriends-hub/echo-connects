@@ -1,14 +1,9 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react'
 import { createPortal } from 'react-dom'
-import { Send, Paperclip, Smile, Mic, Keyboard } from 'lucide-react'
+import { Send, Paperclip, Mic } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
-
-function isTouchDevice(): boolean {
-  if (typeof window === 'undefined') return false
-  return 'ontouchstart' in window || navigator.maxTouchPoints > 0
-}
 
 interface ChatInputProps {
   onSend: (content: string) => void
@@ -20,13 +15,11 @@ interface ChatInputProps {
 
 export function ChatInput({ onSend, onTyping, disabled, placeholder = 'Message', onHeightChange }: ChatInputProps) {
   const [text, setText] = useState('')
-  const [nativeEmojiMode, setNativeEmojiMode] = useState(false)
   const [keyboardBottom, setKeyboardBottom] = useState(0)
   const [portalEl, setPortalEl] = useState<HTMLDivElement | null>(null)
 
   const textareaRef = useRef<HTMLTextAreaElement | null>(null)
   const wrapperRef = useRef<HTMLDivElement | null>(null)
-  const isTouch = isTouchDevice()
 
   const reportLayout = useCallback(() => {
     if (!wrapperRef.current) return
@@ -42,6 +35,10 @@ export function ChatInput({ onSend, onTyping, disabled, placeholder = 'Message',
     ta.style.height = Math.min(ta.scrollHeight, 140) + 'px'
     reportLayout()
   }, [text, reportLayout])
+
+  useEffect(() => {
+    reportLayout()
+  }, [reportLayout, portalEl])
 
   useEffect(() => {
     if (typeof document === 'undefined') return
@@ -102,22 +99,6 @@ export function ChatInput({ onSend, onTyping, disabled, placeholder = 'Message',
     return () => window.removeEventListener('resize', updateFallback)
   }, [])
 
-  const handleNativeEmojiToggle = () => {
-    const ta = textareaRef.current
-    if (!ta) return
-    if (isTouch) {
-      setNativeEmojiMode((p) => !p)
-      ta.blur()
-      setTimeout(() => ta.focus(), 60)
-    } else {
-      setNativeEmojiMode((p) => !p)
-      ta.focus()
-    }
-  }
-
-  const handleFocus = () => {
-    if (nativeEmojiMode && !isTouch) setNativeEmojiMode(false)
-  }
 
   const handleSend = useCallback(() => {
     const trimmed = text.trim()
@@ -141,51 +122,46 @@ export function ChatInput({ onSend, onTyping, disabled, placeholder = 'Message',
 
   const chatInput = (
     <div
-      ref={wrapperRef}
-      className="w-full flex items-end gap-2 px-3 py-3 bg-background/90 border-t border-border/30 select-none backdrop-blur-xl transition-all duration-300 ease-out"
-      // keep the input pinned to the viewport; move it up by keyboard inset only
-      style={{ position: 'fixed', left: 0, right: 0, bottom: 0, zIndex: 60, transform: `translate3d(0, -${keyboardBottom}px, 0)`, willChange: 'transform' }}
-    >
-      <div className="flex-1 flex items-end bg-muted/50 focus-within:bg-muted/80 border border-border/30 rounded-[22px] px-2 py-1 transition-all duration-200 ease-in-out shadow-sm focus-within:shadow-md">
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              className="text-muted-foreground/80 hover:text-foreground h-9 w-9 rounded-full"
-              onClick={handleNativeEmojiToggle}
-              aria-label="Toggle native input type"
-            >
-              {nativeEmojiMode ? <Keyboard className="w-[21px] h-[21px] text-primary" /> : <Smile className="w-[21px] h-[21px]" />}
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent className="text-xs font-medium">Emoji Keyboard</TooltipContent>
-        </Tooltip>
+        ref={wrapperRef}
+        className="w-full flex items-end gap-2 px-3 py-3 bg-background/90 border-t border-border/30 select-none backdrop-blur-xl shadow-xl"
+        // keep the input pinned to the viewport; move it up by keyboard inset only
+        style={{
+          position: 'fixed',
+          left: 0,
+          right: 0,
+          bottom: 0,
+          zIndex: 60,
+          transform: `translate3d(0, -${keyboardBottom}px, 0)`,
+          willChange: 'transform',
+          transition: 'transform 180ms ease-out',
+          paddingBottom: keyboardBottom === 0 ? 'env(safe-area-inset-bottom)' : 0,
+        }}
+      >
+        <div className="flex-1 flex items-end bg-muted/50 focus-within:bg-muted/80 border border-border/30 rounded-[22px] px-2 py-1 transition-colors duration-200 ease-in-out shadow-sm focus-within:shadow-md">
+          <textarea
+            ref={textareaRef}
+            value={text}
+            onChange={handleChange}
+            onKeyDown={handleKeyDown}
+            placeholder={placeholder}
+            rows={1}
+            disabled={disabled}
+            inputMode="text"
+            className={cn(
+              'flex-1 resize-none bg-transparent rounded-xl px-2 py-2 text-[15px] leading-relaxed text-foreground max-h-[140px]',
+              'placeholder:text-muted-foreground/60 focus:outline-none min-h-[36px] scrollbar-none',
+            )}
+          />
 
-        <textarea
-          ref={textareaRef}
-          value={text}
-          onFocus={handleFocus}
-          onChange={handleChange}
-          onKeyDown={handleKeyDown}
-          placeholder={placeholder}
-          rows={1}
-          disabled={disabled}
-          inputMode={nativeEmojiMode ? 'search' : 'text'}
-          className={cn('flex-1 resize-none bg-transparent rounded-xl px-2 py-2 text-[15px] leading-relaxed text-foreground max-h-[140px]', 'placeholder:text-muted-foreground/60 focus:outline-none min-h-[36px] transition-all scrollbar-none')}
-        />
-
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button variant="ghost" size="icon" className="text-muted-foreground/80 hover:text-foreground h-9 w-9 rounded-full">
-              <Paperclip className="w-[19px] h-[19px]" />
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent className="text-xs font-medium">Attach</TooltipContent>
-        </Tooltip>
-      </div>
-
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button variant="ghost" size="icon" className="text-muted-foreground/80 hover:text-foreground h-9 w-9 rounded-full">
+                <Paperclip className="w-[19px] h-[19px]" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent className="text-xs font-medium">Attach</TooltipContent>
+          </Tooltip>
+        </div>
       <div className="flex-shrink-0 pb-[1px]">
         {text.trim() ? (
           <Tooltip>
