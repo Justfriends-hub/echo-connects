@@ -243,16 +243,46 @@ export function ChatArea({
    * ══════════════════════════════════════════════════════════════════════════
    */
 
+  const rootStyles: React.CSSProperties = {
+    position: 'relative',
+    width: '100%',
+    height: '100%',
+    overflow: 'hidden',
+    userSelect: 'none',
+    WebkitUserSelect: 'none',
+    isolation: 'isolate',
+    minHeight: 0,
+    minWidth: 0,
+  }
+
+  const contentStyles: React.CSSProperties = {
+    position: 'relative',
+    display: 'flex',
+    flexDirection: 'column',
+    width: '100%',
+    height: '100%',
+    zIndex: 1,
+    minHeight: 0,
+    minWidth: 0,
+  }
+
+  const scrollContainerStyles: React.CSSProperties = {
+    flex: 1,
+    minHeight: 0,
+    overflowY: 'auto',
+    padding: '0.75rem 1rem 0 1rem',
+    display: 'block',
+    overscrollBehavior: 'contain',
+    WebkitOverflowScrolling: 'touch',
+    backgroundColor: 'transparent',
+    boxSizing: 'border-box',
+    paddingBottom: inputHeight ? inputHeight + 14 : 24,
+  }
+
   return (
     // Outer container: position:relative to anchor the absolute wallpaper.
-    // h-full fills the parent (which is already viewport-sized).
-    // overflow:hidden prevents any bleed. No flex here — we use the
-    // wallpaper as an absolute layer and everything else flows normally
-    // within a separate flex column.
-    <div
-      className="relative h-full w-full overflow-hidden select-none md:select-text"
-      style={{ isolation: 'isolate' }}
-    >
+    // Uses inline style to minimize CSS dependency for viewport behaviour.
+    <div style={rootStyles}>
       {/* Wallpaper moved to ChatLayout so it can be rendered as a
           viewport-fixed layer outside any transform-scoped ancestors. */}
 
@@ -262,10 +292,7 @@ export function ChatArea({
           and handles all layout/scroll. The wallpaper is NOT part of this
           flex flow — it's a sibling absolute-positioned behind it.
           ═══════════════════════════════════════════════════════════════════ */}
-      <div
-        className="relative flex flex-col h-full w-full"
-        style={{ zIndex: 1 }}
-      >
+      <div style={contentStyles}>
         {/* Header rendered at layout level (ChatLayout) to keep it viewport-fixed */}
 
         {/* ─── LAYER 2: MESSAGES SCROLL AREA (with top padding for header) ─────────────────────────── */}
@@ -276,13 +303,7 @@ export function ChatArea({
         <div
           ref={scrollRef}
           onScroll={handleScroll}
-          className="flex-1 min-h-0 overflow-y-auto px-4 py-3 space-y-2 overscroll-contain pt-14"
-          style={{
-            paddingBottom: inputHeight ? inputHeight + 14 : 24,
-            scrollbarWidth: 'none',
-            WebkitOverflowScrolling: 'touch',
-            backgroundColor: 'transparent',
-          }}
+          style={scrollContainerStyles}
         >
           <div className="max-w-3xl mx-auto space-y-1">
             {hasMore && (

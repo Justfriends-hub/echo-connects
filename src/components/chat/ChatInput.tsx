@@ -1,8 +1,7 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react'
 import { createPortal } from 'react-dom'
-import { Send, Paperclip, Mic } from 'lucide-react'
+import { Send, Mic } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { cn } from '@/lib/utils'
 
 interface ChatInputProps {
   onSend: (content: string) => void
@@ -10,11 +9,6 @@ interface ChatInputProps {
   disabled?: boolean
   placeholder?: string
   onHeightChange?: (height: number) => void
-}
-
-function isTouchDevice(): boolean {
-  if (typeof window === 'undefined') return false
-  return 'ontouchstart' in window || navigator.maxTouchPoints > 0
 }
 
 export function ChatInput({
@@ -30,7 +24,6 @@ export function ChatInput({
 
   const textareaRef = useRef<HTMLTextAreaElement | null>(null)
   const wrapperRef = useRef<HTMLDivElement | null>(null)
-  const isTouch = isTouchDevice()
 
   const reportLayout = useCallback(() => {
     if (!wrapperRef.current) return
@@ -119,23 +112,65 @@ export function ChatInput({
     onTyping?.()
   }
 
+  const wrapperStyles: React.CSSProperties = {
+    position: 'fixed',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    zIndex: 60,
+    transform: `translate3d(0, -${keyboardHeight}px, 0)`,
+    transition: 'transform 180ms ease-out',
+    willChange: 'transform',
+    display: 'flex',
+    alignItems: 'flex-end',
+    gap: '0.5rem',
+    padding: '0.75rem 0.75rem 0.75rem 0.75rem',
+    backgroundColor: 'rgba(255, 255, 255, 0.92)',
+    borderTop: '1px solid rgba(148, 163, 184, 0.3)',
+    backdropFilter: 'blur(18px)',
+    WebkitBackdropFilter: 'blur(18px)',
+    paddingBottom: keyboardHeight === 0 ? 'env(safe-area-inset-bottom)' : undefined,
+    boxSizing: 'border-box',
+    minWidth: 0,
+  }
+
+  const inputShellStyles: React.CSSProperties = {
+    flex: 1,
+    display: 'flex',
+    alignItems: 'flex-end',
+    backgroundColor: 'rgba(248, 250, 252, 0.78)',
+    border: '1px solid rgba(148, 163, 184, 0.3)',
+    borderRadius: '22px',
+    padding: '0.25rem 0.5rem',
+    transition: 'background-color 200ms ease',
+    boxShadow: '0 1px 8px rgba(15, 23, 42, 0.06)',
+  }
+
+  const textareaStyles: React.CSSProperties = {
+    flex: 1,
+    resize: 'none',
+    backgroundColor: 'transparent',
+    border: 'none',
+    borderRadius: '16px',
+    padding: '0.5rem 0.5rem',
+    fontSize: '15px',
+    lineHeight: 1.5,
+    color: 'inherit',
+    minHeight: '36px',
+    maxHeight: '140px',
+    outline: 'none',
+    boxSizing: 'border-box',
+    overflow: 'hidden',
+  }
+
+  const iconWrapperStyles: React.CSSProperties = {
+    flexShrink: 0,
+    paddingBottom: '1px',
+  }
+
   const chatInput = (
-    <div
-      ref={wrapperRef}
-      className="w-full flex items-end gap-2 px-3 py-3 bg-background/90 border-t border-border/30 select-none backdrop-blur-xl"
-      style={{
-        position: 'fixed',
-        left: 0,
-        right: 0,
-        bottom: 0,
-        zIndex: 60,
-        transform: `translate3d(0, -${keyboardHeight}px, 0)`,
-        transition: 'transform 180ms ease-out',
-        willChange: 'transform',
-        paddingBottom: keyboardHeight === 0 ? 'env(safe-area-inset-bottom)' : undefined,
-      }}
-    >
-      <div className="flex-1 flex items-end bg-muted/50 focus-within:bg-muted/80 border border-border/30 rounded-[22px] px-2 py-1 transition-all duration-200 ease-in-out shadow-sm focus-within:shadow-md">
+    <div ref={wrapperRef} style={wrapperStyles}>
+      <div style={inputShellStyles}>
         <textarea
           ref={textareaRef}
           value={text}
@@ -144,32 +179,49 @@ export function ChatInput({
           placeholder={placeholder}
           rows={1}
           disabled={disabled}
-          className={cn(
-            'flex-1 resize-none bg-transparent rounded-xl px-2 py-2 text-[15px] leading-relaxed text-foreground max-h-[140px]',
-            'placeholder:text-muted-foreground/60 focus:outline-none min-h-[36px] transition-all scrollbar-none',
-          )}
+          style={textareaStyles}
         />
       </div>
 
-      <div className="flex-shrink-0 pb-[1px]">
+      <div style={iconWrapperStyles}>
         {text.trim() ? (
           <Button
             onClick={handleSend}
             size="icon"
-            className="bg-primary text-primary-foreground rounded-full w-[40px] h-[40px]"
+            className="rounded-full"
             disabled={disabled}
             id="send-message-btn"
+            style={{
+              width: '40px',
+              height: '40px',
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              backgroundColor: '#2563EB',
+              color: '#fff',
+              borderRadius: '999px',
+            }}
           >
-            <Send className="w-[17px] h-[17px] ml-[2px]" />
+            <Send style={{ width: '17px', height: '17px', marginLeft: '2px' }} />
           </Button>
         ) : (
           <Button
             variant="ghost"
             size="icon"
-            className="bg-muted/40 w-[40px] h-[40px] rounded-full"
+            className="rounded-full"
             disabled={disabled}
+            style={{
+              width: '40px',
+              height: '40px',
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              backgroundColor: 'rgba(148, 163, 184, 0.16)',
+              color: '#374151',
+              borderRadius: '999px',
+            }}
           >
-            <Mic className="w-[19px] h-[19px]" />
+            <Mic style={{ width: '19px', height: '19px' }} />
           </Button>
         )}
       </div>
