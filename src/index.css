@@ -109,6 +109,15 @@
   to { transform: translateY(0); opacity: 1; }
 }
 
+/* Safe-area helpers for iOS notch / Dynamic Island
+   - Uses the legacy `constant()` for older iOS Safari and `env()` for modern.
+   - Adds a small extra 6px spacing so header feels visually separated. */
+.chat-header {
+  padding-top: constant(safe-area-inset-top);
+  padding-top: env(safe-area-inset-top);
+  padding-top: calc(env(safe-area-inset-top, 0px) + 6px);
+}
+
 @keyframes fadeIn {
   from { opacity: 0; }
   to { opacity: 1; }
