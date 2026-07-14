@@ -30,7 +30,10 @@ export default function ChatHeader({
       .slice(0, 2);
 
   return (
-    <div className="fixed top-0 left-0 right-0 z-30 flex items-center gap-3 px-4 py-2 bg-card shadow-sm shadow-black/5 border-b border-border/70 transition-all duration-200 h-14">
+    <div
+      className="fixed left-0 right-0 z-30 flex items-center gap-3 px-4 py-2 bg-card shadow-sm shadow-black/5 border-b border-border/70 transition-all duration-200 h-14"
+      style={{ top: typeof window !== 'undefined' ? 'env(safe-area-inset-top)' : 0 }}
+    >
       <Button
         variant="ghost"
         size="icon"
