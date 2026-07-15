@@ -116,8 +116,8 @@ export default function TextBar({
         gap: 12,
         padding: '10px',
         alignItems: 'flex-end',
-        background: 'rgba(255,255,255,0.94)',
-        borderTop: '1px solid rgba(0,0,0,0.06)',
+        background: 'hsl(var(--card))',
+        borderTop: '1px solid hsl(var(--border) / 0.5)',
         boxSizing: 'border-box',
         paddingBottom: keyboardHeight === 0 ? 'env(safe-area-inset-bottom)' : '0px',
       }}
@@ -128,8 +128,8 @@ export default function TextBar({
             flex: 1,
             display: 'flex',
             alignItems: 'flex-end',
-            background: 'rgba(248,250,252,0.95)',
-            border: '1px solid rgba(0,0,0,0.06)',
+            background: 'hsl(var(--muted) / 0.5)',
+            border: '1px solid hsl(var(--border) / 0.3)',
             borderRadius: 20,
             padding: '6px 8px',
           }}
