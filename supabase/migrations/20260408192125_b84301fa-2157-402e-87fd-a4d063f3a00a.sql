@@ -7,6 +7,7 @@ CREATE TYPE public.message_type AS ENUM ('text', 'image', 'video', 'file', 'voic
 CREATE TYPE public.message_status AS ENUM ('sending', 'sent', 'delivered', 'seen');
 CREATE TYPE public.comment_status AS ENUM ('pending', 'approved', 'rejected');
 CREATE TYPE public.boost_mode AS ENUM ('instant', 'gradual');
+CREATE TYPE public.boost_kind AS ENUM ('subscribers', 'posts', 'likes', 'views');
 
 -- Profiles table
 CREATE TABLE public.profiles (
@@ -96,6 +97,7 @@ CREATE TABLE public.channel_settings (
   allowed_reactions TEXT[] DEFAULT ARRAY['👍','❤️','🔥','😂','😮','😢','🎉'],
   boost_count INTEGER NOT NULL DEFAULT 0,
   boost_target INTEGER,
+  boost_kind boost_kind NOT NULL DEFAULT 'subscribers',
   boost_mode boost_mode NOT NULL DEFAULT 'instant',
   boost_start_time TIMESTAMPTZ,
   boost_end_time TIMESTAMPTZ,
@@ -151,7 +153,7 @@ AS $$
 $$;
 
 -- Helper: get current boost count (handles gradual)
-CREATE OR REPLACE FUNCTION public.get_visible_boost(_chat_id UUID)
+CREATE OR REPLACE FUNCTION public.get_visible_boost(_chat_id UUID, _kind TEXT DEFAULT 'subscribers')
 RETURNS INTEGER
 LANGUAGE plpgsql
 STABLE
@@ -166,6 +168,10 @@ DECLARE
 BEGIN
   SELECT * INTO settings FROM public.channel_settings WHERE chat_id = _chat_id;
   IF NOT FOUND OR settings.boost_target IS NULL THEN
+    RETURN COALESCE(settings.boost_count, 0);
+  END IF;
+
+  IF _kind IS NOT NULL AND _kind <> 'any' AND settings.boost_kind IS NOT NULL AND settings.boost_kind <> _kind THEN
     RETURN COALESCE(settings.boost_count, 0);
   END IF;
 
@@ -355,12 +361,36 @@ CREATE POLICY "Submit comments" ON public.comments FOR INSERT TO authenticated W
 CREATE POLICY "Admin manage comments" ON public.comments FOR UPDATE TO authenticated
   USING (public.has_role(auth.uid(), 'super_admin') OR public.has_role(auth.uid(), 'platform_admin'));
 
--- Channel settings: members see (without boost details), owners/admins or super admins manage
+-- Channel settings: members see (without boost details), owners/admins or super admins/platform admins manage
 CREATE POLICY "Members see channel settings" ON public.channel_settings FOR SELECT TO authenticated
-  USING (public.is_chat_member(auth.uid(), chat_id));
-CREATE POLICY "Channel owners and admins manage channel settings" ON public.channel_settings FOR UPDATE, DELETE TO authenticated
   USING (
-    public.has_role(auth.uid(), 'super_admin') OR EXISTS (
+    public.is_chat_member(auth.uid(), chat_id)
+    OR public.has_role(auth.uid(), 'super_admin')
+    OR public.has_role(auth.uid(), 'platform_admin')
+  );
+CREATE POLICY "Channel owners and admins manage channel settings" ON public.channel_settings FOR INSERT TO authenticated
+  WITH CHECK (
+    public.has_role(auth.uid(), 'super_admin')
+    OR public.has_role(auth.uid(), 'platform_admin')
+    OR EXISTS (
+      SELECT 1 FROM public.chat_members cm WHERE cm.chat_id = public.channel_settings.chat_id
+        AND cm.user_id = auth.uid() AND cm.role IN ('owner','admin')
+    )
+  );
+CREATE POLICY "Channel owners and admins manage channel settings (update)" ON public.channel_settings FOR UPDATE TO authenticated
+  USING (
+    public.has_role(auth.uid(), 'super_admin')
+    OR public.has_role(auth.uid(), 'platform_admin')
+    OR EXISTS (
+      SELECT 1 FROM public.chat_members cm WHERE cm.chat_id = public.channel_settings.chat_id
+        AND cm.user_id = auth.uid() AND cm.role IN ('owner','admin')
+    )
+  );
+CREATE POLICY "Channel owners and admins manage channel settings (delete)" ON public.channel_settings FOR DELETE TO authenticated
+  USING (
+    public.has_role(auth.uid(), 'super_admin')
+    OR public.has_role(auth.uid(), 'platform_admin')
+    OR EXISTS (
       SELECT 1 FROM public.chat_members cm WHERE cm.chat_id = public.channel_settings.chat_id
         AND cm.user_id = auth.uid() AND cm.role IN ('owner','admin')
     )

@@ -117,7 +117,7 @@ export function ChannelView({ chat, messages, currentUserId, onSendMessage, onBa
         .eq('chat_id', chat.id);
 
       const { data: boostData } = await supabase
-        .rpc('get_visible_boost', { _chat_id: chat.id });
+        .rpc('get_visible_boost', { _chat_id: chat.id, _kind: 'subscribers' });
 
       setSubscriberCount((realCount || 0) + ((boostData as number) || 0));
     };

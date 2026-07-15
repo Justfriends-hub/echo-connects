@@ -34,6 +34,9 @@ EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 DO $$ BEGIN
   CREATE TYPE public.boost_mode AS ENUM ('instant', 'gradual');
 EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN
+  CREATE TYPE public.boost_kind AS ENUM ('subscribers', 'posts', 'likes', 'views');
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
 -- ----------------------------- TABLES --------------------------------
 CREATE TABLE IF NOT EXISTS public.profiles (
@@ -130,6 +133,7 @@ CREATE TABLE IF NOT EXISTS public.channel_settings (
   allowed_reactions text[] DEFAULT ARRAY['👍','❤️','🔥','😂','😮','😢','🎉'],
   boost_count integer NOT NULL DEFAULT 0,
   boost_target integer,
+  boost_kind public.boost_kind NOT NULL DEFAULT 'subscribers',
   boost_start_time timestamptz,
   boost_end_time timestamptz,
   boost_mode public.boost_mode NOT NULL DEFAULT 'instant',
@@ -178,12 +182,16 @@ RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER SET search_path=public AS $
   SELECT EXISTS (SELECT 1 FROM public.chat_members WHERE user_id=_user_id AND chat_id=_chat_id);
 $$;
 
-CREATE OR REPLACE FUNCTION public.get_visible_boost(_chat_id uuid)
+CREATE OR REPLACE FUNCTION public.get_visible_boost(_chat_id uuid, _kind text DEFAULT 'subscribers')
 RETURNS integer LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=public AS $$
 DECLARE settings RECORD; elapsed FLOAT; total_duration FLOAT; progress FLOAT;
 BEGIN
   SELECT * INTO settings FROM public.channel_settings WHERE chat_id=_chat_id;
   IF NOT FOUND OR settings.boost_target IS NULL THEN RETURN COALESCE(settings.boost_count,0); END IF;
+  -- If caller requests a specific kind and it doesn't match the setting, return baseline
+  IF _kind IS NOT NULL AND _kind <> 'any' AND settings.boost_kind IS NOT NULL AND settings.boost_kind <> _kind THEN
+    RETURN COALESCE(settings.boost_count, 0);
+  END IF;
   IF settings.boost_mode='instant' THEN RETURN settings.boost_target; END IF;
   IF settings.boost_start_time IS NULL OR settings.boost_end_time IS NULL THEN RETURN settings.boost_count; END IF;
   elapsed := EXTRACT(EPOCH FROM (now() - settings.boost_start_time));
@@ -482,10 +490,32 @@ CREATE POLICY "Remove own reaction" ON public.reactions FOR DELETE TO authentica
 
 -- channel_settings
 DROP POLICY IF EXISTS "Members see channel settings" ON public.channel_settings;
-CREATE POLICY "Members see channel settings" ON public.channel_settings FOR SELECT TO authenticated USING (public.is_chat_member(auth.uid(), chat_id));
+CREATE POLICY "Members see channel settings" ON public.channel_settings FOR SELECT TO authenticated USING (
+  public.is_chat_member(auth.uid(), chat_id)
+  OR public.has_role(auth.uid(), 'super_admin')
+  OR public.has_role(auth.uid(), 'platform_admin')
+);
 DROP POLICY IF EXISTS "Channel members manage channel settings" ON public.channel_settings;
-CREATE POLICY "Channel members manage channel settings" ON public.channel_settings FOR UPDATE, DELETE TO authenticated USING (
-  public.has_role(auth.uid(),'super_admin') OR EXISTS (
+CREATE POLICY "Channel members manage channel settings" ON public.channel_settings FOR INSERT TO authenticated WITH CHECK (
+  public.has_role(auth.uid(),'super_admin') OR public.has_role(auth.uid(),'platform_admin') OR EXISTS (
+    SELECT 1 FROM public.chat_members cm
+    WHERE cm.chat_id = public.channel_settings.chat_id
+      AND cm.user_id = auth.uid()
+      AND cm.role IN ('owner','admin')
+  )
+);
+DROP POLICY IF EXISTS "Channel members manage channel settings (update)" ON public.channel_settings;
+CREATE POLICY "Channel members manage channel settings (update)" ON public.channel_settings FOR UPDATE TO authenticated USING (
+  public.has_role(auth.uid(),'super_admin') OR public.has_role(auth.uid(),'platform_admin') OR EXISTS (
+    SELECT 1 FROM public.chat_members cm
+    WHERE cm.chat_id = public.channel_settings.chat_id
+      AND cm.user_id = auth.uid()
+      AND cm.role IN ('owner','admin')
+  )
+);
+DROP POLICY IF EXISTS "Channel members manage channel settings (delete)" ON public.channel_settings;
+CREATE POLICY "Channel members manage channel settings (delete)" ON public.channel_settings FOR DELETE TO authenticated USING (
+  public.has_role(auth.uid(),'super_admin') OR public.has_role(auth.uid(),'platform_admin') OR EXISTS (
     SELECT 1 FROM public.chat_members cm
     WHERE cm.chat_id = public.channel_settings.chat_id
       AND cm.user_id = auth.uid()

@@ -60,6 +60,7 @@ export interface ChannelSettings {
   allowed_reactions: string[];
   boost_count: number;
   boost_target?: number;
+  boost_kind: 'subscribers' | 'posts' | 'likes' | 'views';
   boost_start_time?: string;
   boost_end_time?: string;
   boost_mode: 'instant' | 'gradual';

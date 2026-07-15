@@ -73,6 +73,7 @@ export type Database = {
           boost_count: number
           boost_end_time: string | null
           boost_mode: Database["public"]["Enums"]["boost_mode"]
+          boost_kind: Database["public"]["Enums"]["boost_kind"]
           boost_start_time: string | null
           boost_target: number | null
           chat_id: string
@@ -87,6 +88,7 @@ export type Database = {
           boost_count?: number
           boost_end_time?: string | null
           boost_mode?: Database["public"]["Enums"]["boost_mode"]
+          boost_kind?: Database["public"]["Enums"]["boost_kind"]
           boost_start_time?: string | null
           boost_target?: number | null
           chat_id: string
@@ -101,6 +103,7 @@ export type Database = {
           boost_count?: number
           boost_end_time?: string | null
           boost_mode?: Database["public"]["Enums"]["boost_mode"]
+          boost_kind?: Database["public"]["Enums"]["boost_kind"]
           boost_start_time?: string | null
           boost_target?: number | null
           chat_id?: string
@@ -444,7 +447,7 @@ export type Database = {
         Args: { _other_user: string }
         Returns: string
       }
-      get_visible_boost: { Args: { _chat_id: string }; Returns: number }
+      get_visible_boost: { Args: { _chat_id: string; _kind?: string }; Returns: number }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]

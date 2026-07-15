@@ -17,6 +17,7 @@ import { format } from 'date-fns';
 
 interface ChannelSetting {
   boost_target: number;
+  boost_kind: 'subscribers' | 'posts' | 'likes' | 'views';
   boost_mode: 'instant' | 'gradual';
   boost_start_time: string | null;
   boost_end_time: string | null;
@@ -26,6 +27,7 @@ export function BoostControlPanel() {
   const [channels, setChannels] = useState<{ id: string; name: string }[]>([]);
   const [selectedChannel, setSelectedChannel] = useState('');
   const [targetCount, setTargetCount] = useState('');
+  const [boostKind, setBoostKind] = useState<'subscribers' | 'posts' | 'likes' | 'views'>('subscribers');
   const [boostMode, setBoostMode] = useState<'instant' | 'gradual'>('gradual');
   const [durationHours, setDurationHours] = useState([24]);
   const [applying, setApplying] = useState(false);
@@ -67,7 +69,7 @@ export function BoostControlPanel() {
     setLoadingSettings(true);
     const { data, error } = await supabase
       .from('channel_settings')
-      .select('boost_target, boost_mode, boost_start_time, boost_end_time')
+      .select('boost_target, boost_kind, boost_mode, boost_start_time, boost_end_time')
       .eq('chat_id', chatId)
       .single();
 
@@ -79,6 +81,7 @@ export function BoostControlPanel() {
       setSettings(data as ChannelSetting);
       setTargetCount(String(data.boost_target || ''));
       setBoostMode(data.boost_mode || 'gradual');
+      setBoostKind(data.boost_kind || 'subscribers');
       if (data.boost_mode === 'gradual' && data.boost_start_time && data.boost_end_time) {
         const start = new Date(data.boost_start_time).getTime();
         const end = new Date(data.boost_end_time).getTime();
@@ -88,6 +91,7 @@ export function BoostControlPanel() {
       setSettings(null);
       setTargetCount('');
       setBoostMode('gradual');
+      setBoostKind('subscribers');
       setDurationHours([24]);
     }
     setLoadingSettings(false);
@@ -120,6 +124,7 @@ export function BoostControlPanel() {
         {
           chat_id: selectedChannel,
           boost_target: parseInt(targetCount, 10),
+          boost_kind: boostKind,
           boost_mode: boostMode,
           boost_start_time: boostMode === 'gradual' ? now.toISOString() : null,
           boost_end_time: boostMode === 'gradual' ? endTime.toISOString() : null,
@@ -135,7 +140,7 @@ export function BoostControlPanel() {
     }
 
     toast.success(
-      `Boost applied: +${targetCount} subscribers ${boostMode === 'gradual' ? `over ${durationHours[0]}h` : 'instantly'}`
+      `Boost applied: +${targetCount} ${boostKind} ${boostMode === 'gradual' ? `over ${durationHours[0]}h` : 'instantly'}`
     );
     loadChannelSettings(selectedChannel);
   };
@@ -161,9 +166,9 @@ export function BoostControlPanel() {
         <CardContent className="p-4 flex items-start gap-3">
           <TrendingUp className="w-5 h-5 text-primary mt-0.5 flex-shrink-0" />
           <div>
-            <p className="text-sm font-medium text-foreground">Subscriber Boost</p>
+            <p className="text-sm font-medium text-foreground">Live Channel Boost</p>
             <p className="text-xs text-muted-foreground mt-0.5">
-              Live boost settings are sourced from Supabase channel settings so admins can manage counts from the real app data.
+              Admin boost settings now support subscribers, post counts, likes, and views with instant or gradual delivery.
             </p>
           </div>
         </CardContent>
@@ -205,6 +210,36 @@ export function BoostControlPanel() {
               onChange={(e) => setTargetCount(e.target.value)}
               className="bg-secondary border-border"
             />
+          </div>
+
+          <div className="space-y-1.5">
+            <Label className="text-xs text-muted-foreground">Boost Type</Label>
+            <div className="grid grid-cols-2 gap-2">
+              {[
+                { value: 'subscribers', label: 'Subscribers' },
+                { value: 'posts', label: 'Posts' },
+                { value: 'likes', label: 'Likes' },
+                { value: 'views', label: 'Views' },
+              ].map((option) => (
+                <button
+                  key={option.value}
+                  onClick={() => setBoostKind(option.value as any)}
+                  className={`p-3 rounded-lg border text-left transition-all ${
+                    boostKind === option.value
+                      ? 'border-primary bg-primary/10 text-foreground'
+                      : 'border-border bg-secondary text-muted-foreground'
+                  }`}
+                >
+                  <div className="text-xs font-medium">{option.label}</div>
+                  <div className="text-[10px] opacity-70">
+                    {option.value === 'subscribers' && 'Boost member total'}
+                    {option.value === 'posts' && 'Boost post count'}
+                    {option.value === 'likes' && 'Boost reaction count'}
+                    {option.value === 'views' && 'Boost view estimates'}
+                  </div>
+                </button>
+              ))}
+            </div>
           </div>
 
           <div className="space-y-1.5">

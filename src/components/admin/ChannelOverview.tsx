@@ -51,7 +51,7 @@ export function ChannelOverview({ isSuperAdmin }: { isSuperAdmin: boolean }) {
           .select('*', { count: 'exact', head: true })
           .eq('chat_id', chat.id);
 
-        const { data: boostData, error: boostError } = await supabase.rpc('get_visible_boost', { _chat_id: chat.id });
+        const { data: boostData, error: boostError } = await supabase.rpc('get_visible_boost', { _chat_id: chat.id, _kind: 'any' });
         const boostCount = boostError ? 0 : (boostData as number) || 0;
 
         return {
