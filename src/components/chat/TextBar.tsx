@@ -107,19 +107,19 @@ export default function TextBar({
     <div
       ref={containerRef}
       style={{
-        position: 'absolute',
+        position: 'fixed',
         left: 0,
         right: 0,
         bottom: `${keyboardHeight}px`,
         zIndex: 999,
         display: 'flex',
-        gap: 12,
-        padding: '10px',
+        gap: 10,
+        padding: '8px',
         alignItems: 'flex-end',
         background: 'hsl(var(--card))',
         borderTop: '1px solid hsl(var(--border) / 0.5)',
         boxSizing: 'border-box',
-        paddingBottom: keyboardHeight === 0 ? 'env(safe-area-inset-bottom)' : '0px',
+        paddingBottom: keyboardHeight === 0 ? 'env(safe-area-inset-bottom, 0px)' : '0px',
       }}
     >
       <div style={{ flex: 1, display: 'flex', alignItems: 'flex-end' }}>
@@ -131,7 +131,7 @@ export default function TextBar({
             background: 'hsl(var(--muted) / 0.5)',
             border: '1px solid hsl(var(--border) / 0.3)',
             borderRadius: 20,
-            padding: '6px 8px',
+            padding: '4px 6px',
           }}
         >
           <textarea

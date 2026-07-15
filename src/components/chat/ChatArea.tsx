@@ -278,7 +278,7 @@ export function ChatArea({
     WebkitOverflowScrolling: 'touch',
     backgroundColor: 'transparent',
     boxSizing: 'border-box',
-    paddingBottom: (inputHeight ?? 0) + (keyboardHeight ?? 0) + 14,
+    paddingBottom: (inputHeight ?? 0) + (keyboardHeight ?? 0) + 8,
   }
 
   return (
