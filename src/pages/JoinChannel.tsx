@@ -74,35 +74,14 @@ export default function JoinChannel() {
           return;
         }
 
-        const [{ data: chat, error: chatError }, { count: membersCount, error: membersError }] =
-          await Promise.all([
-            supabase
-              .from('chats')
-              .select('id, name, avatar_url, description')
-              .eq('id', chatId)
-              .maybeSingle(),
-            supabase
-              .from('chat_members')
-              .select('id', { count: 'exact', head: true })
-              .eq('chat_id', chatId),
-          ]);
-
-        if (chatError || membersError || !chat) {
-          if (mounted) {
-            setInvalid(true);
-            setLoading(false);
-          }
-          return;
-        }
-
         if (!mounted) return;
 
         setPreview({
-          chatId: chat.id,
-          name: chat.name || 'Channel',
-          avatar_url: chat.avatar_url,
-          description: chat.description || null,
-          memberCount: membersCount ?? 0,
+          chatId,
+          name: channelSettings.name || 'Channel',
+          avatar_url: channelSettings.avatar_url,
+          description: channelSettings.description || null,
+          memberCount: channelSettings.member_count ?? 0,
         });
 
         if (user) {
