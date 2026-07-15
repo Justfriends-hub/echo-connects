@@ -51,6 +51,7 @@ export function ChannelView({ chat, messages, currentUserId, onSendMessage, onBa
   const [showComments, setShowComments] = useState(false);
   const [allowedReactions, setAllowedReactions] = useState<string[]>(['👍', '❤️', '🔥', '😂', '😮', '😢', '🎉']);
   const [commentsEnabled, setCommentsEnabled] = useState(false);
+  const [inviteCode, setInviteCode] = useState<string | null>(null);
   const [muted, setMuted] = useState(false);
   const [loading, setLoading] = useState(true);
   // inputHeight not used since input removed
@@ -99,10 +100,11 @@ export function ChannelView({ chat, messages, currentUserId, onSendMessage, onBa
     const fetchSettings = async () => {
       const { data } = await supabase
         .from('channel_settings')
-        .select('*')
+        .select('invite_code, allowed_reactions, comments_enabled')
         .eq('chat_id', chat.id)
         .maybeSingle();
       if (data) {
+        setInviteCode(data.invite_code || null);
         setAllowedReactions(data.allowed_reactions || ['👍', '❤️', '🔥', '😂', '😮', '😢', '🎉']);
         setCommentsEnabled(data.comments_enabled);
       }
@@ -145,8 +147,16 @@ export function ChannelView({ chat, messages, currentUserId, onSendMessage, onBa
     toast.success(muted ? 'Channel unmuted' : 'Channel muted');
   };
 
+  const inviteLink = inviteCode ? `${window.location.origin}/join/${inviteCode}` : null;
+
   const handleShare = () => {
-    navigator.clipboard?.writeText(window.location.href).then(() => toast.success('Link copied!'));
+    const shareUrl = inviteLink ?? window.location.href;
+    navigator.clipboard?.writeText(shareUrl).then(() => toast.success('Link copied!'));
+  };
+
+  const handleInviteMembers = () => {
+    if (!inviteLink) return;
+    navigator.clipboard?.writeText(inviteLink).then(() => toast.success('Invite link copied!'));
   };
 
   const formattedCount = subscriberCount >= 1000
@@ -260,6 +270,21 @@ export function ChannelView({ chat, messages, currentUserId, onSendMessage, onBa
           <p className="text-xs text-muted-foreground line-clamp-2">{chat.description}</p>
         </div>
       )}
+
+      <div className="mx-4 mb-3 flex flex-col gap-2">
+        <Button
+          variant="outline"
+          className="w-full justify-center"
+          onClick={handleInviteMembers}
+          disabled={!inviteLink}
+        >
+          <Share2 className="w-4 h-4 mr-2" />
+          Invite channel members
+        </Button>
+        <p className="text-[11px] text-muted-foreground">
+          Copies the invite link that lets others join this channel instantly.
+        </p>
+      </div>
 
       {!loading && !isAdmin && (
         <div className="mx-4 mb-3 rounded-2xl border border-border/70 bg-muted/70 px-4 py-3 text-xs text-muted-foreground">

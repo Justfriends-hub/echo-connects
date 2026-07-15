@@ -3,7 +3,7 @@ import { LogIn, ArrowRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useAuth } from '@/contexts/AuthContext';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 
 export default function Login() {
   const [identifier, setIdentifier] = useState('');
@@ -12,6 +12,8 @@ export default function Login() {
   const [loading, setLoading] = useState(false);
   const { signIn } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+  const invite = new URLSearchParams(location.search).get('invite');
 
   const validateIdentifier = (value: string) => {
     const trimmed = value.trim();
@@ -59,7 +61,7 @@ export default function Login() {
       return;
     }
 
-    navigate('/');
+    navigate(invite ? `/join/${invite}` : '/');
   };
 
   return (
@@ -107,7 +109,7 @@ export default function Login() {
           <div className="text-center text-sm text-muted-foreground">
             <p>
               Don&apos;t have an account?{' '}
-              <Link to="/auth" className="text-primary hover:underline">
+              <Link to={invite ? `/auth?invite=${invite}` : '/auth'} className="text-primary hover:underline">
                 Create one
               </Link>
             </p>

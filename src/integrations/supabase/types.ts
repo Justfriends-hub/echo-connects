@@ -79,6 +79,7 @@ export type Database = {
           comments_enabled: boolean
           created_at: string
           id: string
+          invite_code: string
           updated_at: string
         }
         Insert: {
@@ -92,6 +93,7 @@ export type Database = {
           comments_enabled?: boolean
           created_at?: string
           id?: string
+          invite_code?: string
           updated_at?: string
         }
         Update: {
@@ -105,6 +107,7 @@ export type Database = {
           comments_enabled?: boolean
           created_at?: string
           id?: string
+          invite_code?: string
           updated_at?: string
         }
         Relationships: [

@@ -125,6 +125,7 @@ CREATE TABLE IF NOT EXISTS public.reactions (
 CREATE TABLE IF NOT EXISTS public.channel_settings (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   chat_id uuid NOT NULL UNIQUE,
+  invite_code text NOT NULL UNIQUE DEFAULT substring(md5(gen_random_uuid()::text || clock_timestamp()::text) FROM 1 FOR 12),
   comments_enabled boolean NOT NULL DEFAULT false,
   allowed_reactions text[] DEFAULT ARRAY['👍','❤️','🔥','😂','😮','😢','🎉'],
   boost_count integer NOT NULL DEFAULT 0,
@@ -191,6 +192,49 @@ BEGIN
   progress := 1.0 - POWER(1.0 - (elapsed / total_duration), 3);
   RETURN settings.boost_count + FLOOR((settings.boost_target - settings.boost_count) * progress);
 END; $$;
+
+CREATE OR REPLACE FUNCTION public.generate_invite_code()
+RETURNS text LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path=public AS $$
+DECLARE
+  _code text;
+BEGIN
+  LOOP
+    _code := substring(md5(gen_random_uuid()::text || clock_timestamp()::text) FROM 1 FOR 12);
+    EXIT WHEN NOT EXISTS (SELECT 1 FROM public.channel_settings WHERE invite_code = _code);
+  END LOOP;
+  RETURN _code;
+END; $$;
+
+CREATE OR REPLACE FUNCTION public.regenerate_channel_invite_code(_chat_id uuid)
+RETURNS text LANGUAGE plpgsql SECURITY DEFINER SET search_path=public AS $$
+DECLARE
+  _new_code text;
+BEGIN
+  _new_code := public.generate_invite_code();
+  UPDATE public.channel_settings SET invite_code = _new_code WHERE chat_id = _chat_id;
+  RETURN _new_code;
+END; $$;
+
+CREATE OR REPLACE FUNCTION public.get_channel_preview_by_invite(_invite_code text)
+RETURNS TABLE(
+  chat_id uuid,
+  name text,
+  avatar_url text,
+  description text,
+  member_count integer
+) LANGUAGE sql SECURITY DEFINER SET search_path=public AS $$
+  SELECT
+    c.id,
+    c.name,
+    c.avatar_url,
+    c.description,
+    (SELECT COUNT(*) FROM public.chat_members cm WHERE cm.chat_id = c.id)
+  FROM public.chats c
+  JOIN public.channel_settings s ON s.chat_id = c.id
+  WHERE s.invite_code = _invite_code
+    AND c.type = 'channel'
+  LIMIT 1;
+$$;
 
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path=public AS $$
@@ -401,8 +445,15 @@ CREATE POLICY "Remove own reaction" ON public.reactions FOR DELETE TO authentica
 -- channel_settings
 DROP POLICY IF EXISTS "Members see channel settings" ON public.channel_settings;
 CREATE POLICY "Members see channel settings" ON public.channel_settings FOR SELECT TO authenticated USING (public.is_chat_member(auth.uid(), chat_id));
-DROP POLICY IF EXISTS "Super admin manage settings" ON public.channel_settings;
-CREATE POLICY "Super admin manage settings" ON public.channel_settings FOR ALL TO authenticated USING (public.has_role(auth.uid(),'super_admin'));
+DROP POLICY IF EXISTS "Channel members manage channel settings" ON public.channel_settings;
+CREATE POLICY "Channel members manage channel settings" ON public.channel_settings FOR UPDATE, DELETE TO authenticated USING (
+  public.has_role(auth.uid(),'super_admin') OR EXISTS (
+    SELECT 1 FROM public.chat_members cm
+    WHERE cm.chat_id = public.channel_settings.chat_id
+      AND cm.user_id = auth.uid()
+      AND cm.role IN ('owner','admin')
+  )
+);
 
 -- comments
 DROP POLICY IF EXISTS "See approved comments" ON public.comments;

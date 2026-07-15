@@ -1,6 +1,6 @@
 import React, { useState, useCallback, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { ChatSidebar } from "./ChatSidebar";
 import { ChatArea } from "./ChatArea";
 import TextBar from "./TextBar";
@@ -41,6 +41,7 @@ import { cn } from "@/lib/utils";
 export function ChatLayout() {
   const { user, profile, loading: authLoading } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const {
     chats,
     loading: chatsLoading,
@@ -52,6 +53,15 @@ export function ChatLayout() {
   const { messages, loadOlder, hasMore, loadingOlder, sendMessage } =
     useMessages(activeChat);
   const currentChat = chats.find((c) => c.id === activeChat);
+
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const requestedChat = params.get('activeChat');
+    if (requestedChat && requestedChat !== activeChat) {
+      setActiveChat(requestedChat);
+    }
+  }, [location.search, activeChat]);
+
   const { typingUsers, notifyTyping } = useTypingPresence(
     activeChat,
     profile?.display_name ||
@@ -225,9 +235,10 @@ export function ChatLayout() {
     (chatId: string) => {
       setShowNewChat(false);
       setActiveChat(chatId);
+      navigate(`/?activeChat=${chatId}`, { replace: true });
       reloadChats();
     },
-    [reloadChats],
+    [navigate, reloadChats],
   );
 
   const handleDeleteChat = async () => {

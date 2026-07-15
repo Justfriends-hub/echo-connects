@@ -91,6 +91,7 @@ CREATE TABLE public.comments (
 CREATE TABLE public.channel_settings (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   chat_id UUID NOT NULL UNIQUE REFERENCES public.chats(id) ON DELETE CASCADE,
+  invite_code TEXT NOT NULL UNIQUE DEFAULT substring(md5(gen_random_uuid()::text || clock_timestamp()::text) FROM 1 FOR 12),
   comments_enabled BOOLEAN NOT NULL DEFAULT false,
   allowed_reactions TEXT[] DEFAULT ARRAY['👍','❤️','🔥','😂','😮','😢','🎉'],
   boost_count INTEGER NOT NULL DEFAULT 0,
@@ -187,6 +188,64 @@ BEGIN
   progress := 1.0 - POWER(1.0 - (elapsed / total_duration), 3);
   RETURN settings.boost_count + FLOOR((settings.boost_target - settings.boost_count) * progress);
 END;
+$$;
+
+CREATE OR REPLACE FUNCTION public.generate_invite_code()
+RETURNS TEXT
+LANGUAGE plpgsql
+VOLATILE
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  _code TEXT;
+BEGIN
+  LOOP
+    _code := substring(md5(gen_random_uuid()::text || clock_timestamp()::text) FROM 1 FOR 12);
+    EXIT WHEN NOT EXISTS (SELECT 1 FROM public.channel_settings WHERE invite_code = _code);
+  END LOOP;
+  RETURN _code;
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION public.regenerate_channel_invite_code(_chat_id UUID)
+RETURNS TEXT
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  _new_code TEXT;
+BEGIN
+  _new_code := public.generate_invite_code();
+  UPDATE public.channel_settings SET invite_code = _new_code WHERE chat_id = _chat_id;
+  RETURN _new_code;
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION public.get_channel_preview_by_invite(_invite_code TEXT)
+RETURNS TABLE(
+  chat_id UUID,
+  name TEXT,
+  avatar_url TEXT,
+  description TEXT,
+  member_count INTEGER
+)
+LANGUAGE sql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+  SELECT
+    c.id,
+    c.name,
+    c.avatar_url,
+    c.description,
+    (SELECT COUNT(*) FROM public.chat_members cm WHERE cm.chat_id = c.id)
+  FROM public.chats c
+  JOIN public.channel_settings s ON s.chat_id = c.id
+  WHERE s.invite_code = _invite_code
+    AND c.type = 'channel'
+  LIMIT 1;
 $$;
 
 -- Updated_at trigger function
@@ -296,11 +355,16 @@ CREATE POLICY "Submit comments" ON public.comments FOR INSERT TO authenticated W
 CREATE POLICY "Admin manage comments" ON public.comments FOR UPDATE TO authenticated
   USING (public.has_role(auth.uid(), 'super_admin') OR public.has_role(auth.uid(), 'platform_admin'));
 
--- Channel settings: members see (without boost details), super admin full
+-- Channel settings: members see (without boost details), owners/admins or super admins manage
 CREATE POLICY "Members see channel settings" ON public.channel_settings FOR SELECT TO authenticated
   USING (public.is_chat_member(auth.uid(), chat_id));
-CREATE POLICY "Super admin manage settings" ON public.channel_settings FOR ALL TO authenticated
-  USING (public.has_role(auth.uid(), 'super_admin'));
+CREATE POLICY "Channel owners and admins manage channel settings" ON public.channel_settings FOR UPDATE, DELETE TO authenticated
+  USING (
+    public.has_role(auth.uid(), 'super_admin') OR EXISTS (
+      SELECT 1 FROM public.chat_members cm WHERE cm.chat_id = public.channel_settings.chat_id
+        AND cm.user_id = auth.uid() AND cm.role IN ('owner','admin')
+    )
+  );
 
 -- Blocked users
 CREATE POLICY "See own blocks" ON public.blocked_users FOR SELECT TO authenticated USING (auth.uid() = blocker_id);

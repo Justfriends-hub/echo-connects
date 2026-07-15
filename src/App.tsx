@@ -9,6 +9,7 @@ import { PWAInstallPrompt } from "@/components/pwa/PWAInstallPrompt";
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import Login from "./pages/Login";
+import JoinChannel from "./pages/JoinChannel";
 import Settings from "./pages/Settings";
 import AdminDashboard from "./pages/AdminDashboard";
 import NotFound from "./pages/NotFound";
@@ -66,6 +67,7 @@ const App = () => (
         <BrowserRouter>
           <Routes>
             <Route path="/" element={<Index />} />
+            <Route path="/join/:inviteCode" element={<JoinChannel />} />
             <Route path="/auth" element={<Auth />} />
             <Route path="/login" element={<Login />} />
             <Route path="/settings" element={<Settings />} />

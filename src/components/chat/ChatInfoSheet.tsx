@@ -1,4 +1,4 @@
-import React, { useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   Sheet,
   SheetContent,
@@ -9,6 +9,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { AspectRatio } from "@/components/ui/aspect-ratio";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import {
   Users,
   Mail,
@@ -39,12 +40,70 @@ export function ChatInfoSheet({ open, onClose, chat }: ChatInfoSheetProps) {
       .toUpperCase()
       .slice(0, 2);
 
+  const [inviteCode, setInviteCode] = useState<string | null>(null);
+  const [loadingInvite, setLoadingInvite] = useState(false);
+  const [regenerating, setRegenerating] = useState(false);
+
   const typeLabel =
     chat.type === "direct"
       ? "Direct Message"
       : chat.type === "group"
         ? "Group Chat"
         : "Channel";
+
+  useEffect(() => {
+    let mounted = true;
+    const loadInviteCode = async () => {
+      if (!open || chat.type !== 'channel') {
+        setInviteCode(null);
+        return;
+      }
+      setLoadingInvite(true);
+      const { data, error } = await supabase
+        .from('channel_settings')
+        .select('invite_code')
+        .eq('chat_id', chat.id)
+        .maybeSingle();
+
+      if (!mounted) return;
+      if (!error && data?.invite_code) {
+        setInviteCode(data.invite_code);
+      } else {
+        setInviteCode(null);
+      }
+      setLoadingInvite(false);
+    };
+
+    loadInviteCode();
+
+    return () => {
+      mounted = false;
+    };
+  }, [chat.id, chat.type, open]);
+
+  const inviteUrl = inviteCode ? `${window.location.origin}/join/${inviteCode}` : null;
+
+  const handleCopyInvite = async () => {
+    if (!inviteUrl) return;
+    await navigator.clipboard.writeText(inviteUrl);
+    toast.success('Invite link copied');
+  };
+
+  const handleRegenerateInvite = async () => {
+    if (chat.type !== 'channel' || !inviteCode) return;
+
+    setRegenerating(true);
+    const { data, error } = await supabase.rpc('regenerate_channel_invite_code', { chat_id: chat.id });
+    setRegenerating(false);
+
+    if (error || !data) {
+      toast.error('Unable to regenerate invite code');
+      return;
+    }
+
+    setInviteCode(data as string);
+    toast.success('Invite link regenerated');
+  };
 
   return (
     <Sheet open={open} onOpenChange={onClose}>
@@ -170,6 +229,45 @@ export function ChatInfoSheet({ open, onClose, chat }: ChatInfoSheetProps) {
               </div>
             </div>
           </div>
+
+          <Separator className="opacity-60" />
+
+          {chat.type === 'channel' && (
+            <div className="space-y-3">
+              <div className="flex items-center justify-between px-1">
+                <p className="text-[10px] font-bold text-muted-foreground/80 uppercase tracking-wider">
+                  Invite Link
+                </p>
+                <span className="text-[10px] font-semibold text-primary/80">Share with your community</span>
+              </div>
+              <div className="rounded-2xl border border-border/30 bg-muted/20 p-4 space-y-3">
+                <div className="text-xs text-muted-foreground">
+                  A secure invite link lets people join this channel directly.
+                </div>
+                <div className="rounded-2xl bg-background border border-border px-3 py-2 text-sm text-foreground break-all">
+                  {loadingInvite ? 'Loading invite...' : inviteUrl || 'No invite available'}
+                </div>
+                <div className="flex gap-2 flex-wrap">
+                  <Button
+                    className="flex-1 min-w-[140px]"
+                    onClick={handleCopyInvite}
+                    disabled={!inviteUrl || loadingInvite}
+                  >
+                    Copy link
+                  </Button>
+                  <Button
+                    variant="outline"
+                    className="flex-1 min-w-[140px]"
+                    onClick={handleRegenerateInvite}
+                    disabled={!inviteUrl || loadingInvite}
+                    loading={regenerating}
+                  >
+                    Regenerate
+                  </Button>
+                </div>
+              </div>
+            </div>
+          )}
 
           <Separator className="opacity-60" />
 

@@ -3,7 +3,7 @@ import { MessageCircle, ArrowRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useAuth } from '@/contexts/AuthContext';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 
 export default function Auth() {
   const [step, setStep] = useState<'identifier' | 'username'>('identifier');
@@ -15,6 +15,8 @@ export default function Auth() {
   const [loading, setLoading] = useState(false);
   const { signUp } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+  const invite = new URLSearchParams(location.search).get('invite');
 
   const validateEmail = (value: string) => {
     const trimmed = value.trim();
@@ -82,7 +84,7 @@ export default function Auth() {
       setError(result.error?.message || 'Sign up failed');
     } else {
       console.debug('[Auth Debug] signup success', result.data);
-      navigate('/');
+      navigate(invite ? `/join/${invite}` : '/');
     }
   };
 
@@ -164,7 +166,7 @@ export default function Auth() {
             <button onClick={() => setStep('identifier')} className="w-full text-sm text-muted-foreground hover:text-foreground transition-colors">
               Use different email/phone
             </button>
-            <Button onClick={() => navigate('/login')} variant="outline" className="w-full mt-2">
+            <Button onClick={() => navigate(invite ? `/login?invite=${invite}` : '/login')} variant="outline" className="w-full mt-2">
               Already have an account? Login
             </Button>
           </div>
