@@ -124,7 +124,7 @@ export function BoostControlPanel() {
           boost_start_time: boostMode === 'gradual' ? now.toISOString() : null,
           boost_end_time: boostMode === 'gradual' ? endTime.toISOString() : null,
         },
-        { onConflict: 'chat_id' }
+        { onConflict: ['chat_id'] }
       );
 
     setApplying(false);
