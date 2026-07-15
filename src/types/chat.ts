@@ -44,6 +44,8 @@ export interface Message {
   updated_at?: string;
   sender?: UserProfile;
   reactions?: Reaction[];
+  boostedReactionCounts?: Record<string, number>;
+  boostedViews?: number;
 }
 
 export interface Reaction {

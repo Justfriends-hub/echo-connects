@@ -35,7 +35,7 @@ export function BoostControlPanel() {
   const [settings, setSettings] = useState<ChannelSetting | null>(null);
   const [posts, setPosts] = useState<{ id: string; content?: string }[]>([]);
   const [selectedMessage, setSelectedMessage] = useState('');
-  const [reaction, setReaction] = useState('');
+  const [reactionInput, setReactionInput] = useState('');
   const [loadingSettings, setLoadingSettings] = useState(false);
   const [loadingChannels, setLoadingChannels] = useState(true);
 
@@ -167,6 +167,17 @@ export function BoostControlPanel() {
         return;
       }
 
+      const parsedReactions = reactionInput
+        .split(/[,\s]+/)
+        .map(r => r.trim())
+        .filter(Boolean);
+
+      if (boostKind === 'likes' && parsedReactions.length === 0) {
+        toast.error('Enter at least one reaction emoji');
+        setApplying(false);
+        return;
+      }
+
       const insertObj: any = {
         chat_id: selectedChannel,
         message_id: selectedMessage,
@@ -175,7 +186,7 @@ export function BoostControlPanel() {
         boost_mode: boostMode,
         boost_start_time: boostMode === 'gradual' ? now.toISOString() : null,
         boost_end_time: boostMode === 'gradual' ? endTime.toISOString() : null,
-        reaction: boostKind === 'likes' ? reaction || null : null,
+        reaction: boostKind === 'likes' ? parsedReactions.join(',') : null,
       };
 
       const res = await supabase.from('post_boosts').insert([insertObj]);
@@ -374,13 +385,16 @@ export function BoostControlPanel() {
 
               {boostKind === 'likes' && (
                 <div>
-                  <Label className="text-xs text-muted-foreground">Reaction (e.g. 👍)</Label>
+                  <Label className="text-xs text-muted-foreground">Select reactions (comma separated)</Label>
                   <Input
-                    placeholder="Reaction emoji (optional)"
-                    value={reaction}
-                    onChange={(e) => setReaction(e.target.value)}
+                    placeholder="e.g. 👍, ❤️, 😂"
+                    value={reactionInput}
+                    onChange={(e) => setReactionInput(e.target.value)}
                     className="bg-secondary border-border"
                   />
+                  <p className="text-[10px] text-muted-foreground mt-1">
+                    Enter one or more emojis separated by commas or spaces. Boost will split the total across all reactions evenly.
+                  </p>
                 </div>
               )}
             </div>
