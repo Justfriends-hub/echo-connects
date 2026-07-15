@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   Sheet,
   SheetContent,
@@ -17,6 +18,7 @@ import {
   Calendar,
   MessageCircle,
   Image as ImageIcon,
+  Trash2,
 } from "lucide-react";
 import type { Chat } from "@/types/chat";
 import { useAuth } from "@/contexts/AuthContext";
@@ -32,6 +34,9 @@ interface ChatInfoSheetProps {
 }
 
 export function ChatInfoSheet({ open, onClose, chat }: ChatInfoSheetProps) {
+  const navigate = useNavigate();
+  const { user } = useAuth();
+  
   const getInitials = (name: string) =>
     name
       .split(" ")
@@ -43,6 +48,8 @@ export function ChatInfoSheet({ open, onClose, chat }: ChatInfoSheetProps) {
   const [inviteCode, setInviteCode] = useState<string | null>(null);
   const [loadingInvite, setLoadingInvite] = useState(false);
   const [regenerating, setRegenerating] = useState(false);
+  const [memberRole, setMemberRole] = useState<'owner' | 'admin' | 'member'>('member');
+  const [deleting, setDeleting] = useState(false);
 
   const typeLabel =
     chat.type === "direct"
@@ -53,6 +60,20 @@ export function ChatInfoSheet({ open, onClose, chat }: ChatInfoSheetProps) {
 
   useEffect(() => {
     let mounted = true;
+    
+    const loadMemberRole = async () => {
+      if (!user) return;
+      const { data } = await supabase
+        .from('chat_members')
+        .select('role')
+        .eq('chat_id', chat.id)
+        .eq('user_id', user.id)
+        .maybeSingle();
+      if (mounted && data) {
+        setMemberRole(data.role as 'owner' | 'admin' | 'member');
+      }
+    };
+    
     const loadInviteCode = async () => {
       if (!open || chat.type !== 'channel') {
         setInviteCode(null);
@@ -69,17 +90,21 @@ export function ChatInfoSheet({ open, onClose, chat }: ChatInfoSheetProps) {
       if (!error && data?.invite_code) {
         setInviteCode(data.invite_code);
       } else {
+        console.warn('No invite code found:', error);
         setInviteCode(null);
       }
       setLoadingInvite(false);
     };
 
-    loadInviteCode();
+    if (open) {
+      loadMemberRole();
+      loadInviteCode();
+    }
 
     return () => {
       mounted = false;
     };
-  }, [chat.id, chat.type, open]);
+  }, [chat.id, chat.type, open, user]);
 
   const inviteUrl = inviteCode ? `${window.location.origin}/join/${inviteCode}` : null;
 
@@ -90,10 +115,10 @@ export function ChatInfoSheet({ open, onClose, chat }: ChatInfoSheetProps) {
   };
 
   const handleRegenerateInvite = async () => {
-    if (chat.type !== 'channel' || !inviteCode) return;
+    if (chat.type !== 'channel') return;
 
     setRegenerating(true);
-    const { data, error } = await supabase.rpc('regenerate_channel_invite_code', { chat_id: chat.id });
+    const { data, error } = await supabase.rpc('regenerate_channel_invite_code', { _chat_id: chat.id });
     setRegenerating(false);
 
     if (error || !data) {
@@ -103,6 +128,25 @@ export function ChatInfoSheet({ open, onClose, chat }: ChatInfoSheetProps) {
 
     setInviteCode(data as string);
     toast.success('Invite link regenerated');
+  };
+
+  const handleDeleteChannel = async () => {
+    if (!confirm('Are you sure you want to delete this channel? This action cannot be undone.')) {
+      return;
+    }
+
+    setDeleting(true);
+    const { error } = await supabase.rpc('delete_channel', { _chat_id: chat.id });
+    setDeleting(false);
+
+    if (error) {
+      toast.error(error.message || 'Unable to delete channel');
+      return;
+    }
+
+    toast.success('Channel deleted');
+    onClose();
+    navigate('/');
   };
 
   return (
@@ -267,6 +311,27 @@ export function ChatInfoSheet({ open, onClose, chat }: ChatInfoSheetProps) {
                 </div>
               </div>
             </div>
+          )}
+
+          {chat.type === 'channel' && (memberRole === 'owner' || memberRole === 'admin') && (
+            <>
+              <Separator className="opacity-60" />
+              <div className="space-y-3">
+                <p className="text-[10px] font-bold text-muted-foreground/80 uppercase tracking-wider px-1">
+                  Admin Actions
+                </p>
+                <Button
+                  variant="destructive"
+                  className="w-full"
+                  onClick={handleDeleteChannel}
+                  disabled={deleting}
+                  loading={deleting}
+                >
+                  <Trash2 className="w-4 h-4 mr-2" />
+                  Delete Channel
+                </Button>
+              </div>
+            </>
           )}
 
           <Separator className="opacity-60" />

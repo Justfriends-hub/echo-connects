@@ -106,3 +106,41 @@ BEGIN
 
   RETURN _chat_id;
 END; $$;
+
+CREATE OR REPLACE FUNCTION public.delete_channel(_chat_id uuid)
+RETURNS boolean LANGUAGE plpgsql SECURITY DEFINER SET search_path=public AS $$
+DECLARE
+  _me uuid := auth.uid();
+  _user_role public.member_role;
+BEGIN
+  IF _me IS NULL THEN RAISE EXCEPTION 'Not authenticated'; END IF;
+
+  -- Check if user is owner or admin
+  SELECT role INTO _user_role FROM public.chat_members 
+    WHERE chat_id = _chat_id AND user_id = _me;
+  
+  IF _user_role IS NULL THEN 
+    RAISE EXCEPTION 'Not a member of this channel'; 
+  END IF;
+  
+  IF _user_role NOT IN ('owner', 'admin') THEN 
+    RAISE EXCEPTION 'Only owners and admins can delete channels'; 
+  END IF;
+
+  -- Delete in order of foreign key dependencies
+  DELETE FROM public.reactions 
+    WHERE message_id IN (SELECT id FROM public.messages WHERE chat_id = _chat_id);
+  
+  DELETE FROM public.comments 
+    WHERE message_id IN (SELECT id FROM public.messages WHERE chat_id = _chat_id);
+  
+  DELETE FROM public.messages WHERE chat_id = _chat_id;
+  
+  DELETE FROM public.channel_settings WHERE chat_id = _chat_id;
+  
+  DELETE FROM public.chat_members WHERE chat_id = _chat_id;
+  
+  DELETE FROM public.chats WHERE id = _chat_id;
+
+  RETURN true;
+END; $$;
