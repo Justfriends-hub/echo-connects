@@ -334,12 +334,13 @@ export function ChatLayout() {
 
       {/* Main app container */}
       {/* Chat header (fixed, rendered into document.body via portal so it's outside any transformed ancestor) */}
-      {currentChat && headerPortalEl && createPortal(
+      {/* Skip header portal for channels — they have their own built-in header with logo */}
+      {currentChat && currentChat.type !== 'channel' && headerPortalEl && createPortal(
         <ChatHeader
           chat={currentChat}
           typingUsers={typingUsers}
-          isGroup={currentChat.type === "group" || currentChat.type === "channel"}
-          showOnlineRing={!((currentChat.type === "group" || currentChat.type === "channel")) && !!currentChat.is_online}
+          isGroup={currentChat.type === "group"}
+          showOnlineRing={!!currentChat.is_online}
           onBack={() => setActiveChat(null)}
           onOpenInfo={() => setShowChatInfo(true)}
         />,
