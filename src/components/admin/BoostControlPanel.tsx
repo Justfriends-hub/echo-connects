@@ -33,6 +33,9 @@ export function BoostControlPanel() {
   const [applying, setApplying] = useState(false);
   const [scheduleDate, setScheduleDate] = useState<Date | undefined>(undefined);
   const [settings, setSettings] = useState<ChannelSetting | null>(null);
+  const [posts, setPosts] = useState<{ id: string; content?: string }[]>([]);
+  const [selectedMessage, setSelectedMessage] = useState('');
+  const [reaction, setReaction] = useState('');
   const [loadingSettings, setLoadingSettings] = useState(false);
   const [loadingChannels, setLoadingChannels] = useState(true);
 
@@ -47,6 +50,28 @@ export function BoostControlPanel() {
       setSettings(null);
     }
   }, [selectedChannel]);
+
+  useEffect(() => {
+    // load recent posts for selected channel when boosting posts/views/likes
+    const fetchPosts = async () => {
+      if (!selectedChannel) return setPosts([]);
+      try {
+        const { data } = await supabase
+          .from('messages')
+          .select('id, content')
+          .eq('chat_id', selectedChannel)
+          .order('created_at', { ascending: false })
+          .limit(50);
+        setPosts((data as any) || []);
+      } catch (err) {
+        console.error('[BoostControlPanel] fetchPosts', err);
+        setPosts([]);
+      }
+    };
+
+    if (boostKind !== 'subscribers') fetchPosts();
+    else setPosts([]);
+  }, [selectedChannel, boostKind]);
 
   const fetchChannels = async () => {
     setLoadingChannels(true);
@@ -118,9 +143,11 @@ export function BoostControlPanel() {
     const now = scheduleDate || new Date();
     const endTime = new Date(now.getTime() + durationHours[0] * 3600000);
 
-    const { error } = await supabase
-      .from('channel_settings')
-      .upsert(
+    let error = null;
+
+    if (boostKind === 'subscribers') {
+      // update channel-level subscriber boost only
+      const res = await supabase.from('channel_settings').upsert(
         {
           chat_id: selectedChannel,
           boost_target: parseInt(targetCount, 10),
@@ -131,6 +158,29 @@ export function BoostControlPanel() {
         },
         { onConflict: ['chat_id'] }
       );
+      error = res.error;
+    } else {
+      // create a per-post boost; do not modify channel_settings so subscriber boost remains
+      if (!selectedMessage) {
+        toast.error('Select a post to boost');
+        setApplying(false);
+        return;
+      }
+
+      const insertObj: any = {
+        chat_id: selectedChannel,
+        message_id: selectedMessage,
+        boost_kind: boostKind,
+        boost_target: parseInt(targetCount, 10),
+        boost_mode: boostMode,
+        boost_start_time: boostMode === 'gradual' ? now.toISOString() : null,
+        boost_end_time: boostMode === 'gradual' ? endTime.toISOString() : null,
+        reaction: boostKind === 'likes' ? reaction || null : null,
+      };
+
+      const res = await supabase.from('post_boosts').insert([insertObj]);
+      error = res.error;
+    }
 
     setApplying(false);
     if (error) {
@@ -305,6 +355,36 @@ export function BoostControlPanel() {
               </PopoverContent>
             </Popover>
           </div>
+
+          {boostKind !== 'subscribers' && (
+            <div className="space-y-1.5">
+              <Label className="text-xs text-muted-foreground">Select Post to Boost</Label>
+              <Select value={selectedMessage} onValueChange={setSelectedMessage}>
+                <SelectTrigger className="bg-secondary border-border">
+                  <SelectValue placeholder={posts.length ? 'Select post' : 'No posts found'} />
+                </SelectTrigger>
+                <SelectContent>
+                  {posts.map((p) => (
+                    <SelectItem key={p.id} value={p.id}>
+                      {p.content ? p.content.substring(0, 80) : p.id}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
+              {boostKind === 'likes' && (
+                <div>
+                  <Label className="text-xs text-muted-foreground">Reaction (e.g. 👍)</Label>
+                  <Input
+                    placeholder="Reaction emoji (optional)"
+                    value={reaction}
+                    onChange={(e) => setReaction(e.target.value)}
+                    className="bg-secondary border-border"
+                  />
+                </div>
+              )}
+            </div>
+          )}
 
           <Button onClick={applyBoost} className="w-full" disabled={applying || !selectedChannel || !targetCount}>
             {applying ? 'Applying...' : `Apply ${boostMode === 'instant' ? 'Instant' : 'Gradual'} Boost`}

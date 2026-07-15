@@ -171,7 +171,7 @@ BEGIN
     RETURN COALESCE(settings.boost_count, 0);
   END IF;
 
-  IF _kind IS NOT NULL AND _kind <> 'any' AND settings.boost_kind IS NOT NULL AND settings.boost_kind <> _kind THEN
+  IF _kind IS NOT NULL AND _kind <> 'any' AND settings.boost_kind IS NOT NULL AND settings.boost_kind::text <> _kind THEN
     RETURN COALESCE(settings.boost_count, 0);
   END IF;
 

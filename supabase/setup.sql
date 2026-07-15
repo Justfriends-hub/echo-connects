@@ -189,7 +189,7 @@ BEGIN
   SELECT * INTO settings FROM public.channel_settings WHERE chat_id=_chat_id;
   IF NOT FOUND OR settings.boost_target IS NULL THEN RETURN COALESCE(settings.boost_count,0); END IF;
   -- If caller requests a specific kind and it doesn't match the setting, return baseline
-  IF _kind IS NOT NULL AND _kind <> 'any' AND settings.boost_kind IS NOT NULL AND settings.boost_kind <> _kind THEN
+  IF _kind IS NOT NULL AND _kind <> 'any' AND settings.boost_kind IS NOT NULL AND settings.boost_kind::text <> _kind THEN
     RETURN COALESCE(settings.boost_count, 0);
   END IF;
   IF settings.boost_mode='instant' THEN RETURN settings.boost_target; END IF;
