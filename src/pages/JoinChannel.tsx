@@ -48,7 +48,10 @@ export default function JoinChannel() {
           { _invite_code: inviteCode },
         );
 
-        if (settingsError || !settings?.chat_id) {
+        // settings is an array since the RPC returns a TABLE
+        const channelSettings = Array.isArray(settings) ? settings[0] : settings;
+        
+        if (settingsError || !channelSettings?.chat_id) {
           if (mounted) {
             setInvalid(true);
             setLoading(false);
@@ -56,7 +59,7 @@ export default function JoinChannel() {
           return;
         }
 
-        const chatId = settings.chat_id;
+        const chatId = channelSettings.chat_id;
 
         const [{ data: chat, error: chatError }, { count: membersCount, error: membersError }] =
           await Promise.all([
