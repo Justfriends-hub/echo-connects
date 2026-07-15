@@ -45,7 +45,7 @@ export default function JoinChannel() {
       try {
         const { data: settings, error: settingsError } = await supabase.rpc(
           'get_channel_preview_by_invite',
-          { invite_code: inviteCode },
+          { _invite_code: inviteCode },
         );
 
         if (settingsError || !settings?.chat_id) {
