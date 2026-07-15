@@ -43,23 +43,36 @@ export default function JoinChannel() {
       setPreview(null);
 
       try {
+        let chatId: string | null = null;
+
         const { data: settings, error: settingsError } = await supabase.rpc(
           'get_channel_preview_by_invite',
           { _invite_code: inviteCode },
         );
 
-        // settings is an array since the RPC returns a TABLE
         const channelSettings = Array.isArray(settings) ? settings[0] : settings;
+
+        if (!settingsError && channelSettings?.chat_id) {
+          chatId = channelSettings.chat_id;
+        } else {
+          const { data: settingsRow, error: settingsQueryError } = await supabase
+            .from('channel_settings')
+            .select('chat_id')
+            .eq('invite_code', inviteCode)
+            .maybeSingle();
+
+          if (!settingsQueryError && settingsRow?.chat_id) {
+            chatId = settingsRow.chat_id;
+          }
+        }
         
-        if (settingsError || !channelSettings?.chat_id) {
+        if (!chatId) {
           if (mounted) {
             setInvalid(true);
             setLoading(false);
           }
           return;
         }
-
-        const chatId = channelSettings.chat_id;
 
         const [{ data: chat, error: chatError }, { count: membersCount, error: membersError }] =
           await Promise.all([
