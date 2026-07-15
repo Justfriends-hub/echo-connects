@@ -27,6 +27,8 @@ export default function JoinChannel() {
   const [joinLoading, setJoinLoading] = useState(false);
   const [invalid, setInvalid] = useState(false);
 
+  const handleDashboard = () => navigate('/');
+
   useEffect(() => {
     let mounted = true;
     const loadPreview = async () => {
@@ -141,8 +143,8 @@ export default function JoinChannel() {
   const inviteLink = `${window.location.origin}/join/${inviteCode}`;
 
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center p-4">
-      <div className="w-full max-w-lg bg-card border border-border rounded-3xl shadow-xl overflow-hidden">
+    <div className="min-h-screen bg-background flex flex-col items-center justify-start p-4 pt-6 pb-10">
+      <div className="w-full max-w-lg bg-card border border-border rounded-3xl shadow-xl overflow-hidden mt-2">
         <div className="px-6 py-6 border-b border-border bg-secondary/60">
           <h1 className="text-2xl font-semibold text-foreground">Channel invite</h1>
           <p className="text-sm text-muted-foreground mt-1">
@@ -164,7 +166,7 @@ export default function JoinChannel() {
               <Skeleton className="h-12 w-full" />
             </div>
           ) : invalid ? (
-            <div className="text-center py-16">
+            <div className="text-center py-16 space-y-4">
               <div className="mx-auto mb-4 w-16 h-16 rounded-full bg-destructive/10 text-destructive flex items-center justify-center">
                 <LogIn className="w-7 h-7" />
               </div>
@@ -172,6 +174,9 @@ export default function JoinChannel() {
               <p className="text-sm text-muted-foreground mt-2">
                 The channel invite code does not match any active channel.
               </p>
+              <Button variant="outline" className="w-full max-w-xs mx-auto" onClick={handleDashboard}>
+                Back to dashboard
+              </Button>
             </div>
           ) : preview ? (
             <>
@@ -217,6 +222,9 @@ export default function JoinChannel() {
                     <Link2 className="w-4 h-4 mr-2" />
                     Copy invite link
                   </Button>
+                  <Button variant="outline" className="w-full" onClick={handleDashboard}>
+                    Back to dashboard
+                  </Button>
                 </div>
               ) : (
                 <div className="space-y-3">
@@ -227,6 +235,9 @@ export default function JoinChannel() {
                   <Button variant="secondary" className="w-full" onClick={handleSignUp}>
                     <ArrowRight className="w-4 h-4 mr-2" />
                     Create an account to join
+                  </Button>
+                  <Button variant="outline" className="w-full" onClick={handleDashboard}>
+                    Back to dashboard
                   </Button>
                 </div>
               )}
