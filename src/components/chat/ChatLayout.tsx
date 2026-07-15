@@ -356,7 +356,7 @@ export function ChatLayout() {
           maxWidth: viewportWidth ? `${viewportWidth}px` : '100vw',
           overflow: 'hidden',
           backgroundColor: 'transparent',
-          paddingTop: currentChat && currentChat.type === 'channel'
+          paddingTop: !currentChat || (currentChat && currentChat.type === 'channel')
             ? 'calc(env(safe-area-inset-top) + 0.5rem)'
             : 'calc(env(safe-area-inset-top) + 3.5rem)',
           paddingBottom: 'env(safe-area-inset-bottom)',
