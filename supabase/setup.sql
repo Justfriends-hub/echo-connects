@@ -337,9 +337,9 @@ BEGIN
   INSERT INTO public.chat_members (chat_id, user_id, role) 
   VALUES (_chat_id, _me, 'owner');
 
-  -- Initialize channel settings
-  INSERT INTO public.channel_settings (chat_id) 
-  VALUES (_chat_id);
+  -- Initialize channel settings with generated invite code
+  INSERT INTO public.channel_settings (chat_id, invite_code) 
+  VALUES (_chat_id, public.generate_invite_code());
 
   RETURN _chat_id;
 END; $$;
