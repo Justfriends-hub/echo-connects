@@ -201,6 +201,9 @@ BEGIN
   RETURN settings.boost_count + FLOOR((settings.boost_target - settings.boost_count) * progress);
 END; $$;
 
+GRANT EXECUTE ON FUNCTION public.get_visible_boost(uuid, text) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.get_visible_boost(uuid, text) TO anon;
+
 CREATE OR REPLACE FUNCTION public.generate_invite_code()
 RETURNS text LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path=public AS $$
 DECLARE
