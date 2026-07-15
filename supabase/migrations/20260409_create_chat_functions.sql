@@ -44,29 +44,18 @@ CREATE OR REPLACE FUNCTION public.create_channel(
 DECLARE
   _me uuid := auth.uid();
   _chat_id uuid;
-  _is_platform_admin boolean;
 BEGIN
   IF _me IS NULL THEN RAISE EXCEPTION 'Not authenticated'; END IF;
   IF _name IS NULL OR _name = '' THEN RAISE EXCEPTION 'Channel name is required'; END IF;
-
-  -- Check if user is platform_admin
-  SELECT EXISTS(
-    SELECT 1 FROM public.user_roles 
-    WHERE user_id = _me AND role = 'platform_admin'
-  ) INTO _is_platform_admin;
-
-  IF NOT _is_platform_admin THEN 
-    RAISE EXCEPTION 'Only platform admins can create channels'; 
-  END IF;
 
   -- Create the channel
   INSERT INTO public.chats (type, name, created_by) 
   VALUES ('channel', _name, _me) 
   RETURNING id INTO _chat_id;
 
-  -- Add creator as admin
+  -- Add creator as owner
   INSERT INTO public.chat_members (chat_id, user_id, role) 
-  VALUES (_chat_id, _me, 'admin');
+  VALUES (_chat_id, _me, 'owner');
 
   -- Initialize channel settings
   INSERT INTO public.channel_settings (chat_id) 

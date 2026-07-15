@@ -80,6 +80,7 @@ export function ChatLayout() {
   const [isOnline, setIsOnline] = useState(
     typeof navigator !== "undefined" ? navigator.onLine : true,
   );
+  const [canPostInChannel, setCanPostInChannel] = useState(false);
   const isMobile = useIsMobile();
   const [headerPortalEl, setHeaderPortalEl] = useState<HTMLDivElement | null>(null);
 
@@ -149,6 +150,48 @@ export function ChatLayout() {
   useEffect(() => {
     if (!authLoading && !user) navigate("/auth");
   }, [authLoading, user, navigate]);
+
+  useEffect(() => {
+    let mounted = true;
+    if (!activeChat || !user || currentChat?.type !== "channel") {
+      setCanPostInChannel(false);
+      return;
+    }
+
+    const fetchRole = async () => {
+      const { data } = await supabase
+        .from("chat_members")
+        .select("role")
+        .eq("chat_id", activeChat)
+        .eq("user_id", user.id)
+        .maybeSingle();
+
+      if (!mounted) return;
+      setCanPostInChannel(data?.role === "owner");
+    };
+
+    fetchRole();
+    return () => {
+      mounted = false;
+    };
+  }, [activeChat, currentChat?.type, user]);
+
+  useEffect(() => {
+    const handler = (event: Event) => {
+      const custom = event as CustomEvent<{
+        chatId: string;
+        chatName: string;
+        message: string;
+      }>;
+      if (custom.detail.chatId === activeChat) return;
+      toast.success(`New post in ${custom.detail.chatName}`, {
+        description: custom.detail.message,
+      });
+    };
+
+    window.addEventListener("channel-new-post", handler as EventListener);
+    return () => window.removeEventListener("channel-new-post", handler as EventListener);
+  }, [activeChat]);
 
   // Listen for command palette events
   useEffect(() => {
@@ -442,11 +485,13 @@ export function ChatLayout() {
       {currentChat && (
         <TextBar
           onSend={handleSendMessage}
-          onTyping={currentChat.type !== 'channel' ? notifyTyping : undefined}
-          disabled={currentChat.type === 'channel'}
+          onTyping={currentChat.type !== 'channel' || canPostInChannel ? notifyTyping : undefined}
+          disabled={currentChat.type === 'channel' ? !canPostInChannel : false}
           placeholder={
             currentChat.type === 'channel'
-              ? 'Posting is disabled in channels'
+              ? canPostInChannel
+                ? 'Post update to channel'
+                : 'Only channel creator can post here'
               : 'Message'
           }
           onHeightChange={setInputHeight}

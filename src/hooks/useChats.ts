@@ -188,6 +188,20 @@ export function useChats() {
           });
           return updated;
         });
+
+        const currentChats = queryClient.getQueryData<Chat[]>(['chats', user.id]);
+        const chat = currentChats?.find((c) => c.id === msg.chat_id);
+        if (chat?.type === 'channel') {
+          window.dispatchEvent(
+            new CustomEvent('channel-new-post', {
+              detail: {
+                chatId: msg.chat_id,
+                chatName: chat.name || 'Channel',
+                message: msg.content,
+              },
+            }),
+          );
+        }
       })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'chat_members', filter: `user_id=eq.${user.id}` }, () => queryClient.invalidateQueries({ queryKey: ['chats', user.id] }))
       .subscribe();

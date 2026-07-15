@@ -352,9 +352,9 @@ export function NewChatDialog({
                 <Megaphone className="w-3.5 h-3.5" />
               </div>
               <p className="text-[11px] text-muted-foreground/90 leading-normal font-medium">
-                Channels act as global broadcast panels. Only administrators
-                retain clearances to deploy media messages. Subscribers can
-                react with emoji nodes.
+                Channels act as open broadcast panels. Anyone can create a
+                channel, only the channel creator can post updates, and all
+                channel members can react to each post.
               </p>
             </div>
           </div>

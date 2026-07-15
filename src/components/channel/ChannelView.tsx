@@ -261,6 +261,13 @@ export function ChannelView({ chat, messages, currentUserId, onSendMessage, onBa
         </div>
       )}
 
+      {!loading && !isAdmin && (
+        <div className="mx-4 mb-3 rounded-2xl border border-border/70 bg-muted/70 px-4 py-3 text-xs text-muted-foreground">
+          Only the channel creator can publish posts here. Everyone in this
+          channel can react to updates and receive new message alerts.
+        </div>
+      )}
+
       {/* ── Channel Posts ─────────────────────────────────────────────────────── */}
       <div
         className="flex-1 min-h-0 overflow-y-auto chat-messages-scroll px-3 py-4"

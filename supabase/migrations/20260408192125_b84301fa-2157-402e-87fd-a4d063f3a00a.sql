@@ -268,7 +268,19 @@ CREATE POLICY "Remove self" ON public.chat_members FOR DELETE TO authenticated U
 CREATE POLICY "Members see messages" ON public.messages FOR SELECT TO authenticated
   USING (public.is_chat_member(auth.uid(), chat_id));
 CREATE POLICY "Members send messages" ON public.messages FOR INSERT TO authenticated
-  WITH CHECK (auth.uid() = sender_id AND public.is_chat_member(auth.uid(), chat_id));
+  WITH CHECK (
+    auth.uid() = sender_id
+    AND public.is_chat_member(auth.uid(), chat_id)
+    AND (
+      (SELECT type FROM public.chats WHERE id = chat_id) <> 'channel'
+      OR EXISTS (
+        SELECT 1 FROM public.chat_members
+        WHERE chat_id = chat_id
+          AND user_id = auth.uid()
+          AND role = 'owner'
+      )
+    )
+  );
 CREATE POLICY "Sender updates own message" ON public.messages FOR UPDATE TO authenticated
   USING (auth.uid() = sender_id);
 
