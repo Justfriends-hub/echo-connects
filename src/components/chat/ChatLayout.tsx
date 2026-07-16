@@ -50,7 +50,7 @@ export function ChatLayout() {
   } = useChats();
   const { hasUnseenStatuses } = useStatuses();
   const [activeChat, setActiveChat] = useState<string | null>(null);
-  const { messages, loadOlder, hasMore, loadingOlder, sendMessage } =
+  const { messages, loadOlder, hasMore, loadingOlder, sendMessage, deleteMessage, forwardMessage } =
     useMessages(activeChat);
   const currentChat = chats.find((c) => c.id === activeChat);
 
@@ -83,6 +83,10 @@ export function ChatLayout() {
   const [showChatInfo, setShowChatInfo] = useState(false);
   const [showProfileDrawer, setShowProfileDrawer] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
+  const [deleteMessageTarget, setDeleteMessageTarget] = useState<string | null>(null);
+  const [forwardDialogMessage, setForwardDialogMessage] = useState<import('@/types/chat').Message | null>(null);
+  const [forwardSelectedChats, setForwardSelectedChats] = useState<string[]>([]);
+  const [forwardComment, setForwardComment] = useState('');
   const [inputHeight, setInputHeight] = useState(0);
   const [keyboardHeight, setKeyboardHeight] = useState(0);
   const [viewportHeight, setViewportHeight] = useState<number | null>(null);
@@ -283,7 +287,9 @@ export function ChatLayout() {
         loadingOlder={loadingOlder}
         othersLastReadAt={othersLastReadAt}
         onOpenInfo={() => setShowChatInfo(true)}
-      />
+      onDeleteMessage={(id) => setDeleteMessageTarget(id)}
+      onOpenForward={(msg) => { setForwardDialogMessage(msg); setForwardSelectedChats([]); setForwardComment(''); }}
+    />
     )
   ) : (
     <EmptyState />
@@ -479,6 +485,90 @@ export function ChatLayout() {
         onClose={() => setShowNewChat(false)}
         onChatCreated={handleChatCreated}
       />
+
+      {/* Message delete confirmation dialog */}
+      <AlertDialog open={!!deleteMessageTarget} onOpenChange={() => setDeleteMessageTarget(null)}>
+        <AlertDialogContent className="bg-card/95 backdrop-blur-md border border-border/60 max-w-[340px] rounded-2xl p-5 shadow-2xl animate-in fade-in-50 zoom-in-95 duration-200">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-base font-bold tracking-tight text-foreground">
+              Delete message?
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-xs text-muted-foreground/90 leading-relaxed mt-1">
+              This will permanently remove the message for everyone if permitted.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="mt-4 gap-2 sm:gap-0">
+            <AlertDialogCancel className="border-border/60 rounded-xl text-xs font-medium h-9 hover:bg-muted/50">
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive hover:bg-destructive/90 text-white rounded-xl text-xs font-medium h-9"
+              onClick={async () => {
+                if (!deleteMessageTarget) return;
+                await deleteMessage?.(deleteMessageTarget);
+                setDeleteMessageTarget(null);
+              }}
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Forward message dialog */}
+      <Dialog open={!!forwardDialogMessage} onOpenChange={() => setForwardDialogMessage(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Forward message</DialogTitle>
+            <DialogDescription>Select one or more chats to forward into and add an optional comment.</DialogDescription>
+          </DialogHeader>
+
+          <div className="mt-4 space-y-3">
+            <div className="text-sm text-muted-foreground">Choose chats</div>
+            <div className="max-h-40 overflow-y-auto border rounded-md p-2">
+              {chats.map((c) => (
+                <label key={c.id} className="flex items-center gap-2 p-1">
+                  <input
+                    type="checkbox"
+                    checked={forwardSelectedChats.includes(c.id)}
+                    onChange={(e) => {
+                      setForwardSelectedChats((prev) => e.target.checked ? [...prev, c.id] : prev.filter(x => x !== c.id));
+                    }}
+                  />
+                  <span className="text-sm">{c.name || c.id}</span>
+                </label>
+              ))}
+            </div>
+
+            <div>
+              <textarea
+                value={forwardComment}
+                onChange={(e) => setForwardComment(e.target.value)}
+                placeholder="Add a comment (optional)"
+                className="w-full rounded-md border p-2"
+                rows={3}
+              />
+            </div>
+          </div>
+
+          <DialogFooter className="mt-4">
+            <button className="border-border/60 rounded-xl text-xs font-medium h-9 px-3 mr-2" onClick={() => setForwardDialogMessage(null)}>Cancel</button>
+            <button
+              className="bg-primary text-white rounded-xl text-xs font-medium h-9 px-3"
+              onClick={async () => {
+                if (!forwardDialogMessage || !user) return;
+                const targets = forwardSelectedChats.length ? forwardSelectedChats : [];
+                for (const tid of targets) {
+                  await forwardMessage?.(tid, forwardDialogMessage, forwardComment, user.id);
+                }
+                setForwardDialogMessage(null);
+              }}
+            >
+              Forward
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {currentChat && (
         <ChatInfoSheet

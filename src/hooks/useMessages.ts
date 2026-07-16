@@ -88,12 +88,18 @@ export function useMessages(chatId: string | null) {
 
   const hydrate = useCallback(async (rows: Message[]): Promise<Message[]> => {
     if (rows.length === 0) return [];
+
+    // collect both sender_ids and forwarded_from ids so we can hydrate profiles
     const senderIds = Array.from(new Set(rows.map(m => m.sender_id)));
+    const forwardedFromIds = Array.from(new Set(rows.map(m => m.forwarded_from).filter(Boolean) as string[]));
+    const profileIds = Array.from(new Set([...senderIds, ...forwardedFromIds]));
     const msgIds = rows.map(m => m.id);
+
     const [{ data: profiles }, { data: reactions }] = await Promise.all([
-      supabase.from('profiles').select('*').in('id', senderIds),
+      supabase.from('profiles').select('*').in('id', profileIds),
       supabase.from('reactions').select('*').in('message_id', msgIds),
     ]);
+
     const profMap = new Map((profiles || []).map((p: any) => [p.id, p as UserProfile]));
     const reactionMap = new Map<string, Reaction[]>();
     (reactions || []).forEach((r: any) => {
@@ -101,9 +107,11 @@ export function useMessages(chatId: string | null) {
       arr.push(r as Reaction);
       reactionMap.set(r.message_id, arr);
     });
+
     return rows.map(m => ({
       ...m,
       sender: profMap.get(m.sender_id),
+      forwarded_from_profile: m.forwarded_from ? profMap.get(m.forwarded_from as string) || null : null,
       reactions: reactionMap.get(m.id) || [],
     }));
   }, []);
@@ -422,6 +430,57 @@ export function useMessages(chatId: string | null) {
     flushPendingMessages();
   }, [chatId, isOnline, flushPendingMessages]);
 
+  // Delete a message with optimistic UI
+  const deleteMessage = useCallback(async (messageId: string) => {
+    if (!chatId) return false;
+    let previous: Message[] = [];
+    setMessages(prev => {
+      previous = prev;
+      const next = prev.filter(m => m.id !== messageId);
+      try { saveCachedMessages(chatId, next); } catch {}
+      return next;
+    });
+
+    const { error } = await supabase.from('messages').delete().eq('id', messageId);
+    if (error) {
+      // revert
+      setMessages(previous);
+      try { saveCachedMessages(chatId, previous); } catch {}
+      toast.error('Failed to delete message');
+      return false;
+    }
+    toast.success('Message deleted');
+    return true;
+  }, [chatId]);
+
+  const forwardMessage = useCallback(async (targetChatId: string, message: Message, comment?: string, senderId?: string) => {
+    if (!targetChatId || !message || !senderId) return null;
+    const content = comment ? `${comment}\n\n${message.content}` : message.content;
+    const payload: any = {
+      chat_id: targetChatId,
+      sender_id: senderId,
+      content,
+      type: message.type,
+      status: 'sent',
+      forwarded_from: message.sender_id,
+      forwarded_at: new Date().toISOString(),
+    };
+
+    try {
+      const { data, error } = await supabase.from('messages').insert(payload).select('*').single();
+      if (error || !data) {
+        toast.error('Failed to forward message');
+        return null;
+      }
+      toast.success('Message forwarded');
+      return data as Message;
+    } catch (err) {
+      console.warn('[useMessages] forwardMessage exception', err);
+      toast.error('Failed to forward message');
+      return null;
+    }
+  }, []);
+
   useEffect(() => {
     if (!chatId) return;
     const interval = window.setInterval(() => {
@@ -430,5 +489,5 @@ export function useMessages(chatId: string | null) {
     return () => window.clearInterval(interval);
   }, [chatId, load]);
 
-  return { messages, loading, loadingOlder, hasMore, loadOlder, reload: load, sendMessage };
+  return { messages, loading, loadingOlder, hasMore, loadOlder, reload: load, sendMessage, deleteMessage, forwardMessage };
 }

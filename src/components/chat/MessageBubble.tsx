@@ -17,6 +17,8 @@ import {
   ContextMenuSeparator,
   ContextMenuTrigger,
 } from "@/components/ui/context-menu";
+import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
+import EmojiPicker from "@/components/ui/EmojiPicker";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -29,6 +31,8 @@ import { ImageCarousel } from "./ImageCarousel";
 import type { Message } from "@/types/chat";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/integrations/supabase/client';
 
 interface MessageBubbleProps {
   message: Message;
@@ -36,6 +40,8 @@ interface MessageBubbleProps {
   showAvatar?: boolean;
   senderName?: string;
   seen?: boolean;
+  onDeleteMessage?: (id: string) => void;
+  onOpenForward?: (message: Message) => void;
 }
 
 export function MessageBubble({
@@ -44,6 +50,8 @@ export function MessageBubble({
   showAvatar,
   senderName,
   seen,
+  onDeleteMessage,
+  onOpenForward,
 }: MessageBubbleProps) {
   const time = new Date(message.created_at).toLocaleTimeString([], {
     hour: "2-digit",
@@ -55,16 +63,44 @@ export function MessageBubble({
     toast.success("Copied to clipboard");
   };
 
+  const { user } = useAuth();
+  // handle reply placeholder
   const handleReply = () => {
     toast.info("Reply feature coming soon");
   };
 
   const handleForward = () => {
+    if (onOpenForward) return onOpenForward(message);
     toast.info("Forward feature coming soon");
   };
 
   const handleDelete = () => {
+    if (onDeleteMessage) return onDeleteMessage(message.id);
     toast.info("Delete feature coming soon");
+  };
+
+  // Toggle reaction for current user
+  const handleReactToggle = async (emoji: string) => {
+    try {
+      if (!user) return toast.error('Not signed in');
+      // check existing reaction by this user
+      const { data: existing } = await supabase
+        .from('reactions')
+        .select('id')
+        .eq('message_id', message.id)
+        .eq('user_id', user.id)
+        .eq('emoji', emoji)
+        .maybeSingle();
+
+      if ((existing as any)?.id) {
+        await supabase.from('reactions').delete().eq('id', (existing as any).id);
+      } else {
+        await supabase.from('reactions').insert({ message_id: message.id, user_id: user.id, emoji });
+      }
+    } catch (err) {
+      console.warn('[MessageBubble] react toggle failed', err);
+      toast.error('Failed to update reaction');
+    }
   };
 
   const statusIcon = () => {
@@ -168,6 +204,14 @@ export function MessageBubble({
         <p className="text-[11px] font-bold text-primary tracking-tight mb-0.5 leading-none">
           {senderName}
         </p>
+      )}
+
+      {/* Forwarded metadata */}
+      {message.forwarded_from_profile && (
+        <div className="flex items-center gap-2 mb-1">
+          <span className="text-[11px] text-muted-foreground/80">Forwarded from</span>
+          <span className="text-[11px] font-semibold text-foreground">{message.forwarded_from_profile.display_name || message.forwarded_from_profile.username}</span>
+        </div>
       )}
 
       {/* Main Structural Stream View Blocks */}
@@ -280,9 +324,18 @@ export function MessageBubble({
         >
           <Forward className="w-4 h-4 text-muted-foreground" /> Forward
         </ContextMenuItem>
-        <ContextMenuItem className="gap-2.5 px-3 py-2 text-xs font-medium rounded-lg cursor-pointer">
-          <SmilePlus className="w-4 h-4 text-muted-foreground" /> React
-        </ContextMenuItem>
+        <div className="px-2 py-1">
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button variant="ghost" size="sm" className="gap-2 px-2 py-1 text-xs w-full justify-start">
+                <SmilePlus className="w-4 h-4 text-muted-foreground" /> React
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-56 p-2">
+              <EmojiPicker onSelect={(emoji) => handleReactToggle(emoji)} />
+            </PopoverContent>
+          </Popover>
+        </div>
         {isOwn && (
           <>
             <ContextMenuSeparator className="opacity-40" />

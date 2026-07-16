@@ -42,7 +42,15 @@ export interface Message {
   status: 'sending' | 'sent' | 'delivered' | 'seen';
   created_at: string;
   updated_at?: string;
+
+  // optional forwarding metadata
+  forwarded_from?: string | null; // user id of original sender when forwarded
+  forwarded_at?: string | null; // ISO timestamp
+
+  // hydrated profiles
   sender?: UserProfile;
+  forwarded_from_profile?: UserProfile | null;
+
   reactions?: Reaction[];
   boostedReactionCounts?: Record<string, number>;
   boostedViews?: number;

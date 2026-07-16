@@ -32,6 +32,8 @@ interface ChatAreaProps {
   inputHeight?: number;
   keyboardHeight?: number;
   onOpenInfo?: () => void;
+  onDeleteMessage?: (id: string) => void;
+  onOpenForward?: (message: import('@/types/chat').Message) => void;
 }
 
 function MessageSkeleton() {
@@ -341,6 +343,8 @@ export function ChatArea({
                       isOwn={isOwn}
                       senderName={showName ? msg.sender?.display_name : undefined}
                       seen={seen}
+                      onDeleteMessage={onDeleteMessage}
+                      onOpenForward={onOpenForward}
                     />
                   </div>
                 );
