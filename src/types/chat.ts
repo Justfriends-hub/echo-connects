@@ -52,6 +52,7 @@ export interface Message {
   forwarded_from_profile?: UserProfile | null;
 
   reactions?: Reaction[];
+  repliedTo?: Message;
 }
 
 export interface Reaction {

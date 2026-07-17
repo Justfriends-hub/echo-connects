@@ -34,6 +34,7 @@ interface ChatAreaProps {
   onOpenInfo?: () => void;
   onDeleteMessage?: (id: string) => void;
   onOpenForward?: (message: import('@/types/chat').Message) => void;
+  onReply?: (message: Message) => void;
 }
 
 function MessageSkeleton() {
@@ -124,6 +125,7 @@ export function ChatArea({
   onOpenInfo,
   onDeleteMessage,
   onOpenForward,
+  onReply,
 }: ChatAreaProps) {
   const bottomRef = useRef<HTMLDivElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -347,6 +349,7 @@ export function ChatArea({
                       seen={seen}
                       onDeleteMessage={onDeleteMessage}
                       onOpenForward={onOpenForward}
+                      onReply={onReply}
                     />
                   </div>
                 );

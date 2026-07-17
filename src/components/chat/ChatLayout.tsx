@@ -1,4 +1,5 @@
 import React, { useState, useCallback, useEffect, useRef } from "react";
+import type { Message } from '@/types/chat';
 import { createPortal } from "react-dom";
 import { useNavigate, useLocation } from "react-router-dom";
 import { ChatSidebar } from "./ChatSidebar";
@@ -95,6 +96,7 @@ export function ChatLayout() {
   const [forwardDialogMessage, setForwardDialogMessage] = useState<import('@/types/chat').Message | null>(null);
   const [forwardSelectedChats, setForwardSelectedChats] = useState<string[]>([]);
   const [forwardComment, setForwardComment] = useState('');
+  const [replyingTo, setReplyingTo] = useState<Message | null>(null);
   const [inputHeight, setInputHeight] = useState(0);
   const [keyboardHeight, setKeyboardHeight] = useState(0);
   const [viewportHeight, setViewportHeight] = useState<number | null>(null);
@@ -236,9 +238,10 @@ export function ChatLayout() {
   }, []);
 
   const handleSendMessage = useCallback(
-    async (content: string) => {
+    async (content: string, replyToId?: string) => {
       if (!activeChat || !user) return;
-      await sendMessage(content, user.id);
+      await sendMessage(content, user.id, replyToId);
+      setReplyingTo(null);
     },
     [activeChat, user, sendMessage],
   );
@@ -295,9 +298,10 @@ export function ChatLayout() {
         loadingOlder={loadingOlder}
         othersLastReadAt={othersLastReadAt}
         onOpenInfo={() => setShowChatInfo(true)}
-      onDeleteMessage={(id) => setDeleteMessageTarget(id)}
-      onOpenForward={(msg) => { setForwardDialogMessage(msg); setForwardSelectedChats([]); setForwardComment(''); }}
-    />
+        onDeleteMessage={(id) => setDeleteMessageTarget(id)}
+        onOpenForward={(msg) => { setForwardDialogMessage(msg); setForwardSelectedChats([]); setForwardComment(''); }}
+        onReply={(msg) => setReplyingTo(msg)}
+      />
     )
   ) : (
     <EmptyState />
@@ -596,7 +600,7 @@ export function ChatLayout() {
       />
       {currentChat && (
         <TextBar
-          onSend={handleSendMessage}
+          onSend={(content) => handleSendMessage(content, replyingTo?.id)}
           onTyping={currentChat.type !== 'channel' || canPostInChannel ? notifyTyping : undefined}
           disabled={currentChat.type === 'channel' ? !canPostInChannel : false}
           placeholder={
@@ -608,6 +612,8 @@ export function ChatLayout() {
           }
           onHeightChange={setInputHeight}
           onKeyboardHeightChange={setKeyboardHeight}
+          replyingTo={replyingTo}
+          onClearReply={() => setReplyingTo(null)}
         />
       )}
 

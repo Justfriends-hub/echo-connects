@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { Send, Mic } from 'lucide-react'
+import type { Message } from '@/types/chat'
 
 interface TextBarProps {
   onSend: (content: string) => void
@@ -9,6 +10,8 @@ interface TextBarProps {
   placeholder?: string
   onHeightChange?: (height: number) => void
   onKeyboardHeightChange?: (height: number) => void
+  replyingTo?: Message | null
+  onClearReply?: () => void
 }
 
 export default function TextBar({
@@ -18,6 +21,8 @@ export default function TextBar({
   placeholder = 'Message',
   onHeightChange,
   onKeyboardHeightChange,
+  replyingTo,
+  onClearReply,
 }: TextBarProps) {
   const [text, setText] = useState('')
   const [keyboardHeight, setKeyboardHeight] = useState(0)
@@ -87,9 +92,10 @@ export default function TextBar({
     const trimmed = text.trim()
     if (!trimmed || disabled) return
     onSend(trimmed)
+    onClearReply?.()
     setText('')
     if (taRef.current) taRef.current.style.height = 'auto'
-  }, [disabled, onSend, text])
+  }, [disabled, onClearReply, onSend, text])
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -113,15 +119,51 @@ export default function TextBar({
         bottom: `${keyboardHeight}px`,
         zIndex: 999,
         display: 'flex',
-        gap: 10,
+        flexDirection: 'column',
+        gap: 8,
         padding: '8px',
-        alignItems: 'flex-end',
         background: 'hsl(var(--card))',
         borderTop: '1px solid hsl(var(--border) / 0.5)',
         boxSizing: 'border-box',
         paddingBottom: keyboardHeight === 0 ? 'env(safe-area-inset-bottom, 0px)' : '0px',
       }}
     >
+      {replyingTo && (
+        <div
+          style={{
+            borderRadius: 16,
+            border: '1px solid hsl(var(--border) / 0.3)',
+            background: 'hsl(var(--muted) / 0.45)',
+            padding: '8px 10px',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+          }}
+        >
+          <div style={{ overflow: 'hidden', minWidth: 0 }}>
+            <div style={{ fontSize: 12, fontWeight: 600, color: 'hsl(var(--primary))' }}>
+              Replying to {replyingTo.sender?.display_name || 'Unknown'}
+            </div>
+            <div style={{ fontSize: 12, color: 'hsl(var(--muted-foreground))', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {replyingTo.content.slice(0, 50)}{replyingTo.content.length > 50 ? '…' : ''}
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={onClearReply}
+            style={{
+              border: 'none',
+              background: 'transparent',
+              color: 'hsl(var(--muted-foreground))',
+              fontSize: 18,
+              lineHeight: 1,
+              cursor: 'pointer',
+            }}
+          >
+            ×
+          </button>
+        </div>
+      )}
       <div style={{ flex: 1, display: 'flex', alignItems: 'flex-end' }}>
         <div
           style={{

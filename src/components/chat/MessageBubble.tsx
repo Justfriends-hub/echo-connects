@@ -42,6 +42,7 @@ interface MessageBubbleProps {
   seen?: boolean;
   onDeleteMessage?: (id: string) => void;
   onOpenForward?: (message: Message) => void;
+  onReply?: (message: Message) => void;
 }
 
 export function MessageBubble({
@@ -52,6 +53,7 @@ export function MessageBubble({
   seen,
   onDeleteMessage,
   onOpenForward,
+  onReply,
 }: MessageBubbleProps) {
   const time = new Date(message.created_at).toLocaleTimeString([], {
     hour: "2-digit",
@@ -64,8 +66,8 @@ export function MessageBubble({
   };
 
   const { user } = useAuth();
-  // handle reply placeholder
   const handleReply = () => {
+    if (onReply) return onReply(message);
     toast.info("Reply feature coming soon");
   };
 
@@ -173,6 +175,12 @@ export function MessageBubble({
               <Reply className="w-3.5 h-3.5 text-muted-foreground" /> Reply
             </DropdownMenuItem>
             <DropdownMenuItem
+              onClick={handleReply}
+              className="gap-2 px-2.5 py-1.5 text-xs font-medium rounded-lg cursor-pointer"
+            >
+              <Reply className="w-3.5 h-3.5 text-muted-foreground" /> Reply
+            </DropdownMenuItem>
+            <DropdownMenuItem
               onClick={handleCopy}
               className="gap-2 px-2.5 py-1.5 text-xs font-medium rounded-lg cursor-pointer"
             >
@@ -204,6 +212,17 @@ export function MessageBubble({
         <p className="text-[11px] font-bold text-primary tracking-tight mb-0.5 leading-none">
           {senderName}
         </p>
+      )}
+
+      {message.repliedTo && (
+        <div className="mb-2 rounded-xl border-l-2 border-primary/60 bg-muted/70 p-2">
+          <p className="text-[11px] font-semibold text-primary mb-1">
+            Replying to {message.repliedTo.sender?.display_name || 'Unknown'}
+          </p>
+          <p className="text-[12px] text-muted-foreground line-clamp-2">
+            {message.repliedTo.content}
+          </p>
+        </div>
       )}
 
       {/* Forwarded metadata */}

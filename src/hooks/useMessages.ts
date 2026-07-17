@@ -13,6 +13,7 @@ type PendingMessageData = {
   sender_id: string;
   content: string;
   type: Message['type'];
+  reply_to_id?: string;
   created_at: string;
 };
 
@@ -57,6 +58,7 @@ function pendingToMessage(pending: PendingMessageData): Message {
     sender_id: pending.sender_id,
     content: pending.content,
     type: pending.type,
+    reply_to_id: pending.reply_to_id,
     status: 'sending',
     created_at: pending.created_at,
     updated_at: pending.created_at,
@@ -89,10 +91,16 @@ export function useMessages(chatId: string | null) {
   const hydrate = useCallback(async (rows: Message[]): Promise<Message[]> => {
     if (rows.length === 0) return [];
 
-    // collect both sender_ids and forwarded_from ids so we can hydrate profiles
+    const replyIds = Array.from(new Set(rows.map(m => m.reply_to_id).filter(Boolean) as string[]));
     const senderIds = Array.from(new Set(rows.map(m => m.sender_id)));
     const forwardedFromIds = Array.from(new Set(rows.map(m => m.forwarded_from).filter(Boolean) as string[]));
-    const profileIds = Array.from(new Set([...senderIds, ...forwardedFromIds]));
+    const referencedRows: Message[] = replyIds.length > 0
+      ? (await supabase.from('messages').select('*').in('id', replyIds)).data || []
+      : [];
+
+    const allMessages = [...rows, ...referencedRows];
+    const allSenderIds = Array.from(new Set([...senderIds, ...forwardedFromIds, ...referencedRows.map(m => m.sender_id)]));
+    const profileIds = allSenderIds;
     const msgIds = rows.map(m => m.id);
 
     const [{ data: profiles }, { data: reactions }] = await Promise.all([
@@ -108,11 +116,14 @@ export function useMessages(chatId: string | null) {
       reactionMap.set(r.message_id, arr);
     });
 
+    const messageMap = new Map<string, Message>(allMessages.map(m => [m.id, m]));
+
     return rows.map(m => ({
       ...m,
       sender: profMap.get(m.sender_id),
       forwarded_from_profile: m.forwarded_from ? profMap.get(m.forwarded_from as string) || null : null,
       reactions: reactionMap.get(m.id) || [],
+      repliedTo: m.reply_to_id ? messageMap.get(m.reply_to_id as string) : undefined,
     }));
   }, []);
 
@@ -238,7 +249,7 @@ export function useMessages(chatId: string | null) {
     saveCachedMessages(chatId, messages);
   }, [chatId, messages]);
 
-  const sendMessage = useCallback(async (content: string, senderId: string) => {
+  const sendMessage = useCallback(async (content: string, senderId: string, replyToId?: string) => {
     if (!chatId || !senderId || !content.trim()) return;
 
     const tempId = `local-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
@@ -248,6 +259,7 @@ export function useMessages(chatId: string | null) {
       sender_id: senderId,
       content: content.trim(),
       type: 'text',
+      reply_to_id: replyToId,
       status: 'sending',
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
@@ -266,6 +278,7 @@ export function useMessages(chatId: string | null) {
       sender_id: senderId,
       content: content.trim(),
       type: 'text',
+      reply_to_id: replyToId,
       created_at: tempMessage.created_at,
     };
 
@@ -282,7 +295,7 @@ export function useMessages(chatId: string | null) {
 
     const { data, error } = await supabase
       .from('messages')
-      .insert({ chat_id: chatId, sender_id: senderId, content: content.trim(), type: 'text', status: 'sent' })
+      .insert({ chat_id: chatId, sender_id: senderId, content: content.trim(), type: 'text', status: 'sent', reply_to_id: replyToId })
       .select('*')
       .single();
 
@@ -310,7 +323,7 @@ export function useMessages(chatId: string | null) {
       try {
         const { data, error } = await supabase
           .from('messages')
-          .insert({ chat_id: item.chat_id, sender_id: item.sender_id, content: item.content, type: item.type, status: 'sent' })
+          .insert({ chat_id: item.chat_id, sender_id: item.sender_id, content: item.content, type: item.type, status: 'sent', reply_to_id: item.reply_to_id })
           .select('*')
           .single();
 
