@@ -52,8 +52,6 @@ export interface Message {
   forwarded_from_profile?: UserProfile | null;
 
   reactions?: Reaction[];
-  boostedReactionCounts?: Record<string, number>;
-  boostedViews?: number;
 }
 
 export interface Reaction {

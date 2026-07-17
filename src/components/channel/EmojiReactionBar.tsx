@@ -8,10 +8,9 @@ interface EmojiReactionBarProps {
   reactions: Reaction[];
   currentUserId: string;
   onReact: (messageId: string, emoji: string) => void;
-  extraReactionCounts?: Record<string, number>;
 }
 
-export function EmojiReactionBar({ messageId, allowedEmojis, reactions, currentUserId, onReact, extraReactionCounts }: EmojiReactionBarProps) {
+export function EmojiReactionBar({ messageId, allowedEmojis, reactions, currentUserId, onReact }: EmojiReactionBarProps) {
   // Group reactions by emoji
   const grouped = reactions.reduce((acc, r) => {
     acc[r.emoji] = acc[r.emoji] || { count: 0, hasOwn: false };
@@ -19,14 +18,6 @@ export function EmojiReactionBar({ messageId, allowedEmojis, reactions, currentU
     if (r.user_id === currentUserId) acc[r.emoji].hasOwn = true;
     return acc;
   }, {} as Record<string, { count: number; hasOwn: boolean }>);
-
-  if (extraReactionCounts) {
-    Object.entries(extraReactionCounts).forEach(([emoji, extraCount]) => {
-      if (!extraCount) return;
-      grouped[emoji] = grouped[emoji] || { count: 0, hasOwn: false };
-      grouped[emoji].count += extraCount;
-    });
-  }
 
   return (
     <div className="flex items-center gap-1 flex-wrap">

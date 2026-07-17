@@ -54,17 +54,13 @@ export function ChannelPost({
       hash = ((hash << 5) - hash + message.id.charCodeAt(i)) | 0;
     }
     const factor = 0.65 + (Math.abs(hash) % 30) / 100; // 0.65 to 0.95
-    const baseViewCount = Math.max(1, Math.floor(subscriberCount * factor));
-    const boostedViews = message.boostedViews || 0;
-    const totalViews = baseViewCount + boostedViews;
-    return totalViews >= 1000
-      ? `${(totalViews / 1000).toFixed(1)}K`
-      : totalViews.toString();
-  }, [message.id, subscriberCount, message.boostedViews]);
+    const viewCount = Math.max(1, Math.floor(subscriberCount * factor));
+    return viewCount >= 1000
+      ? `${(viewCount / 1000).toFixed(1)}K`
+      : viewCount.toString();
+  }, [message.id, subscriberCount]);
 
-  const hasReactions =
-    (message.reactions?.length ?? 0) > 0 ||
-    Object.keys(message.boostedReactionCounts || {}).length > 0;
+  const hasReactions = (message.reactions?.length ?? 0) > 0;
 
   return (
     <article className="channel-post animate-fade-in">
@@ -101,7 +97,6 @@ export function ChannelPost({
             reactions={message.reactions || []}
             currentUserId={currentUserId}
             onReact={onReact}
-            extraReactionCounts={message.boostedReactionCounts}
           />
         </div>
       )}

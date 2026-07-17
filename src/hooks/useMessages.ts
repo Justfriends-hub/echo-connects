@@ -116,92 +116,6 @@ export function useMessages(chatId: string | null) {
     }));
   }, []);
 
-  const parseBoostReactions = (reactionInput?: string) => {
-    if (!reactionInput) return [];
-    return reactionInput
-      .split(/[\s,]+/)
-      .map(r => r.trim())
-      .filter(Boolean);
-  };
-
-  const getBoostValue = (boost: any) => {
-    if (boost.boost_target == null) return 0;
-    if (boost.boost_mode === 'instant') return boost.boost_target;
-    if (!boost.boost_start_time || !boost.boost_end_time) return 0;
-    const elapsed = (Date.now() - new Date(boost.boost_start_time).getTime()) / 1000;
-    const totalDuration = (new Date(boost.boost_end_time).getTime() - new Date(boost.boost_start_time).getTime()) / 1000;
-    if (elapsed <= 0) return 0;
-    if (elapsed >= totalDuration) return boost.boost_target;
-    return Math.floor(boost.boost_target * (1.0 - Math.pow(1.0 - elapsed / totalDuration, 3)));
-  };
-
-  const applyPostBoosts = (rows: Message[], boosts: any[]) => {
-    if (!boosts || boosts.length === 0) return rows;
-    return rows.map((msg) => {
-      const messageBoosts = boosts.filter((boost) => boost.message_id === msg.id);
-      if (messageBoosts.length === 0) return msg;
-
-      const boostedReactionCounts: Record<string, number> = {};
-      let boostedViews = 0;
-
-      messageBoosts.forEach((boost) => {
-        const boostValue = getBoostValue(boost);
-        if (boostValue <= 0) return;
-
-        if (boost.boost_kind === 'likes') {
-          const items = parseBoostReactions(boost.reaction);
-          const selected = items.length > 0 ? items : ['👍'];
-          const reactionWeights = selected.map((emoji) => {
-            return {
-              emoji,
-              weight: msg.reactions?.filter((r) => r.emoji === emoji).length || 0,
-            };
-          });
-          const totalWeight = reactionWeights.reduce((sum, item) => sum + (item.weight || 1), 0);
-          const weights = reactionWeights.map((item) => ({
-            emoji: item.emoji,
-            weight: item.weight > 0 ? item.weight : 1,
-          }));
-          let remaining = boostValue;
-          const assigned: Record<string, number> = {};
-          weights.forEach((item, index) => {
-            const amount = Math.floor((boostValue * item.weight) / totalWeight);
-            assigned[item.emoji] = amount;
-            remaining -= amount;
-          });
-          weights.sort((a, b) => b.weight - a.weight);
-          for (const item of weights) {
-            if (remaining <= 0) break;
-            assigned[item.emoji] = (assigned[item.emoji] || 0) + 1;
-            remaining -= 1;
-          }
-          Object.entries(assigned).forEach(([emoji, amount]) => {
-            boostedReactionCounts[emoji] = (boostedReactionCounts[emoji] || 0) + amount;
-          });
-        }
-
-        if (boost.boost_kind === 'views') {
-          boostedViews += boostValue;
-        }
-      });
-
-      return {
-        ...msg,
-        boostedReactionCounts: Object.keys(boostedReactionCounts).length ? boostedReactionCounts : undefined,
-        boostedViews: boostedViews || undefined,
-      } as Message;
-    });
-  };
-
-  const fetchPostBoosts = async (chatId: string) => {
-    const { data, error } = await supabase.from('post_boosts').select('*').eq('chat_id', chatId);
-    if (error) {
-      console.warn('[useMessages] fetchPostBoosts failed', error);
-      return [];
-    }
-    return data || [];
-  };
-
   const load = useCallback(async () => {
     if (!chatId) { setMessages([]); setHasMore(true); return; }
 
@@ -232,11 +146,9 @@ export function useMessages(chatId: string | null) {
       setHasMore(desc.length === PAGE_SIZE);
       const list = desc.slice().reverse();
       const hydrated = await hydrate(list);
-      const boosts = await fetchPostBoosts(chatId);
-      const boostedMessages = applyPostBoosts(hydrated, boosts);
 
       const pending = getPendingMessages(chatId).map(pendingToMessage);
-      const merged = [...boostedMessages, ...pending].sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+      const merged = [...hydrated, ...pending].sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
 
       setMessages(merged);
       saveCachedMessages(chatId, merged);
@@ -269,9 +181,7 @@ export function useMessages(chatId: string | null) {
     const desc = (msgs || []) as Message[];
     setHasMore(desc.length === PAGE_SIZE);
     const older = await hydrate(desc.slice().reverse());
-    const boosts = await fetchPostBoosts(chatId);
-    const boostedOlder = applyPostBoosts(older, boosts);
-    setMessages(prev => [...boostedOlder, ...prev]);
+    setMessages(prev => [...older, ...prev]);
     setLoadingOlder(false);
   }, [chatId, loadingOlder, hasMore, messages, hydrate, isOnline]);
 
