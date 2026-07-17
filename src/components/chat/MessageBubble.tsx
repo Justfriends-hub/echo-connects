@@ -175,12 +175,6 @@ export function MessageBubble({
               <Reply className="w-3.5 h-3.5 text-muted-foreground" /> Reply
             </DropdownMenuItem>
             <DropdownMenuItem
-              onClick={handleReply}
-              className="gap-2 px-2.5 py-1.5 text-xs font-medium rounded-lg cursor-pointer"
-            >
-              <Reply className="w-3.5 h-3.5 text-muted-foreground" /> Reply
-            </DropdownMenuItem>
-            <DropdownMenuItem
               onClick={handleCopy}
               className="gap-2 px-2.5 py-1.5 text-xs font-medium rounded-lg cursor-pointer"
             >

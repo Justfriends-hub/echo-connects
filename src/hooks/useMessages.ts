@@ -391,14 +391,19 @@ export function useMessages(chatId: string | null) {
 
     try {
       const { data, error } = await supabase.from('messages').insert(payload).select('*').single();
-      if (error || !data) {
+      if (error) {
+        console.error('[useMessages] forwardMessage error:', error);
+        toast.error(`Failed to forward: ${error.message || 'Unknown error'}`);
+        return null;
+      }
+      if (!data) {
         toast.error('Failed to forward message');
         return null;
       }
       toast.success('Message forwarded');
       return data as Message;
     } catch (err) {
-      console.warn('[useMessages] forwardMessage exception', err);
+      console.error('[useMessages] forwardMessage exception:', err);
       toast.error('Failed to forward message');
       return null;
     }

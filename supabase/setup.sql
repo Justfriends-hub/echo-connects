@@ -111,6 +111,8 @@ CREATE TABLE IF NOT EXISTS public.messages (
   type public.message_type NOT NULL DEFAULT 'text',
   reply_to_id uuid,
   status public.message_status NOT NULL DEFAULT 'sent',
+  forwarded_from uuid REFERENCES auth.users(id) ON DELETE SET NULL,
+  forwarded_at timestamptz,
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now()
 );
