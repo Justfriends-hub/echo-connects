@@ -122,6 +122,8 @@ export function ChatArea({
   inputHeight,
   keyboardHeight,
   onOpenInfo,
+  onDeleteMessage,
+  onOpenForward,
 }: ChatAreaProps) {
   const bottomRef = useRef<HTMLDivElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
