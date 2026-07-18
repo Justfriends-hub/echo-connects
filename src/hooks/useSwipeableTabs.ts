@@ -79,8 +79,10 @@ export function useSwipeableTabs({
     const touch = e.touches[0];
     if (!touch) return;
 
-    widthRef.current =
-      containerRef.current?.getBoundingClientRect().width ?? window.innerWidth;
+    widthRef.current = Math.max(
+      containerRef.current?.getBoundingClientRect().width ?? 0,
+      window.innerWidth,
+    );
 
     stateRef.current = {
       startX: touch.clientX,
@@ -231,7 +233,7 @@ export function useSwipeableTabs({
     container.addEventListener("touchcancel", handleTouchEnd);
 
     const handleResize = () => {
-      widthRef.current = container.getBoundingClientRect().width;
+      widthRef.current = Math.max(container.getBoundingClientRect().width, window.innerWidth);
       // Reset position if not actively tracking
       if (!stateRef.current.isTracking) {
         setTransform(getBaseOffset(), false);
@@ -260,9 +262,10 @@ export function useSwipeableTabs({
   // When activeTab changes externally (via tap), update transform without animation
   useEffect(() => {
     if (!stateRef.current.isTracking) {
-      widthRef.current =
-        containerRef.current?.getBoundingClientRect().width ??
-        window.innerWidth;
+      widthRef.current = Math.max(
+        containerRef.current?.getBoundingClientRect().width ?? 0,
+        window.innerWidth,
+      );
       setTransform(getBaseOffset(), false);
     }
   }, [activeTab]);
