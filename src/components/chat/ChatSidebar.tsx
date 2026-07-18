@@ -278,17 +278,17 @@ export function ChatSidebar({
       {/* Swipeable dual-panel container: both Chats and Status always mounted side-by-side */}
       <div
         ref={containerRef}
-        className="flex-1 relative h-screen overflow-hidden"
+        className="flex-1 relative h-full overflow-hidden"
         style={{ touchAction: 'pan-y' }}
       >
         {/* Transform track containing both panels */}
         <div
           ref={trackRef}
-          className="flex h-screen w-[200%]"
+          className="flex h-full w-[200%]"
           style={{ transform: "translateX(0)" }}
         >
-          {/* Chats Panel - full viewport width/height */}
-          <div className="w-full min-w-full flex-shrink-0 h-screen min-h-screen">
+          {/* Chats Panel - full parent height/width */}
+          <div className="w-full min-w-full flex-shrink-0 h-full min-h-full">
             <ScrollArea className="h-full bg-sidebar/30 relative">
               <SectionErrorBoundary onRetry={onRetry}>
                 {loading ? (
@@ -370,8 +370,8 @@ export function ChatSidebar({
             </ScrollArea>
           </div>
 
-          {/* Status Panel - full viewport width/height */}
-          <div className="w-full min-w-full flex-shrink-0 h-screen min-h-screen-screen min-h-screen">
+          {/* Status Panel - full parent height/width */}
+          <div className="w-full min-w-full flex-shrink-0 h-full min-h-full">
             <SectionErrorBoundary>
               <StatusListView onOpenComposer={onNewStatus} />
             </SectionErrorBoundary>
