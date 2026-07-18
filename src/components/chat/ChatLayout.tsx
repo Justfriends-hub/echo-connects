@@ -123,6 +123,7 @@ export function ChatLayout() {
   const [headerPortalEl, setHeaderPortalEl] = useState<HTMLDivElement | null>(
     null,
   );
+  const [sheetOpen, setSheetOpen] = useState(false);
 
   useEffect(() => {
     if (typeof document === "undefined") return;
@@ -485,8 +486,8 @@ export function ChatLayout() {
           backgroundColor: "transparent",
           paddingTop:
             !currentChat || (currentChat && currentChat.type === "channel")
-              ? "calc(env(safe-area-inset-top) + 0.5rem)"
-              : "calc(env(safe-area-inset-top) + 3.5rem)",
+              ? "calc(env(safe-area-inset-top) + 0.5rem + 90px)"
+              : "calc(env(safe-area-inset-top) + 3.5rem + 90px)",
           paddingBottom: "env(safe-area-inset-bottom)",
           paddingLeft: "env(safe-area-inset-left)",
           paddingRight: "env(safe-area-inset-right)",
@@ -497,49 +498,8 @@ export function ChatLayout() {
         }}
       >
         {isMobile ? (
-          <div
-            style={{
-              position: "relative",
-              display: "flex",
-              width: "100%",
-              height: "100%",
-              overflow: "hidden",
-              backgroundColor: "transparent",
-            }}
-          >
-            {/* Sidebar Slide Control */}
-            <div
-              className={cn(
-                "absolute inset-0 w-full h-full z-10 transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] will-change-transform",
-                activeChat ? "-translate-x-full" : "translate-x-0",
-              )}
-            >
-              <ChatSidebar
-                chats={chats}
-                activeChat={activeChat}
-                onSelectChat={setActiveChat}
-                onNewChat={() => {
-                  setNewChatMode("direct");
-                  setShowNewChat(true);
-                }}
-                onNewGroup={() => {
-                  setNewChatMode("group");
-                  setShowNewChat(true);
-                }}
-                onNewChannel={() => {
-                  setNewChatMode("channel");
-                  setShowNewChat(true);
-                }}
-                onNewStatus={() => setShowStatusComposer(true)}
-                hasUnseenStatuses={hasUnseenStatuses}
-                isError={chatsError}
-                loading={chatsLoading}
-                onRetry={reloadChats}
-                onOpenProfile={() => setShowProfileDrawer(true)}
-              />
-            </div>
-
-            {/* Chat Frame Slide Layer */}
+          <div style={{ position: "relative", width: "100%", height: "100%", backgroundColor: "transparent" }}>
+            {/* Chat Frame Slide Layer (stays full screen when active) */}
             <div
               className={cn(
                 "absolute inset-0 w-full h-full z-20 transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] will-change-transform bg-transparent shadow-2xl",
@@ -549,6 +509,73 @@ export function ChatLayout() {
               <SectionErrorBoundary onRetry={reloadChats}>
                 {chatContent}
               </SectionErrorBoundary>
+            </div>
+
+            {/* Bottom sheet container for Chats / Status (mobile) */}
+            <div
+              aria-hidden={!!activeChat}
+              style={{
+                position: "absolute",
+                left: 0,
+                right: 0,
+                bottom: 0,
+                height: sheetOpen
+                  ? viewportHeight
+                    ? `${viewportHeight}px`
+                    : "100dvh"
+                  : 110,
+                transition: "height 260ms cubic-bezier(0.22,0.61,0.36,1)",
+                zIndex: 10,
+                overflow: "hidden",
+                display: activeChat ? "none" : "block",
+                touchAction: "none",
+              }}
+            >
+              <div style={{ position: "absolute", top: -28, left: "50%", transform: "translateX(-50%)", zIndex: 20 }}>
+                <button
+                  aria-label={sheetOpen ? "Close panel" : "Open panel"}
+                  onClick={() => setSheetOpen((s) => !s)}
+                  className="w-10 h-6 rounded-full bg-white/10 text-white flex items-center justify-center"
+                >
+                  <div className="w-6 h-[2px] bg-white/60" />
+                </button>
+              </div>
+
+              <div style={{ position: "absolute", inset: 0, overflow: "hidden" }}>
+                <div
+                  className={cn(
+                    "absolute inset-0 w-full h-full z-10 transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] will-change-transform",
+                    activeChat ? "-translate-x-full" : "translate-x-0",
+                  )}
+                >
+                  <ChatSidebar
+                    chats={chats}
+                    activeChat={activeChat}
+                    onSelectChat={(id) => {
+                      setActiveChat(id);
+                      setSheetOpen(false);
+                    }}
+                    onNewChat={() => {
+                      setNewChatMode("direct");
+                      setShowNewChat(true);
+                    }}
+                    onNewGroup={() => {
+                      setNewChatMode("group");
+                      setShowNewChat(true);
+                    }}
+                    onNewChannel={() => {
+                      setNewChatMode("channel");
+                      setShowNewChat(true);
+                    }}
+                    onNewStatus={() => setShowStatusComposer(true)}
+                    hasUnseenStatuses={hasUnseenStatuses}
+                    isError={chatsError}
+                    loading={chatsLoading}
+                    onRetry={reloadChats}
+                    onOpenProfile={() => setShowProfileDrawer(true)}
+                  />
+                </div>
+              </div>
             </div>
           </div>
         ) : (
