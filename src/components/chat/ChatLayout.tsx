@@ -94,8 +94,9 @@ export function ChatLayout() {
   );
   const [showNewChat, setShowNewChat] = useState(false);
   const [showStatusComposer, setShowStatusComposer] = useState(false);
-  const [newChatMode, setNewChatMode] = useState;
-  "direct" | "group" | ("channel" > "direct");
+  const [newChatMode, setNewChatMode] = useState<
+    "direct" | "group" | "channel"
+  >("direct");
   const [showChatInfo, setShowChatInfo] = useState(false);
   const [showProfileDrawer, setShowProfileDrawer] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
