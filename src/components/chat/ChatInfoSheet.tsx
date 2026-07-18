@@ -36,7 +36,7 @@ interface ChatInfoSheetProps {
 export function ChatInfoSheet({ open, onClose, chat }: ChatInfoSheetProps) {
   const navigate = useNavigate();
   const { user } = useAuth();
-  
+
   const getInitials = (name: string) =>
     name
       .split(" ")
@@ -48,7 +48,9 @@ export function ChatInfoSheet({ open, onClose, chat }: ChatInfoSheetProps) {
   const [inviteCode, setInviteCode] = useState<string | null>(null);
   const [loadingInvite, setLoadingInvite] = useState(false);
   const [regenerating, setRegenerating] = useState(false);
-  const [memberRole, setMemberRole] = useState<'owner' | 'admin' | 'member'>('member');
+  const [memberRole, setMemberRole] = useState<"owner" | "admin" | "member">(
+    "member",
+  );
   const [deleting, setDeleting] = useState(false);
 
   const typeLabel =
@@ -60,37 +62,37 @@ export function ChatInfoSheet({ open, onClose, chat }: ChatInfoSheetProps) {
 
   useEffect(() => {
     let mounted = true;
-    
+
     const loadMemberRole = async () => {
       if (!user) return;
       const { data } = await supabase
-        .from('chat_members')
-        .select('role')
-        .eq('chat_id', chat.id)
-        .eq('user_id', user.id)
+        .from("chat_members")
+        .select("role")
+        .eq("chat_id", chat.id)
+        .eq("user_id", user.id)
         .maybeSingle();
       if (mounted && data) {
-        setMemberRole(data.role as 'owner' | 'admin' | 'member');
+        setMemberRole(data.role as "owner" | "admin" | "member");
       }
     };
-    
+
     const loadInviteCode = async () => {
-      if (!open || chat.type !== 'channel') {
+      if (!open || chat.type !== "channel") {
         setInviteCode(null);
         return;
       }
       setLoadingInvite(true);
       const { data, error } = await supabase
-        .from('channel_settings')
-        .select('invite_code')
-        .eq('chat_id', chat.id)
+        .from("channel_settings")
+        .select("invite_code")
+        .eq("chat_id", chat.id)
         .maybeSingle();
 
       if (!mounted) return;
       if (!error && data?.invite_code) {
         setInviteCode(data.invite_code);
       } else {
-        console.warn('No invite code found:', error);
+        console.warn("No invite code found:", error);
         setInviteCode(null);
       }
       setLoadingInvite(false);
@@ -106,47 +108,58 @@ export function ChatInfoSheet({ open, onClose, chat }: ChatInfoSheetProps) {
     };
   }, [chat.id, chat.type, open, user]);
 
-  const inviteUrl = inviteCode ? `${window.location.origin}/join/${inviteCode}` : null;
+  const inviteUrl = inviteCode
+    ? `${window.location.origin}/join/${inviteCode}`
+    : null;
 
   const handleCopyInvite = async () => {
     if (!inviteUrl) return;
     await navigator.clipboard.writeText(inviteUrl);
-    toast.success('Invite link copied');
+    toast.success("Invite link copied");
   };
 
   const handleRegenerateInvite = async () => {
-    if (chat.type !== 'channel') return;
+    if (chat.type !== "channel") return;
 
     setRegenerating(true);
-    const { data, error } = await supabase.rpc('regenerate_channel_invite_code', { _chat_id: chat.id });
+    const { data, error } = await supabase.rpc(
+      "regenerate_channel_invite_code",
+      { _chat_id: chat.id },
+    );
     setRegenerating(false);
 
     if (error || !data) {
-      toast.error('Unable to regenerate invite code');
+      toast.error("Unable to regenerate invite code");
       return;
     }
 
     setInviteCode(data as string);
-    toast.success('Invite link regenerated');
+    toast.success("Invite link regenerated");
   };
 
   const handleDeleteChannel = async () => {
-    if (!confirm('Are you sure you want to delete this channel? This action cannot be undone.')) {
+    if (
+      !confirm(
+        "Are you sure you want to delete this channel? This action cannot be undone.",
+      )
+    ) {
       return;
     }
 
     setDeleting(true);
-    const { error } = await supabase.rpc('delete_channel', { _chat_id: chat.id });
+    const { error } = await supabase.rpc("delete_channel", {
+      _chat_id: chat.id,
+    });
     setDeleting(false);
 
     if (error) {
-      toast.error(error.message || 'Unable to delete channel');
+      toast.error(error.message || "Unable to delete channel");
       return;
     }
 
-    toast.success('Channel deleted');
+    toast.success("Channel deleted");
     onClose();
-    navigate('/');
+    navigate("/");
   };
 
   return (
@@ -161,29 +174,33 @@ export function ChatInfoSheet({ open, onClose, chat }: ChatInfoSheetProps) {
 
         <div className="px-5 pb-6 space-y-6 mt-4">
           {/* Hero Profile Card with Integrated Ring Well */}
-          <div className="flex flex-col items-center text-center bg-muted/30 border border-border/40 rounded-2xl p-5 transition-all duration-300 hover:bg-muted/40">
+          <div className="flex flex-col items-center text-center bg-muted/30 border border-border/40 rounded-2xl p-5 transition-colors duration-300 hover:bg-muted/40">
             <div className="relative mb-3 group">
-              {/* Status Ring Well Integration */}
+              {/* Status Ring Well Integration — matches ChatHeader: solid ring,
+                  no ring-offset, no infinite pulse (dot already communicates status) */}
               <div
-                className={`p-[3px] rounded-full transition-all duration-300 ${chat.is_online ? "ring-2 ring-emerald-500 ring-offset-2 ring-offset-card" : "ring-1 ring-border/80"}`}
+                className={`p-[3px] rounded-full transition-colors duration-300 ${chat.is_online ? "ring-2 ring-emerald-500/70" : "ring-1 ring-border/80"}`}
               >
                 <div className="w-20 h-20 rounded-full overflow-hidden shadow-inner">
                   <AspectRatio ratio={1}>
-                    <Avatar className="w-full h-full transform transition-transform duration-500 group-hover:scale-105">
+                    <Avatar className="w-full h-full transform-gpu transition-transform duration-500 motion-safe:group-hover:scale-105">
                       <AvatarImage
                         src={chat.avatar_url}
                         className="object-cover"
                       />
-                      <AvatarFallback className="bg-primary/10 text-primary text-xl font-semibold w-full h-full flex items-center justify-center">
+                      <AvatarFallback className="bg-gradient-to-br from-primary/15 to-primary/5 text-primary text-xl font-semibold w-full h-full flex items-center justify-center">
                         {getInitials(chat.name || "U")}
                       </AvatarFallback>
                     </Avatar>
                   </AspectRatio>
                 </div>
               </div>
-              {/* Dynamic Status Pill overlay inside the ring baseline */}
+              {/* Dynamic Status dot — static, ring-card border, no pulse */}
               {chat.is_online && (
-                <span className="absolute bottom-0.5 right-0.5 block h-3 w-3 rounded-full bg-emerald-500 ring-2 ring-card animate-pulse" />
+                <span
+                  className="absolute bottom-0.5 right-0.5 block h-3.5 w-3.5 rounded-full bg-emerald-500 ring-2 ring-card"
+                  aria-hidden="true"
+                />
               )}
             </div>
 
@@ -212,7 +229,7 @@ export function ChatInfoSheet({ open, onClose, chat }: ChatInfoSheetProps) {
           <div className="space-y-4">
             {chat.description && (
               <div className="space-y-1 bg-muted/20 border border-border/30 rounded-xl p-3.5">
-                <p className="text-[10px] font-bold text-muted-foreground/80 uppercase tracking-wider">
+                <p className="text-[10px] font-bold text-muted-foreground/90 uppercase tracking-wider">
                   About
                 </p>
                 <p className="text-xs text-foreground/90 leading-relaxed font-normal">
@@ -222,7 +239,7 @@ export function ChatInfoSheet({ open, onClose, chat }: ChatInfoSheetProps) {
             )}
 
             <div className="space-y-1">
-              <p className="text-[10px] font-bold text-muted-foreground/80 uppercase tracking-wider mb-2 px-1">
+              <p className="text-[10px] font-bold text-muted-foreground/90 uppercase tracking-wider mb-2 px-1">
                 Details
               </p>
 
@@ -231,11 +248,11 @@ export function ChatInfoSheet({ open, onClose, chat }: ChatInfoSheetProps) {
                   <div className="w-7 h-7 rounded-lg bg-primary/10 text-primary flex items-center justify-center flex-shrink-0">
                     <MessageCircle className="w-4 h-4" />
                   </div>
-                  <div className="flex flex-col">
+                  <div className="flex flex-col min-w-0">
                     <span className="text-muted-foreground font-medium text-[10px]">
                       Chat Type
                     </span>
-                    <span className="text-foreground font-semibold mt-0.5">
+                    <span className="text-foreground font-semibold mt-0.5 truncate">
                       {typeLabel}
                     </span>
                   </div>
@@ -246,11 +263,11 @@ export function ChatInfoSheet({ open, onClose, chat }: ChatInfoSheetProps) {
                     <div className="w-7 h-7 rounded-lg bg-primary/10 text-primary flex items-center justify-center flex-shrink-0">
                       <Users className="w-4 h-4" />
                     </div>
-                    <div className="flex flex-col">
+                    <div className="flex flex-col min-w-0">
                       <span className="text-muted-foreground font-medium text-[10px]">
                         Community
                       </span>
-                      <span className="text-foreground font-semibold mt-0.5">
+                      <span className="text-foreground font-semibold mt-0.5 truncate">
                         {chat.member_count || 0} members
                       </span>
                     </div>
@@ -261,11 +278,11 @@ export function ChatInfoSheet({ open, onClose, chat }: ChatInfoSheetProps) {
                   <div className="w-7 h-7 rounded-lg bg-primary/10 text-primary flex items-center justify-center flex-shrink-0">
                     <Calendar className="w-4 h-4" />
                   </div>
-                  <div className="flex flex-col">
+                  <div className="flex flex-col min-w-0">
                     <span className="text-muted-foreground font-medium text-[10px]">
                       Created On
                     </span>
-                    <span className="text-foreground font-semibold mt-0.5">
+                    <span className="text-foreground font-semibold mt-0.5 truncate">
                       {format(new Date(chat.created_at), "MMM d, yyyy")}
                     </span>
                   </div>
@@ -276,20 +293,24 @@ export function ChatInfoSheet({ open, onClose, chat }: ChatInfoSheetProps) {
 
           <Separator className="opacity-60" />
 
-          {chat.type === 'channel' && (
+          {chat.type === "channel" && (
             <div className="space-y-3">
-              <div className="flex items-center justify-between px-1">
-                <p className="text-[10px] font-bold text-muted-foreground/80 uppercase tracking-wider">
+              <div className="flex items-center justify-between px-1 gap-2">
+                <p className="text-[10px] font-bold text-muted-foreground/90 uppercase tracking-wider">
                   Invite Link
                 </p>
-                <span className="text-[10px] font-semibold text-primary/80">Share with your community</span>
+                <span className="text-[10px] font-semibold text-primary/90 text-right">
+                  Share with your community
+                </span>
               </div>
               <div className="rounded-2xl border border-border/30 bg-muted/20 p-4 space-y-3">
                 <div className="text-xs text-muted-foreground">
                   A secure invite link lets people join this channel directly.
                 </div>
                 <div className="rounded-2xl bg-background border border-border px-3 py-2 text-sm text-foreground break-all">
-                  {loadingInvite ? 'Loading invite...' : inviteUrl || 'No invite available'}
+                  {loadingInvite
+                    ? "Loading invite..."
+                    : inviteUrl || "No invite available"}
                 </div>
                 <div className="flex gap-2 flex-wrap">
                   <Button
@@ -313,53 +334,59 @@ export function ChatInfoSheet({ open, onClose, chat }: ChatInfoSheetProps) {
             </div>
           )}
 
-          {chat.type === 'channel' && (memberRole === 'owner' || memberRole === 'admin') && (
-            <>
-              <Separator className="opacity-60" />
-              <div className="space-y-3">
-                <p className="text-[10px] font-bold text-muted-foreground/80 uppercase tracking-wider px-1">
-                  Admin Actions
-                </p>
-                <Button
-                  variant="destructive"
-                  className="w-full"
-                  onClick={handleDeleteChannel}
-                  disabled={deleting}
-                  loading={deleting}
-                >
-                  <Trash2 className="w-4 h-4 mr-2" />
-                  Delete Channel
-                </Button>
-              </div>
-            </>
-          )}
+          {chat.type === "channel" &&
+            (memberRole === "owner" || memberRole === "admin") && (
+              <>
+                <Separator className="opacity-60" />
+                <div className="space-y-3">
+                  <p className="text-[10px] font-bold text-muted-foreground/90 uppercase tracking-wider px-1">
+                    Admin Actions
+                  </p>
+                  <Button
+                    variant="destructive"
+                    className="w-full"
+                    onClick={handleDeleteChannel}
+                    disabled={deleting}
+                    loading={deleting}
+                  >
+                    <Trash2 className="w-4 h-4 mr-2" />
+                    Delete Channel
+                  </Button>
+                </div>
+              </>
+            )}
 
           <Separator className="opacity-60" />
 
           {/* WhatsApp-style Grid Shared Media Section */}
           <div className="space-y-2.5">
             <div className="flex items-center justify-between px-1">
-              <p className="text-[10px] font-bold text-muted-foreground/80 uppercase tracking-wider">
+              <p className="text-[10px] font-bold text-muted-foreground/90 uppercase tracking-wider">
                 Shared Media
               </p>
-              <span className="text-[10px] font-semibold text-primary/80 hover:text-primary cursor-pointer transition-colors">
+              <button
+                type="button"
+                className="text-[10px] font-semibold text-primary/90 hover:text-primary transition-colors rounded-md px-1 py-0.5 -mr-1 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
+              >
                 See all
-              </span>
+              </button>
             </div>
 
             <div className="grid grid-cols-3 gap-2">
               {[1, 2, 3].map((i) => (
-                <div
+                <button
+                  type="button"
                   key={i}
-                  className="group relative aspect-square rounded-xl bg-muted/40 border border-border/40 hover:border-border/80 flex flex-col items-center justify-center transition-all duration-300 hover:bg-muted/60 active:scale-95 cursor-pointer overflow-hidden"
+                  aria-label="Shared media, empty"
+                  className="group relative aspect-square rounded-xl bg-muted/40 border border-border/40 hover:border-border/80 flex flex-col items-center justify-center transition-colors duration-300 hover:bg-muted/60 motion-safe:active:scale-95 overflow-hidden focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
                 >
-                  <div className="p-2 rounded-full bg-background/50 text-muted-foreground/60 transition-transform duration-300 group-hover:scale-110">
+                  <div className="p-2 rounded-full bg-background/50 text-muted-foreground/60 transition-transform duration-300 motion-safe:group-hover:scale-110">
                     <ImageIcon className="w-4 h-4" />
                   </div>
                   <span className="text-[9px] font-medium text-muted-foreground/70 mt-1">
                     Empty
                   </span>
-                </div>
+                </button>
               ))}
             </div>
           </div>

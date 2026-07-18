@@ -33,7 +33,7 @@ interface ChatAreaProps {
   keyboardHeight?: number;
   onOpenInfo?: () => void;
   onDeleteMessage?: (id: string) => void;
-  onOpenForward?: (message: import('@/types/chat').Message) => void;
+  onOpenForward?: (message: import("@/types/chat").Message) => void;
   onReply?: (message: Message) => void;
 }
 
@@ -157,51 +157,51 @@ export function ChatArea({
   }, [messages, isNearBottom]);
 
   useEffect(() => {
-    if (!isNearBottom || !bottomRef.current || !scrollRef.current) return
+    if (!isNearBottom || !bottomRef.current || !scrollRef.current) return;
 
-    let frameId = 0
+    let frameId = 0;
     const updateVisibility = () => {
-      if (frameId) return
+      if (frameId) return;
       frameId = window.requestAnimationFrame(() => {
         if (!bottomRef.current) {
-          frameId = 0
-          return
+          frameId = 0;
+          return;
         }
 
-        const rect = bottomRef.current.getBoundingClientRect()
+        const rect = bottomRef.current.getBoundingClientRect();
         const visibleBottom = window.visualViewport
           ? window.visualViewport.offsetTop + window.visualViewport.height
-          : window.innerHeight
-        const obstruction = (inputHeight ?? 0) + (keyboardHeight ?? 0)
-        const threshold = visibleBottom - obstruction - 8
+          : window.innerHeight;
+        const obstruction = (inputHeight ?? 0) + (keyboardHeight ?? 0);
+        const threshold = visibleBottom - obstruction - 8;
 
         if (rect.bottom > threshold) {
           bottomRef.current.scrollIntoView({
-            behavior: 'smooth',
-            block: 'nearest',
-          })
+            behavior: "smooth",
+            block: "nearest",
+          });
         }
-        frameId = 0
-      })
-    }
+        frameId = 0;
+      });
+    };
 
-    const vv = window.visualViewport
+    const vv = window.visualViewport;
     if (vv) {
-      vv.addEventListener('resize', updateVisibility)
-      vv.addEventListener('scroll', updateVisibility)
+      vv.addEventListener("resize", updateVisibility);
+      vv.addEventListener("scroll", updateVisibility);
     }
-    window.addEventListener('resize', updateVisibility)
-    updateVisibility()
+    window.addEventListener("resize", updateVisibility);
+    updateVisibility();
 
     return () => {
       if (vv) {
-        vv.removeEventListener('resize', updateVisibility)
-        vv.removeEventListener('scroll', updateVisibility)
+        vv.removeEventListener("resize", updateVisibility);
+        vv.removeEventListener("scroll", updateVisibility);
       }
-      window.removeEventListener('resize', updateVisibility)
-      if (frameId) window.cancelAnimationFrame(frameId)
-    }
-  }, [inputHeight, keyboardHeight, isNearBottom, messages])
+      window.removeEventListener("resize", updateVisibility);
+      if (frameId) window.cancelAnimationFrame(frameId);
+    };
+  }, [inputHeight, keyboardHeight, isNearBottom, messages]);
 
   const getInitials = (name: string) =>
     name
@@ -252,40 +252,40 @@ export function ChatArea({
    */
 
   const rootStyles: React.CSSProperties = {
-    position: 'relative',
-    width: '100%',
-    height: '100%',
-    overflow: 'hidden',
-    userSelect: 'none',
-    WebkitUserSelect: 'none',
-    isolation: 'isolate',
+    position: "relative",
+    width: "100%",
+    height: "100%",
+    overflow: "hidden",
+    userSelect: "none",
+    WebkitUserSelect: "none",
+    isolation: "isolate",
     minHeight: 0,
     minWidth: 0,
-  }
+  };
 
   const contentStyles: React.CSSProperties = {
-    position: 'relative',
-    display: 'flex',
-    flexDirection: 'column',
-    width: '100%',
-    height: '100%',
+    position: "relative",
+    display: "flex",
+    flexDirection: "column",
+    width: "100%",
+    height: "100%",
     zIndex: 1,
     minHeight: 0,
     minWidth: 0,
-  }
+  };
 
   const scrollContainerStyles: React.CSSProperties = {
     flex: 1,
     minHeight: 0,
-    overflowY: 'auto',
-    padding: '0.75rem 1rem 0 1rem',
-    display: 'block',
-    overscrollBehavior: 'contain',
-    WebkitOverflowScrolling: 'touch',
-    backgroundColor: 'transparent',
-    boxSizing: 'border-box',
+    overflowY: "auto",
+    padding: "0.75rem 1rem 0 1rem",
+    display: "block",
+    overscrollBehavior: "contain",
+    WebkitOverflowScrolling: "touch",
+    backgroundColor: "transparent",
+    boxSizing: "border-box",
     paddingBottom: (inputHeight ?? 0) + (keyboardHeight ?? 0) + 8,
-  }
+  };
 
   return (
     // Outer container: position:relative to anchor the absolute wallpaper.
@@ -345,7 +345,9 @@ export function ChatArea({
                     <MessageBubble
                       message={msg}
                       isOwn={isOwn}
-                      senderName={showName ? msg.sender?.display_name : undefined}
+                      senderName={
+                        showName ? msg.sender?.display_name : undefined
+                      }
                       seen={seen}
                       onDeleteMessage={onDeleteMessage}
                       onOpenForward={onOpenForward}
@@ -380,11 +382,17 @@ export function ChatArea({
                   />
                   <span
                     className="w-1.5 h-1.5 bg-primary/70 rounded-full animate-bounce"
-                    style={{ animationDelay: "200ms", animationDuration: "0.8s" }}
+                    style={{
+                      animationDelay: "200ms",
+                      animationDuration: "0.8s",
+                    }}
                   />
                   <span
                     className="w-1.5 h-1.5 bg-primary/70 rounded-full animate-bounce"
-                    style={{ animationDelay: "400ms", animationDuration: "0.8s" }}
+                    style={{
+                      animationDelay: "400ms",
+                      animationDuration: "0.8s",
+                    }}
                   />
                 </span>
                 <span className="truncate tracking-wide text-[11px] text-muted-foreground/90">
@@ -406,7 +414,7 @@ export function ChatArea({
           The gradient wrapper is purely cosmetic — it fades into the
           wallpaper color at the bottom of the screen.
           ═══════════════════════════════════════════════════════════════════ */}
-          {/* Chat input removed — no input or keyboard */}
+      {/* Chat input removed — no input or keyboard */}
     </div>
   );
 }
