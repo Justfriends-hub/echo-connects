@@ -222,7 +222,7 @@ export function StatusViewer({ group, onClose }: StatusViewerProps) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col bg-neutral-950/98 text-white backdrop-blur-md font-sans select-none animate-in fade-in duration-200">
+    <div className="absolute inset-0 z-50 flex flex-col bg-neutral-950/98 text-white backdrop-blur-md font-sans select-none animate-in fade-in duration-200">
       {/* Top Header Controls Overlay */}
       <div className="relative z-20 w-full max-w-xl mx-auto pt-3 px-4 flex flex-col gap-2.5">
         <StatusProgressBar
