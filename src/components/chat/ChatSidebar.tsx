@@ -279,8 +279,8 @@ export function ChatSidebar({
           className="flex h-full w-[200%]"
           style={{ transform: "translateX(0)" }}
         >
-          {/* Chats Panel - 100% width of container, left side */}
-          <div className="w-full flex-shrink-0">
+          {/* Chats Panel - 100% width of the visible viewport */}
+          <div className="w-[50%] min-w-[50%] flex-shrink-0">
             <ScrollArea className="h-full bg-sidebar/30 relative">
               <SectionErrorBoundary onRetry={onRetry}>
                 {loading ? (
@@ -362,8 +362,8 @@ export function ChatSidebar({
             </ScrollArea>
           </div>
 
-          {/* Status Panel - 100% width of container, right side (off-screen when Chats is active) */}
-          <div className="w-full flex-shrink-0">
+          {/* Status Panel - 100% width of the visible viewport, right side */}
+          <div className="w-[50%] min-w-[50%] flex-shrink-0">
             <SectionErrorBoundary>
               <StatusListView onOpenComposer={onNewStatus} />
             </SectionErrorBoundary>
