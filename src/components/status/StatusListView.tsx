@@ -72,7 +72,7 @@ export function StatusListView({ onOpenComposer }: StatusListViewProps) {
   };
 
   return (
-    <div className="relative flex flex-col h-full w-full bg-zinc-950 text-zinc-100 select-none animate-in fade-in duration-200 overflow-hidden">
+    <div className="flex flex-col h-full bg-zinc-950 text-zinc-100 select-none animate-in fade-in duration-200">
       {/* Top Header Layout */}
       <div className="flex items-center justify-between px-4 py-4 bg-zinc-900/40 border-b border-white/5 backdrop-blur-md">
         <div>
