@@ -233,11 +233,21 @@ export function useSwipeableTabs({
     container.addEventListener("touchcancel", handleTouchEnd);
 
     const handleResize = () => {
-      widthRef.current = Math.max(container.getBoundingClientRect().width, window.innerWidth);
-      // Reset position if not actively tracking
-      if (!stateRef.current.isTracking) {
-        setTransform(getBaseOffset(), false);
-      }
+        widthRef.current = Math.max(container.getBoundingClientRect().width, window.innerWidth);
+        // Ensure the track and child panels use fixed pixel widths (avoid percent-based recalculation/stretching)
+        const track = trackRef.current;
+        if (track) {
+          track.style.width = `${widthRef.current * 2}px`;
+          for (const child of Array.from(track.children) as HTMLElement[]) {
+            child.style.width = `${widthRef.current}px`;
+            child.style.minWidth = `${widthRef.current}px`;
+          }
+        }
+
+        // Reset position if not actively tracking
+        if (!stateRef.current.isTracking) {
+          setTransform(getBaseOffset(), false);
+        }
     };
 
     const resizeObs = new ResizeObserver(handleResize);
