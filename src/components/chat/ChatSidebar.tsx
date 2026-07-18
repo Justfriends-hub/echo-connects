@@ -30,6 +30,7 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { Separator } from "@/components/ui/separator";
 import { SidebarTabSwitcher } from "./SidebarTabSwitcher";
+import { useSwipeableTabs } from "@/hooks/useSwipeableTabs";
 import { StatusListView } from "@/components/status/StatusListView";
 import { SectionErrorBoundary } from "@/components/SectionErrorBoundary";
 import { SectionErrorIndicator } from "@/components/SectionErrorIndicator";
@@ -199,8 +200,10 @@ export function ChatSidebar({
     );
   };
 
+  const { containerRef, trackRef } = useSwipeableTabs({ activeTab, onChange: setActiveTab });
+
   return (
-    <div className="flex flex-col h-full bg-sidebar border-r border-sidebar-border/60 relative overflow-hidden">
+    <div className="flex flex-col h-full bg-sidebar border-r border-sidebar-border/60 relative">
       {/* Header Utilities */}
       <div className="flex items-center gap-2 px-3 py-2.5 border-b border-sidebar-border/40 bg-sidebar/95 backdrop-blur-md z-10 flex-shrink-0">
         <DropdownMenu modal={false}>
@@ -263,93 +266,74 @@ export function ChatSidebar({
         hasUnseenStatuses={hasUnseenStatuses ?? false}
       />
 
-      {/* Main List Scroller Block */}
-      <ScrollArea className="flex-1 bg-sidebar/30 relative">
-        {activeTab === "status" ? (
-          <SectionErrorBoundary>
-            <StatusListView onOpenComposer={onNewStatus} />
-          </SectionErrorBoundary>
-        ) : (
-          <SectionErrorBoundary onRetry={onRetry}>
-            {loading ? (
-              <ChatListSkeleton />
-            ) : filtered.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-24 px-6 text-center text-muted-foreground/80 animate-in fade-in duration-300">
-                <p className="text-sm font-medium tracking-tight">
-                  No conversations yet
-                </p>
-                <p className="text-xs mt-1 opacity-80">
-                  Start a new chat to begin broadcasting messages
-                </p>
-              </div>
-            ) : (
-              /* Added padding-bottom clearance buffer so FAB never masks structural text content */
-              <div className="py-2 pb-24 space-y-0.5">
-                {isError && onRetry && (
-                  <div className="px-3 py-1">
-                    <SectionErrorIndicator
-                      isError={isError}
-                      onRetry={onRetry}
-                      label="Unable to load chats"
-                    />
+      {/* Swipeable container: both panels mounted side-by-side inside a transformable track */}
+      <div ref={containerRef} className="flex-1 relative h-full">
+        <div ref={trackRef} className="flex h-full w-[200%]">
+          {/* Chats panel */}
+          <div className="w-full flex-shrink-0">
+            <ScrollArea className="h-full bg-sidebar/30 relative">
+              <SectionErrorBoundary onRetry={onRetry}>
+                {loading ? (
+                  <ChatListSkeleton />
+                ) : filtered.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center py-24 px-6 text-center text-muted-foreground/80 animate-in fade-in duration-300">
+                    <p className="text-sm font-medium tracking-tight">No conversations yet</p>
+                    <p className="text-xs mt-1 opacity-80">Start a new chat to begin broadcasting messages</p>
                   </div>
-                )}
+                ) : (
+                  <div className="py-2 pb-24 space-y-0.5">
+                    {isError && onRetry && (
+                      <div className="px-3 py-1">
+                        <SectionErrorIndicator isError={isError} onRetry={onRetry} label="Unable to load chats" />
+                      </div>
+                    )}
 
-                {/* Channels Section Block Container */}
-                {channels.length > 0 && (
-                  <div className="mb-2">
-                    <Collapsible
-                      open={channelsOpen}
-                      onOpenChange={setChannelsOpen}
-                    >
+                    {channels.length > 0 && (
+                      <div className="mb-2">
+                        <Collapsible open={channelsOpen} onOpenChange={setChannelsOpen}>
+                          <CollapsibleTrigger className="flex items-center justify-between w-full px-4 py-2 text-[10px] font-bold text-muted-foreground/80 uppercase tracking-widest hover:text-foreground transition-colors">
+                            <span>Channels</span>
+                            <ChevronDown className={cn("w-3.5 h-3.5 text-muted-foreground/60 transition-transform duration-200", channelsOpen && "rotate-180")} />
+                          </CollapsibleTrigger>
+                          <CollapsibleContent className="overflow-hidden transition-all data-[state=closed]:animate-collapsible-up data-[state=open]:animate-collapsible-down">
+                            {channels.map(renderChatItem)}
+                          </CollapsibleContent>
+                        </Collapsible>
+                        <Separator className="mt-2 mb-1 mx-4 opacity-40" />
+                      </div>
+                    )}
+
+                    {groups.length > 0 && (
+                      <div className="mb-2">
+                        <div className="px-4 py-2 text-[10px] font-bold text-muted-foreground/80 uppercase tracking-widest">Groups</div>
+                        {groups.map(renderChatItem)}
+                        <Separator className="mt-2 mb-1 mx-4 opacity-40" />
+                      </div>
+                    )}
+
+                    <Collapsible open={directsOpen} onOpenChange={setDirectsOpen}>
                       <CollapsibleTrigger className="flex items-center justify-between w-full px-4 py-2 text-[10px] font-bold text-muted-foreground/80 uppercase tracking-widest hover:text-foreground transition-colors">
-                        <span>Channels</span>
-                        <ChevronDown
-                          className={cn(
-                            "w-3.5 h-3.5 text-muted-foreground/60 transition-transform duration-200",
-                            channelsOpen && "rotate-180",
-                          )}
-                        />
+                        <span>Direct Messages</span>
+                        <ChevronDown className={cn("w-3.5 h-3.5 text-muted-foreground/60 transition-transform duration-200", directsOpen && "rotate-180")} />
                       </CollapsibleTrigger>
                       <CollapsibleContent className="overflow-hidden transition-all data-[state=closed]:animate-collapsible-up data-[state=open]:animate-collapsible-down">
-                        {channels.map(renderChatItem)}
+                        {directs.map(renderChatItem)}
                       </CollapsibleContent>
                     </Collapsible>
-                    <Separator className="mt-2 mb-1 mx-4 opacity-40" />
                   </div>
                 )}
+              </SectionErrorBoundary>
+            </ScrollArea>
+          </div>
 
-                {/* Groups Stream Block Container */}
-                {groups.length > 0 && (
-                  <div className="mb-2">
-                    <div className="px-4 py-2 text-[10px] font-bold text-muted-foreground/80 uppercase tracking-widest">
-                      Groups
-                    </div>
-                    {groups.map(renderChatItem)}
-                    <Separator className="mt-2 mb-1 mx-4 opacity-40" />
-                  </div>
-                )}
-
-                {/* Direct Personal Communications Stream Block Container */}
-                <Collapsible open={directsOpen} onOpenChange={setDirectsOpen}>
-                  <CollapsibleTrigger className="flex items-center justify-between w-full px-4 py-2 text-[10px] font-bold text-muted-foreground/80 uppercase tracking-widest hover:text-foreground transition-colors">
-                    <span>Direct Messages</span>
-                    <ChevronDown
-                      className={cn(
-                        "w-3.5 h-3.5 text-muted-foreground/60 transition-transform duration-200",
-                        directsOpen && "rotate-180",
-                      )}
-                    />
-                  </CollapsibleTrigger>
-                  <CollapsibleContent className="overflow-hidden transition-all data-[state=closed]:animate-collapsible-up data-[state=open]:animate-collapsible-down">
-                    {directs.map(renderChatItem)}
-                  </CollapsibleContent>
-                </Collapsible>
-              </div>
-            )}
-          </SectionErrorBoundary>
-        )}
-      </ScrollArea>
+          {/* Status panel */}
+          <div className="w-full flex-shrink-0">
+            <SectionErrorBoundary>
+              <StatusListView onOpenComposer={onNewStatus} />
+            </SectionErrorBoundary>
+          </div>
+        </div>
+      </div>
 
       {/* Modern High-Fidelity Floating Action Action Module Header Trigger Button */}
       <div className="absolute bottom-5 right-5 z-30 pointer-events-none">
