@@ -34,22 +34,18 @@ export default function ChatHeader({
       .slice(0, 2);
 
   return (
-    // NOTE: position is `relative` + `flex-shrink-0`, NOT `fixed`.
-    // This header is meant to be the first child of ChatArea's content
-    // flex column (Layer 1 in that file's architecture comments), sitting
-    // in normal document flow above the scrollable message list. Using
-    // `fixed` here breaks the moment this component is rendered inside
-    // any transformed ancestor (e.g. a slide-in panel's CSS transform in
-    // ChatLayout) — a transform creates a new containing block for fixed
-    // descendants, so the header ends up anchored to that panel instead
-    // of the real viewport. That's what causes it to visibly shift/jump
-    // when the on-screen keyboard opens and the viewport resizes. Being
-    // in-flow and non-fixed makes the header immune to that entirely: it
-    // just sits at the top of a column whose height never changes when
-    // the keyboard opens (only the message padding and input bar react).
+    // NOTE: this header is rendered into a portal attached to document.body.
+    // That means it can safely be fixed to the viewport and stay directly
+    // below the Dynamic Island / status bar on iOS without being scoped to
+    // any transformed ancestor inside ChatLayout.
     <div
-      className="chat-header relative z-10 flex-shrink-0 flex items-center gap-3 px-4 bg-card shadow-sm shadow-black/5 border-b border-border/70"
+      className="chat-header z-20 flex-shrink-0 flex items-center gap-3 px-4 bg-card shadow-sm shadow-black/5 border-b border-border/70"
       style={{
+        position: "fixed",
+        top: 0,
+        left: 0,
+        right: 0,
+        width: "100%",
         paddingTop: "calc(env(safe-area-inset-top, 0px) + 0.5rem)",
         paddingBottom: "0.5rem",
         paddingLeft: "calc(env(safe-area-inset-left, 0px) + 1rem)",
