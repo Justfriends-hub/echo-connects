@@ -11,16 +11,6 @@ const COMPLETION_THRESHOLD = 0.35; // 35–40% of screen width to trigger comple
 const VELOCITY_THRESHOLD = 0.35;   // pixels/ms
 const TRANSITION_DURATION = 220;   // ms for ease-out snap/completion
 
-function isInteractiveElement(target: HTMLElement | null): boolean {
-  if (!target) return false;
-  // Protect buttons, links, inputs, and anything with data-interactive
-  return Boolean(
-    target.closest(
-      "button, [role=button], a, input, textarea, select, [contenteditable=true], [data-interactive=true], .chat-row, .status-row",
-    ),
-  );
-}
-
 export function useSwipeableTabs({
   activeTab,
   onChange,
@@ -40,7 +30,6 @@ export function useSwipeableTabs({
 
   const widthRef = useRef(0);
   const rafRef = useRef<number | null>(null);
-  const touchMovePassiveRef = useRef(true);
 
   const activeTabRef = useRef(activeTab);
   const onChangeRef = useRef(onChange);
@@ -62,7 +51,7 @@ export function useSwipeableTabs({
     track.style.transition = animate
       ? `transform ${TRANSITION_DURATION}ms cubic-bezier(0.22, 0.61, 0.36, 1)`
       : "none";
-    track.style.transform = `translateX(${x}px)`;
+    track.style.transform = `translate3d(${x}px, 0, 0)`;
   };
 
   const clampTranslate = (x: number) =>
@@ -90,10 +79,8 @@ export function useSwipeableTabs({
     const touch = e.touches[0];
     if (!touch) return;
 
-    const target = e.target as HTMLElement;
-    if (isInteractiveElement(target)) return;
-
-    widthRef.current = containerRef.current?.clientWidth ?? window.innerWidth;
+    widthRef.current =
+      containerRef.current?.getBoundingClientRect().width ?? window.innerWidth;
 
     stateRef.current = {
       startX: touch.clientX,
@@ -136,9 +123,7 @@ export function useSwipeableTabs({
         if ((canSwipeLeft && isDraggingLeft) || (canSwipeRight && isDraggingRight)) {
           state.isHorizontalLocked = true;
           // Downgrade to non-passive to allow preventDefault
-          if (touchMovePassiveRef.current) {
-            resetTouchMoveListener(false);
-          }
+          // we always use passive=false to allow horizontal swipe prevention
         } else {
           // Wrong direction or not allowed, abandon tracking
           state.isTracking = false;
@@ -226,26 +211,6 @@ export function useSwipeableTabs({
     }
 
     state.isTracking = false;
-    if (!touchMovePassiveRef.current) {
-      resetTouchMoveListener(true);
-    }
-  };
-
-  const resetTouchMoveListener = (passive: boolean) => {
-    const container = containerRef.current;
-    if (!container) return;
-
-    container.removeEventListener("touchmove", handleTouchMove, {
-      passive: true,
-    } as AddEventListenerOptions);
-    container.removeEventListener("touchmove", handleTouchMove, {
-      passive: false,
-    } as AddEventListenerOptions);
-
-    container.addEventListener("touchmove", handleTouchMove, {
-      passive,
-    });
-    touchMovePassiveRef.current = passive;
   };
 
   useEffect(() => {
@@ -259,12 +224,14 @@ export function useSwipeableTabs({
     container.addEventListener("touchstart", handleTouchStart, {
       passive: true,
     });
-    resetTouchMoveListener(true);
+    container.addEventListener("touchmove", handleTouchMove, {
+      passive: false,
+    });
     container.addEventListener("touchend", handleTouchEnd);
     container.addEventListener("touchcancel", handleTouchEnd);
 
     const handleResize = () => {
-      widthRef.current = container.clientWidth;
+      widthRef.current = container.getBoundingClientRect().width;
       // Reset position if not actively tracking
       if (!stateRef.current.isTracking) {
         setTransform(getBaseOffset(), false);
@@ -278,9 +245,6 @@ export function useSwipeableTabs({
     return () => {
       resizeObs.disconnect();
       container.removeEventListener("touchstart", handleTouchStart);
-      container.removeEventListener("touchmove", handleTouchMove, {
-        passive: true,
-      } as AddEventListenerOptions);
       container.removeEventListener("touchmove", handleTouchMove, {
         passive: false,
       } as AddEventListenerOptions);
@@ -296,6 +260,9 @@ export function useSwipeableTabs({
   // When activeTab changes externally (via tap), update transform without animation
   useEffect(() => {
     if (!stateRef.current.isTracking) {
+      widthRef.current =
+        containerRef.current?.getBoundingClientRect().width ??
+        window.innerWidth;
       setTransform(getBaseOffset(), false);
     }
   }, [activeTab]);
