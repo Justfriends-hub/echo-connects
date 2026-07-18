@@ -48,7 +48,12 @@ export function TextStatusComposer({ onClose }: TextStatusComposerProps) {
         style={{ backgroundColor: bgColor }}
       >
         {/* Floating Smooth Action Bar */}
-        <div className="w-full max-w-xl mx-auto flex items-center justify-between px-4 py-4 z-10">
+        <div
+          className="w-full max-w-xl mx-auto flex items-center justify-between px-4 py-4 z-10"
+          style={{
+            paddingTop: "calc(env(safe-area-inset-top, 0px) + 1rem)",
+          }}
+        >
           <button
             type="button"
             onClick={onClose}

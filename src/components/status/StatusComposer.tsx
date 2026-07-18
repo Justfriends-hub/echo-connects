@@ -47,7 +47,12 @@ export function StatusComposer({ open, onClose }: StatusComposerProps) {
     <div className="fixed inset-0 z-50 flex flex-col bg-zinc-950 text-zinc-100 select-none animate-in fade-in duration-200">
       {/* Shared WhatsApp Header Layout (Only rendered during entry state) */}
       {mode === "entry" && (
-        <div className="flex items-center gap-4 px-4 py-4 bg-zinc-900/40 border-b border-white/5 backdrop-blur-md animate-in slide-in-from-top-4 duration-300">
+        <div
+          className="flex items-center gap-4 px-4 py-4 bg-zinc-900/40 border-b border-white/5 backdrop-blur-md animate-in slide-in-from-top-4 duration-300"
+          style={{
+            paddingTop: "calc(env(safe-area-inset-top, 0px) + 1rem)",
+          }}
+        >
           <Button
             variant="ghost"
             size="icon"
