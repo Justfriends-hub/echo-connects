@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import {
   ArrowLeft, Megaphone, Users, MoreVertical,
   Lock, Bell, BellOff, Share2,
-  Shield, ChevronDown, Search, Pin,
+  Shield, ChevronDown, Search, Pin, Info, ArrowUpRight,
 } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
@@ -186,33 +186,50 @@ export function ChannelView({ chat, messages, currentUserId, onSendMessage, onBa
   return (
     <div className="flex flex-col h-full min-h-0 bg-transparent">
       {/* ── Channel Header ──────────────────────────────────────────────────── */}
-      <div className="flex items-center gap-3 px-4 py-2.5 bg-card border-b border-border flex-shrink-0 pwa-no-select">
-        <Button variant="ghost" size="icon" className="md:hidden text-foreground" onClick={onBack}>
+      <div className="flex items-center gap-3 px-4 py-3 bg-card/95 backdrop-blur-md border-b border-border/70 shadow-sm shadow-black/5 flex-shrink-0 pwa-no-select">
+        <Button
+          variant="ghost"
+          size="icon"
+          className="md:hidden text-foreground hover:bg-muted/60 active:scale-95 transition-transform rounded-full w-9 h-9 -ml-1"
+          onClick={onBack}
+        >
           <ArrowLeft className="w-5 h-5" />
         </Button>
 
-        <Avatar className="w-10 h-10 ring-2 ring-primary/30">
-          <AvatarImage src={chat.avatar_url} />
-          <AvatarFallback className="bg-primary/20 text-primary text-sm">
-            <Megaphone className="w-5 h-5" />
-          </AvatarFallback>
-        </Avatar>
+        <div className="relative flex-shrink-0">
+          <div className="p-[2px] rounded-full bg-gradient-to-br from-primary/60 to-primary/10 shadow-sm">
+            <Avatar className="w-10 h-10 ring-2 ring-card">
+              <AvatarImage src={chat.avatar_url} className="object-cover" />
+              <AvatarFallback className="bg-primary/15 text-primary text-sm">
+                <Megaphone className="w-5 h-5" />
+              </AvatarFallback>
+            </Avatar>
+          </div>
+        </div>
 
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-1.5">
-            <h2 className="font-semibold text-sm text-foreground truncate">{chat.name}</h2>
+            <h2 className="font-semibold text-[15px] text-foreground tracking-tight truncate leading-tight">
+              {chat.name}
+            </h2>
             {isAdmin && (
-              <Badge variant="outline" className="text-[9px] px-1 py-0 border-primary/40 text-primary hidden sm:flex">
-                <Shield className="w-2.5 h-2.5 mr-0.5" />
+              <Badge
+                variant="outline"
+                className="text-[9px] font-medium px-1.5 py-0 h-4 rounded-full border-primary/40 bg-primary/5 text-primary hidden sm:flex items-center gap-0.5 flex-shrink-0"
+              >
+                <Shield className="w-2.5 h-2.5" />
                 Admin
               </Badge>
             )}
           </div>
-          <p className="text-xs text-muted-foreground">
+          <p className="text-xs text-muted-foreground/90 font-medium tracking-wide mt-0.5">
             {loading ? (
-              <Skeleton className="h-3 w-20 inline-block" />
+              <Skeleton className="h-3 w-20 inline-block rounded-full" />
             ) : (
-              <>{formattedCount} subscribers</>
+              <span className="inline-flex items-center gap-1">
+                <Users className="w-3 h-3 opacity-70" />
+                {formattedCount} subscribers
+              </span>
             )}
           </p>
         </div>
@@ -220,48 +237,66 @@ export function ChannelView({ chat, messages, currentUserId, onSendMessage, onBa
         <div className="flex items-center gap-0.5">
           <Tooltip>
             <TooltipTrigger asChild>
-              <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-foreground" onClick={handleMuteToggle}>
-                {muted ? <BellOff className="w-4 h-4" /> : <Bell className="w-4 h-4" />}
+              <Button
+                variant="ghost"
+                size="icon"
+                className="w-9 h-9 text-muted-foreground hover:text-foreground hover:bg-muted/60 rounded-full transition-colors"
+                onClick={handleMuteToggle}
+              >
+                {muted ? <BellOff className="w-[18px] h-[18px]" /> : <Bell className="w-[18px] h-[18px]" />}
               </Button>
             </TooltipTrigger>
-            <TooltipContent>{muted ? 'Unmute' : 'Mute'}</TooltipContent>
+            <TooltipContent className="bg-popover text-popover-foreground text-xs font-medium rounded-lg shadow-md">
+              {muted ? 'Unmute' : 'Mute'}
+            </TooltipContent>
           </Tooltip>
 
           <Tooltip>
             <TooltipTrigger asChild>
-              <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-foreground" onClick={handleShare}>
-                <Share2 className="w-4 h-4" />
+              <Button
+                variant="ghost"
+                size="icon"
+                className="w-9 h-9 text-muted-foreground hover:text-foreground hover:bg-muted/60 rounded-full transition-colors"
+                onClick={handleShare}
+              >
+                <Share2 className="w-[18px] h-[18px]" />
               </Button>
             </TooltipTrigger>
-            <TooltipContent>Share channel</TooltipContent>
+            <TooltipContent className="bg-popover text-popover-foreground text-xs font-medium rounded-lg shadow-md">
+              Share channel
+            </TooltipContent>
           </Tooltip>
 
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-foreground">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="w-9 h-9 text-muted-foreground hover:text-foreground hover:bg-muted/60 rounded-full transition-colors"
+              >
                 <MoreVertical className="w-5 h-5" />
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent className="bg-card border-border" align="end">
-              <DropdownMenuItem className="text-sm gap-2">
-                <Users className="w-4 h-4" /> View subscribers
+            <DropdownMenuContent className="bg-card/95 backdrop-blur-md border-border/70 rounded-xl shadow-xl p-1" align="end">
+              <DropdownMenuItem className="text-sm gap-2.5 rounded-lg py-2 focus:bg-muted/60">
+                <Users className="w-4 h-4 text-muted-foreground" /> View subscribers
               </DropdownMenuItem>
-              <DropdownMenuItem className="text-sm gap-2">
-                <Search className="w-4 h-4" /> Search in channel
+              <DropdownMenuItem className="text-sm gap-2.5 rounded-lg py-2 focus:bg-muted/60">
+                <Search className="w-4 h-4 text-muted-foreground" /> Search in channel
               </DropdownMenuItem>
-              <DropdownMenuItem className="text-sm gap-2">
-                <Pin className="w-4 h-4" /> Pinned messages
+              <DropdownMenuItem className="text-sm gap-2.5 rounded-lg py-2 focus:bg-muted/60">
+                <Pin className="w-4 h-4 text-muted-foreground" /> Pinned messages
               </DropdownMenuItem>
               {isAdmin && (
                 <>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem className="text-sm gap-2 text-primary">
+                  <DropdownMenuSeparator className="opacity-60" />
+                  <DropdownMenuItem className="text-sm gap-2.5 rounded-lg py-2 text-primary focus:bg-primary/10 focus:text-primary">
                     <Shield className="w-4 h-4" /> Manage channel
                   </DropdownMenuItem>
                 </>
               )}
-              <DropdownMenuSeparator />
-              <DropdownMenuItem className="text-sm gap-2 text-destructive">
+              <DropdownMenuSeparator className="opacity-60" />
+              <DropdownMenuItem className="text-sm gap-2.5 rounded-lg py-2 text-destructive focus:bg-destructive/10 focus:text-destructive">
                 <ChevronDown className="w-4 h-4" /> Leave channel
               </DropdownMenuItem>
             </DropdownMenuContent>
@@ -271,30 +306,42 @@ export function ChannelView({ chat, messages, currentUserId, onSendMessage, onBa
 
       {/* ── Channel Info Banner (description) ───────────────────────────────── */}
       {chat.description && (
-        <div className="px-4 py-2 bg-primary/5 border-b border-border/50 flex-shrink-0">
-          <p className="text-xs text-muted-foreground line-clamp-2">{chat.description}</p>
+        <div className="mx-4 mt-3 flex-shrink-0">
+          <div className="flex items-start gap-2.5 rounded-xl bg-muted/25 border border-border/30 px-3.5 py-2.5">
+            <Info className="w-3.5 h-3.5 text-muted-foreground/70 flex-shrink-0 mt-0.5" />
+            <p className="text-xs text-muted-foreground leading-relaxed line-clamp-2">{chat.description}</p>
+          </div>
         </div>
       )}
 
-      <div className="mx-4 mb-3 flex flex-col gap-2">
-        <Button
-          variant="outline"
-          className="w-full justify-center"
+      <div className="mx-4 mt-3 mb-3 flex-shrink-0">
+        <button
           onClick={handleInviteMembers}
           disabled={!inviteLink}
+          className="w-full flex items-center gap-3 rounded-xl bg-muted/20 border border-border/30 hover:border-primary/40 hover:bg-primary/5 active:scale-[0.99] transition-all duration-200 p-3.5 text-left disabled:opacity-50 disabled:pointer-events-none group"
         >
-          <Share2 className="w-4 h-4 mr-2" />
-          Invite channel members
-        </Button>
-        <p className="text-[11px] text-muted-foreground">
-          Copies the invite link that lets others join this channel instantly.
-        </p>
+          <div className="w-9 h-9 rounded-lg bg-primary/10 text-primary flex items-center justify-center flex-shrink-0 group-hover:bg-primary/15 transition-colors">
+            <Share2 className="w-4 h-4" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-semibold text-foreground leading-tight">Invite channel members</p>
+            <p className="text-[11px] text-muted-foreground/80 mt-0.5">
+              Copies the invite link that lets others join instantly
+            </p>
+          </div>
+          <ArrowUpRight className="w-4 h-4 text-muted-foreground/50 flex-shrink-0 group-hover:text-primary group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-all" />
+        </button>
       </div>
 
       {!loading && !isAdmin && (
-        <div className="mx-4 mb-3 rounded-2xl border border-border/70 bg-muted/70 px-4 py-3 text-xs text-muted-foreground">
-          Only the channel creator can publish posts here. Everyone in this
-          channel can react to updates and receive new message alerts.
+        <div className="mx-4 mb-3 flex-shrink-0">
+          <div className="flex items-start gap-2.5 rounded-2xl border border-border/50 bg-muted/40 px-4 py-3">
+            <Lock className="w-3.5 h-3.5 text-muted-foreground/70 flex-shrink-0 mt-0.5" />
+            <p className="text-xs text-muted-foreground leading-relaxed">
+              Only the channel creator can publish posts here. Everyone in this
+              channel can react to updates and receive new message alerts.
+            </p>
+          </div>
         </div>
       )}
 
@@ -307,29 +354,32 @@ export function ChannelView({ chat, messages, currentUserId, onSendMessage, onBa
           {loading && messages.length === 0 ? (
             <div className="space-y-4 p-4">
               {[...Array(3)].map((_, i) => (
-                <div key={i} className="rounded-2xl border border-border/50 p-4 space-y-3">
+                <div key={i} className="rounded-2xl border border-border/40 bg-card/40 p-4 space-y-3">
                   <div className="flex items-center gap-2.5">
                     <Skeleton className="w-9 h-9 rounded-full flex-shrink-0" />
                     <div className="space-y-1 flex-1">
-                      <Skeleton className="h-3.5 w-28" />
-                      <Skeleton className="h-2.5 w-20" />
+                      <Skeleton className="h-3.5 w-28 rounded-full" />
+                      <Skeleton className="h-2.5 w-20 rounded-full" />
                     </div>
                   </div>
                   <Skeleton className={`h-16 ${i % 2 === 0 ? 'w-3/4' : 'w-full'} rounded-xl`} />
-                  <div className="flex justify-between items-center pt-2 border-t border-border/30">
-                    <Skeleton className="h-2.5 w-12" />
-                    <Skeleton className="h-2.5 w-20" />
+                  <div className="flex justify-between items-center pt-2 border-t border-border/20">
+                    <Skeleton className="h-2.5 w-12 rounded-full" />
+                    <Skeleton className="h-2.5 w-20 rounded-full" />
                   </div>
                 </div>
               ))}
             </div>
           ) : messages.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-16 gap-3 text-center">
-              <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center">
-                <Megaphone className="w-8 h-8 text-primary" />
+            <div className="flex flex-col items-center justify-center py-20 gap-3 text-center animate-in fade-in-50 duration-500">
+              <div className="relative">
+                <div className="absolute inset-0 rounded-full bg-primary/10 blur-xl scale-125" />
+                <div className="relative w-16 h-16 rounded-full bg-primary/10 ring-1 ring-primary/20 flex items-center justify-center">
+                  <Megaphone className="w-7 h-7 text-primary" />
+                </div>
               </div>
-              <p className="text-sm font-medium text-foreground">{chat.name}</p>
-              <p className="text-xs text-muted-foreground max-w-xs">
+              <p className="text-sm font-semibold text-foreground tracking-tight mt-1">{chat.name}</p>
+              <p className="text-xs text-muted-foreground/80 max-w-[220px] leading-relaxed">
                 {isAdmin ? 'Start broadcasting to your subscribers.' : 'No posts yet. Check back later.'}
               </p>
             </div>
@@ -343,21 +393,25 @@ export function ChannelView({ chat, messages, currentUserId, onSendMessage, onBa
                 );
               }
               return (
-                <ChannelPost
+                <div
                   key={item.key}
-                  message={item.msg}
-                  channelName={chat.name || 'Channel'}
-                  channelAvatar={chat.avatar_url}
-                  allowedReactions={allowedReactions}
-                  currentUserId={currentUserId}
-                  onReact={handleReaction}
-                  commentsEnabled={commentsEnabled}
-                  onOpenComments={(msgId) => {
-                    setSelectedMessage(msgId);
-                    setShowComments(true);
-                  }}
-                  subscriberCount={subscriberCount}
-                />
+                  className="animate-in fade-in-40 slide-in-from-bottom-1 duration-200 ease-out"
+                >
+                  <ChannelPost
+                    message={item.msg}
+                    channelName={chat.name || 'Channel'}
+                    channelAvatar={chat.avatar_url}
+                    allowedReactions={allowedReactions}
+                    currentUserId={currentUserId}
+                    onReact={handleReaction}
+                    commentsEnabled={commentsEnabled}
+                    onOpenComments={(msgId) => {
+                      setSelectedMessage(msgId);
+                      setShowComments(true);
+                    }}
+                    subscriberCount={subscriberCount}
+                  />
+                </div>
               );
             })
           )}
