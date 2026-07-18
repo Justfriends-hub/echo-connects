@@ -164,7 +164,7 @@ export default function TextBar({
           </button>
         </div>
       )}
-      <div style={{ flex: 1, display: 'flex', alignItems: 'flex-end' }}>
+      <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end' }}>
         <div
           style={{
             flex: 1,
@@ -201,9 +201,7 @@ export default function TextBar({
             enterKeyHint="send"
           />
         </div>
-      </div>
 
-      <div style={{ display: 'flex', gap: 8 }}>
         {text.trim() ? (
           <button
             type="button"
