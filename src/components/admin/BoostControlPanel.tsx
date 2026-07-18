@@ -204,7 +204,7 @@ export function BoostControlPanel() {
       {boostActive && (
         <Alert className="border-primary/30 bg-primary/5">
           <TrendingUp className="h-4 w-4 text-primary" />
-          <AlertTitle className="text-sm">Boost Active</AlertTitle>
+          <AlertTitle className="text-sm">Boost Active.</AlertTitle>
           <AlertDescription className="text-xs text-muted-foreground">
             <span>{selectedChannelName || 'Selected channel'} boost is active. {progress}% complete.</span>
             <Progress value={progress} className="h-1.5 mt-2" />
