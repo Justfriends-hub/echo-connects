@@ -187,10 +187,10 @@ export function NewChatDialog({
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="bg-card/95 backdrop-blur-md border-border/60 max-w-md w-[calc(100%-32px)] sm:w-full p-5 rounded-2xl shadow-2xl animate-in fade-in-50 zoom-in-95 duration-200 gap-4 overflow-hidden">
+      <DialogContent className="bg-card/95 backdrop-blur-md border-border/60 max-w-md w-[calc(100%-32px)] sm:w-full p-5 rounded-2xl shadow-2xl motion-safe:animate-in motion-safe:fade-in-50 motion-safe:zoom-in-95 duration-200 gap-4 overflow-hidden">
         {/* Dynamic Frame Header Block */}
         <DialogHeader className="space-y-1">
-          <DialogTitle className="text-foreground text-base font-bold tracking-tight flex items-center justify-between">
+          <DialogTitle className="text-foreground text-base font-bold tracking-tight flex items-center justify-between gap-2">
             <span>
               {dialogMode === "group"
                 ? "New Group"
@@ -202,7 +202,7 @@ export function NewChatDialog({
               <Button
                 variant="ghost"
                 size="sm"
-                className="text-xs font-semibold text-primary hover:bg-primary/10 px-2.5 h-8 rounded-full transition-all duration-200 active:scale-95"
+                className="text-xs font-semibold text-primary hover:bg-primary/10 px-2.5 h-9 rounded-full transition-colors duration-200 motion-safe:active:scale-95 focus-visible:ring-2 focus-visible:ring-primary/50"
                 onClick={() =>
                   setDialogMode((prev) =>
                     prev === "group" ? "direct" : "group",
@@ -223,14 +223,17 @@ export function NewChatDialog({
 
         {/* Form elements with smooth horizontal micro-padding spaces */}
         {dialogMode !== "direct" && (
-          <div className="space-y-3 animate-in fade-in slide-in-from-top-2 duration-200">
+          <div className="space-y-3 motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-top-2 duration-200">
             <Input
               placeholder={
                 dialogMode === "channel" ? "Channel name" : "Group name"
               }
               value={groupName}
               onChange={(e) => setGroupName(e.target.value)}
-              className="bg-muted/50 border-border/30 h-10 text-sm rounded-xl focus-visible:ring-1 focus-visible:ring-border/60 placeholder:text-muted-foreground/60 transition-all duration-200"
+              aria-label={
+                dialogMode === "channel" ? "Channel name" : "Group name"
+              }
+              className="bg-muted/50 border-border/30 h-11 text-sm rounded-xl focus-visible:ring-2 focus-visible:ring-primary/50 placeholder:text-muted-foreground/60 transition-colors duration-200"
             />
 
             {dialogMode === "group" && selectedUsers.length > 0 && (
@@ -239,14 +242,16 @@ export function NewChatDialog({
                   <Badge
                     key={u.id}
                     variant="secondary"
-                    className="gap-1 pr-1.5 pl-2.5 py-1 text-[11px] font-medium bg-muted/80 border border-border/30 rounded-full animate-in zoom-in-95 duration-150"
+                    className="gap-1 pr-1.5 pl-2.5 py-1 text-[11px] font-medium bg-muted/80 border border-border/30 rounded-full motion-safe:animate-in motion-safe:zoom-in-95 duration-150"
                   >
                     <span className="truncate max-w-[120px]">
                       {u.display_name}
                     </span>
                     <button
+                      type="button"
                       onClick={() => toggleUserSelection(u)}
-                      className="ml-0.5 p-0.5 rounded-full hover:bg-background text-muted-foreground hover:text-destructive transition-colors duration-150"
+                      aria-label={`Remove ${u.display_name}`}
+                      className="ml-0.5 p-0.5 rounded-full hover:bg-background text-muted-foreground hover:text-destructive transition-colors duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
                     >
                       <X className="w-3 h-3" />
                     </button>
@@ -262,19 +267,20 @@ export function NewChatDialog({
           <div className="space-y-3 flex-1 flex flex-col min-h-0">
             {/* Search Input Well Container */}
             <div className="relative flex-shrink-0">
-              <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground/60" />
+              <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground/60 pointer-events-none" />
               <Input
                 placeholder="Search by username, name or contacts"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                className="pl-9.5 bg-muted/50 border-border/30 h-10 text-sm rounded-xl focus-visible:ring-1 focus-visible:ring-border/60 placeholder:text-muted-foreground/60 transition-all duration-200"
+                aria-label="Search users"
+                className="pl-10 bg-muted/50 border-border/30 h-11 text-sm rounded-xl focus-visible:ring-2 focus-visible:ring-primary/50 placeholder:text-muted-foreground/60 transition-colors duration-200"
               />
             </div>
 
             {/* Results Grid List Container */}
             <div className="overflow-y-auto max-h-[220px] sm:max-h-64 pr-1 -mr-2 scrollbar-none space-y-0.5">
               {loading ? (
-                <div className="space-y-1 py-1">
+                <div className="space-y-1 py-1" aria-hidden="true">
                   {[...Array(4)].map((_, i) => (
                     <div
                       key={i}
@@ -289,8 +295,11 @@ export function NewChatDialog({
                   ))}
                 </div>
               ) : results.length === 0 ? (
-                <div className="py-10 text-center text-muted-foreground/70 animate-in fade-in duration-200">
-                  <UserPlus className="w-9 h-9 mx-auto mb-2 text-muted-foreground/40" />
+                <div className="py-10 text-center text-muted-foreground/70 motion-safe:animate-in motion-safe:fade-in duration-200">
+                  <UserPlus
+                    className="w-9 h-9 mx-auto mb-2 text-muted-foreground/40"
+                    aria-hidden="true"
+                  />
                   <p className="text-xs font-medium">No system users found</p>
                 </div>
               ) : (
@@ -299,13 +308,18 @@ export function NewChatDialog({
                   return (
                     <button
                       key={p.id}
+                      type="button"
                       onClick={() =>
                         dialogMode === "group"
                           ? toggleUserSelection(p)
                           : startDirectChat(p.id)
                       }
                       disabled={busy}
-                      className="w-full flex items-center gap-3.5 px-3 py-2.5 hover:bg-muted/40 active:bg-muted/70 rounded-xl text-left transition-all duration-200 transform active:scale-[0.99] focus:outline-none"
+                      aria-pressed={
+                        dialogMode === "group" ? isSelected : undefined
+                      }
+                      aria-label={`${p.display_name}, @${p.username}`}
+                      className="w-full flex items-center gap-3.5 px-3 py-2.5 hover:bg-muted/40 active:bg-muted/70 rounded-xl text-left transition-colors duration-200 transform-gpu motion-safe:active:scale-[0.99] focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 disabled:opacity-60 disabled:cursor-not-allowed"
                     >
                       {dialogMode === "group" && (
                         <Checkbox
@@ -319,7 +333,7 @@ export function NewChatDialog({
                           src={p.avatar_url}
                           className="object-cover"
                         />
-                        <AvatarFallback className="bg-primary/10 text-primary font-semibold text-xs">
+                        <AvatarFallback className="bg-gradient-to-br from-primary/15 to-primary/5 text-primary font-semibold text-xs">
                           {initials(p.display_name || "U")}
                         </AvatarFallback>
                       </Avatar>
@@ -339,17 +353,18 @@ export function NewChatDialog({
           </div>
         ) : (
           /* Channel Description Field Frame Block Container */
-          <div className="space-y-3.5 animate-in fade-in slide-in-from-bottom-2 duration-200">
+          <div className="space-y-3.5 motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-bottom-2 duration-200">
             <Textarea
               placeholder="Channel description (optional)"
               value={channelDescription}
               onChange={(e) => setChannelDescription(e.target.value)}
-              className="bg-muted/50 border-border/30 resize-none text-sm min-h-[90px] rounded-xl focus-visible:ring-1 focus-visible:ring-border/60 placeholder:text-muted-foreground/60 leading-relaxed transition-all duration-200"
+              aria-label="Channel description"
+              className="bg-muted/50 border-border/30 resize-none text-sm min-h-[90px] rounded-xl focus-visible:ring-2 focus-visible:ring-primary/50 placeholder:text-muted-foreground/60 leading-relaxed transition-colors duration-200"
               rows={3}
             />
             <div className="flex items-start gap-3 bg-primary/5 border border-primary/10 px-3.5 py-3 rounded-xl">
               <div className="w-7 h-7 rounded-lg bg-primary/10 text-primary flex items-center justify-center flex-shrink-0 mt-0.5 shadow-sm">
-                <Megaphone className="w-3.5 h-3.5" />
+                <Megaphone className="w-3.5 h-3.5" aria-hidden="true" />
               </div>
               <p className="text-[11px] text-muted-foreground/90 leading-normal font-medium">
                 Channels act as open broadcast panels. Anyone can create a
@@ -365,7 +380,7 @@ export function NewChatDialog({
           <Button
             onClick={createGroup}
             disabled={busy}
-            className="w-full gap-2 h-10 text-xs font-bold uppercase tracking-wider rounded-xl shadow-md transform active:scale-95 transition-transform animate-in slide-in-from-bottom-2 duration-200"
+            className="w-full gap-2 h-11 text-xs font-bold uppercase tracking-wider rounded-xl shadow-md transform-gpu motion-safe:active:scale-95 transition-transform motion-safe:animate-in motion-safe:slide-in-from-bottom-2 duration-200"
           >
             <Users className="w-4 h-4" />
             Create Group ({selectedUsers.length})
@@ -375,7 +390,7 @@ export function NewChatDialog({
           <Button
             onClick={createChannel}
             disabled={busy || !groupName.trim()}
-            className="w-full gap-2 h-10 text-xs font-bold uppercase tracking-wider rounded-xl shadow-md transform active:scale-95 transition-transform"
+            className="w-full gap-2 h-11 text-xs font-bold uppercase tracking-wider rounded-xl shadow-md transform-gpu motion-safe:active:scale-95 transition-transform"
           >
             <Megaphone className="w-4 h-4" />
             Create Channel

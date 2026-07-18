@@ -54,7 +54,7 @@ interface ChatSidebarProps {
 
 function ChatListSkeleton() {
   return (
-    <div className="space-y-1 p-3 animate-pulse">
+    <div className="space-y-1 p-3 motion-safe:animate-pulse" aria-hidden="true">
       {[...Array(6)].map((_, i) => (
         <div key={i} className="flex items-center gap-3 px-2 py-3">
           <Skeleton className="w-12 h-12 rounded-full flex-shrink-0" />
@@ -136,9 +136,11 @@ export function ChatSidebar({
       <button
         key={chat.id}
         onClick={() => onSelectChat(chat.id)}
+        aria-current={activeChat === chat.id ? "true" : undefined}
+        aria-label={`${chat.name || "Unknown"}${chat.last_message ? `, ${chat.last_message.content}` : ""}`}
         className={cn(
-          "w-[calc(100%-16px)] flex items-center gap-3.5 px-3 py-3 mx-2 my-0.5 text-left rounded-xl transition-all duration-200 ease-out",
-          "transform active:scale-[0.98] focus:outline-none select-none",
+          "w-[calc(100%-16px)] flex items-center gap-3.5 px-3 py-3 mx-2 my-0.5 text-left rounded-xl transition-colors duration-200 ease-out",
+          "motion-safe:active:scale-[0.98] transform-gpu focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 select-none",
           activeChat === chat.id
             ? "bg-sidebar-accent shadow-sm"
             : "hover:bg-sidebar-accent/40 active:bg-sidebar-accent/70",
@@ -148,21 +150,24 @@ export function ChatSidebar({
         <div className="relative flex-shrink-0">
           <div
             className={cn(
-              "p-[2px] rounded-full transition-all duration-300",
+              "p-[2px] rounded-full transition-colors duration-300",
               showOnlineRing
-                ? "ring-2 ring-emerald-500 ring-offset-2 ring-offset-sidebar"
+                ? "ring-2 ring-emerald-500/70 ring-offset-2 ring-offset-sidebar"
                 : "ring-0",
             )}
           >
             <Avatar className="w-11 h-11 shadow-sm">
               <AvatarImage src={chat.avatar_url} className="object-cover" />
-              <AvatarFallback className="bg-primary/10 text-primary text-sm font-semibold">
+              <AvatarFallback className="bg-gradient-to-br from-primary/15 to-primary/5 text-primary text-sm font-semibold">
                 {getInitials(chat.name || "U")}
               </AvatarFallback>
             </Avatar>
           </div>
           {showOnlineRing && (
-            <span className="absolute bottom-0 right-0 w-3 h-3 bg-emerald-500 rounded-full ring-2 ring-sidebar animate-pulse" />
+            <span
+              className="absolute bottom-0 right-0 w-3 h-3 bg-emerald-500 rounded-full ring-2 ring-sidebar"
+              aria-hidden="true"
+            />
           )}
         </div>
 
@@ -194,7 +199,7 @@ export function ChatSidebar({
               {chat.last_message?.content || "No messages yet"}
             </p>
             {(chat.unread_count ?? 0) > 0 && (
-              <span className="flex-shrink-0 min-w-[18px] h-[18px] flex items-center justify-center rounded-full bg-emerald-500 text-[10px] font-bold text-white px-1.5 shadow-sm scale-in-70 animate-in duration-200">
+              <span className="flex-shrink-0 min-w-[18px] h-[18px] flex items-center justify-center rounded-full bg-emerald-500 text-[10px] font-bold text-white px-1.5 shadow-sm motion-safe:animate-in motion-safe:zoom-in-75 duration-200">
                 {chat.unread_count}
               </span>
             )}
@@ -213,24 +218,25 @@ export function ChatSidebar({
             <Button
               variant="ghost"
               size="icon"
-              className="text-sidebar-foreground hover:bg-sidebar-accent/60 active:scale-95 transition-all duration-200 rounded-full w-9 h-9"
+              aria-label="Menu"
+              className="text-sidebar-foreground hover:bg-sidebar-accent/60 motion-safe:active:scale-95 transition-colors duration-200 rounded-full w-11 h-11"
             >
               <Menu className="w-5 h-5" />
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent
-            className="w-54 bg-popover/95 backdrop-blur-md border-border/60 p-1.5 shadow-xl rounded-2xl animate-in fade-in-50 slide-in-from-top-2 duration-200"
+            className="w-56 bg-popover/95 backdrop-blur-md border-border/60 p-1.5 shadow-xl rounded-2xl motion-safe:animate-in motion-safe:fade-in-50 motion-safe:slide-in-from-top-2 duration-200"
             align="start"
           >
             <DropdownMenuItem
               onClick={onNewGroup}
-              className="gap-3 rounded-xl px-3 py-2 text-xs font-medium cursor-pointer"
+              className="gap-3 rounded-xl px-3 py-2.5 text-xs font-medium cursor-pointer focus-visible:ring-2 focus-visible:ring-primary/50"
             >
               <Users className="w-4 h-4 text-muted-foreground" /> New Group
             </DropdownMenuItem>
             <DropdownMenuItem
               onClick={onNewChannel}
-              className="gap-3 rounded-xl px-3 py-2 text-xs font-medium cursor-pointer"
+              className="gap-3 rounded-xl px-3 py-2.5 text-xs font-medium cursor-pointer focus-visible:ring-2 focus-visible:ring-primary/50"
             >
               <Megaphone className="w-4 h-4 text-muted-foreground" /> New
               Channel
@@ -238,13 +244,13 @@ export function ChatSidebar({
             <DropdownMenuSeparator className="opacity-50" />
             <DropdownMenuItem
               onClick={() => navigate("/settings")}
-              className="gap-3 rounded-xl px-3 py-2 text-xs font-medium cursor-pointer"
+              className="gap-3 rounded-xl px-3 py-2.5 text-xs font-medium cursor-pointer focus-visible:ring-2 focus-visible:ring-primary/50"
             >
               <Settings className="w-4 h-4 text-muted-foreground" /> Settings
             </DropdownMenuItem>
             <DropdownMenuItem
               onClick={() => navigate("/admin")}
-              className="gap-3 rounded-xl px-3 py-2 text-xs font-medium cursor-pointer"
+              className="gap-3 rounded-xl px-3 py-2.5 text-xs font-medium cursor-pointer focus-visible:ring-2 focus-visible:ring-primary/50"
             >
               <Shield className="w-4 h-4 text-emerald-500" /> Admin Panel
             </DropdownMenuItem>
@@ -252,12 +258,13 @@ export function ChatSidebar({
         </DropdownMenu>
 
         <div className="flex-1 relative">
-          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground/70" />
+          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground/70 pointer-events-none" />
           <Input
             placeholder="Search"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="pl-9.5 h-9 bg-sidebar-accent/60 border-0 text-sidebar-foreground placeholder:text-muted-foreground/70 rounded-full text-xs font-medium focus-visible:ring-1 focus-visible:ring-border/60 focus-visible:bg-sidebar-accent transition-all duration-200"
+            aria-label="Search chats"
+            className="pl-10 h-9 bg-sidebar-accent/60 border-0 text-sidebar-foreground placeholder:text-muted-foreground/70 rounded-full text-xs font-medium focus-visible:ring-2 focus-visible:ring-primary/50 focus-visible:bg-sidebar-accent transition-colors duration-200"
           />
         </div>
       </div>
@@ -286,7 +293,7 @@ export function ChatSidebar({
                 {loading ? (
                   <ChatListSkeleton />
                 ) : filtered.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center py-24 px-6 text-center text-muted-foreground/80 animate-in fade-in duration-300">
+                  <div className="flex flex-col items-center justify-center py-24 px-6 text-center text-muted-foreground/80 motion-safe:animate-in motion-safe:fade-in duration-300">
                     <p className="text-sm font-medium tracking-tight">
                       No conversations yet
                     </p>
@@ -313,7 +320,7 @@ export function ChatSidebar({
                           open={channelsOpen}
                           onOpenChange={setChannelsOpen}
                         >
-                          <CollapsibleTrigger className="flex items-center justify-between w-full px-4 py-2 text-[10px] font-bold text-muted-foreground/80 uppercase tracking-widest hover:text-foreground transition-colors">
+                          <CollapsibleTrigger className="flex items-center justify-between w-full px-4 py-2.5 text-[10px] font-bold text-muted-foreground/80 uppercase tracking-widest hover:text-foreground transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 rounded-lg">
                             <span>Channels</span>
                             <ChevronDown
                               className={cn(
@@ -333,7 +340,7 @@ export function ChatSidebar({
                     {/* Groups Stream Block Container */}
                     {groups.length > 0 && (
                       <div className="mb-2">
-                        <div className="px-4 py-2 text-[10px] font-bold text-muted-foreground/80 uppercase tracking-widest">
+                        <div className="px-4 py-2.5 text-[10px] font-bold text-muted-foreground/80 uppercase tracking-widest">
                           Groups
                         </div>
                         {groups.map(renderChatItem)}
@@ -343,7 +350,7 @@ export function ChatSidebar({
 
                     {/* Direct Personal Communications Stream Block Container */}
                     <Collapsible open={directsOpen} onOpenChange={setDirectsOpen}>
-                      <CollapsibleTrigger className="flex items-center justify-between w-full px-4 py-2 text-[10px] font-bold text-muted-foreground/80 uppercase tracking-widest hover:text-foreground transition-colors">
+                      <CollapsibleTrigger className="flex items-center justify-between w-full px-4 py-2.5 text-[10px] font-bold text-muted-foreground/80 uppercase tracking-widest hover:text-foreground transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 rounded-lg">
                         <span>Direct Messages</span>
                         <ChevronDown
                           className={cn(
@@ -371,17 +378,18 @@ export function ChatSidebar({
         </div>
       </div>
 
-      {/* Modern High-Fidelity Floating Action Action Module Header Trigger Button */}
+      {/* Modern High-Fidelity Floating Action Button */}
       <div className="absolute bottom-5 right-5 z-30 pointer-events-none">
         <Button
           onClick={activeTab === "status" ? onNewStatus : onNewChat}
           size="icon"
-          className="w-13 h-13 rounded-full bg-primary hover:bg-primary/95 text-primary-foreground shadow-[0_4px_14px_rgba(0,0,0,0.25)] pointer-events-auto transform active:scale-90 hover:scale-105 transition-all duration-200 flex items-center justify-center"
+          aria-label={activeTab === "status" ? "New status" : "New chat"}
+          className="w-14 h-14 rounded-full bg-primary hover:bg-primary/95 text-primary-foreground shadow-[0_4px_14px_rgba(0,0,0,0.25)] pointer-events-auto transform-gpu motion-safe:active:scale-90 motion-safe:hover:scale-105 transition-transform duration-200 flex items-center justify-center focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 focus-visible:ring-offset-2 focus-visible:ring-offset-sidebar"
         >
           {activeTab === "status" ? (
-            <Camera className="w-[21px] h-[21px] animate-in fade-in zoom-in-75 duration-200" />
+            <Camera className="w-[21px] h-[21px] motion-safe:animate-in motion-safe:fade-in motion-safe:zoom-in-75 duration-200" />
           ) : (
-            <Edit className="w-[21px] h-[21px] animate-in fade-in zoom-in-75 duration-200" />
+            <Edit className="w-[21px] h-[21px] motion-safe:animate-in motion-safe:fade-in motion-safe:zoom-in-75 duration-200" />
           )}
         </Button>
       </div>

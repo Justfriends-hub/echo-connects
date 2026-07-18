@@ -17,7 +17,11 @@ import {
   ContextMenuSeparator,
   ContextMenuTrigger,
 } from "@/components/ui/context-menu";
-import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
+import {
+  Popover,
+  PopoverTrigger,
+  PopoverContent,
+} from "@/components/ui/popover";
 import EmojiPicker from "@/components/ui/EmojiPicker";
 import {
   DropdownMenu,
@@ -31,8 +35,8 @@ import { ImageCarousel } from "./ImageCarousel";
 import type { Message } from "@/types/chat";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
-import { useAuth } from '@/contexts/AuthContext';
-import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/integrations/supabase/client";
 
 interface MessageBubbleProps {
   message: Message;
@@ -84,24 +88,29 @@ export function MessageBubble({
   // Toggle reaction for current user
   const handleReactToggle = async (emoji: string) => {
     try {
-      if (!user) return toast.error('Not signed in');
+      if (!user) return toast.error("Not signed in");
       // check existing reaction by this user
       const { data: existing } = await supabase
-        .from('reactions')
-        .select('id')
-        .eq('message_id', message.id)
-        .eq('user_id', user.id)
-        .eq('emoji', emoji)
+        .from("reactions")
+        .select("id")
+        .eq("message_id", message.id)
+        .eq("user_id", user.id)
+        .eq("emoji", emoji)
         .maybeSingle();
 
       if ((existing as any)?.id) {
-        await supabase.from('reactions').delete().eq('id', (existing as any).id);
+        await supabase
+          .from("reactions")
+          .delete()
+          .eq("id", (existing as any).id);
       } else {
-        await supabase.from('reactions').insert({ message_id: message.id, user_id: user.id, emoji });
+        await supabase
+          .from("reactions")
+          .insert({ message_id: message.id, user_id: user.id, emoji });
       }
     } catch (err) {
-      console.warn('[MessageBubble] react toggle failed', err);
-      toast.error('Failed to update reaction');
+      console.warn("[MessageBubble] react toggle failed", err);
+      toast.error("Failed to update reaction");
     }
   };
 
@@ -114,7 +123,7 @@ export function MessageBubble({
     switch (message.status) {
       case "sending":
         return (
-          <Clock className="w-3.5 h-3.5 text-muted-foreground/60 animate-pulse" />
+          <Clock className="w-3.5 h-3.5 text-muted-foreground/60 motion-safe:animate-pulse" />
         );
       case "sent":
         return <Check className="w-3.5 h-3.5 text-muted-foreground/60" />;
@@ -129,7 +138,7 @@ export function MessageBubble({
 
   if (message.type === "system") {
     return (
-      <div className="flex justify-center my-3 animate-in fade-in zoom-in-95 duration-300 select-none">
+      <div className="flex justify-center my-3 motion-safe:animate-in motion-safe:fade-in motion-safe:zoom-in-95 duration-300 select-none">
         <span className="text-[11px] font-medium tracking-wide text-muted-foreground bg-muted/40 border border-border/20 backdrop-blur-sm px-3 py-1 rounded-full shadow-sm">
           {message.content}
         </span>
@@ -140,7 +149,7 @@ export function MessageBubble({
   const messageContent = (
     <div
       className={cn(
-        "max-w-[82%] sm:max-w-[70%] px-3 py-1.5 rounded-2xl relative group select-none md:select-text shadow-[0_1px_2px_rgba(0,0,0,0.06)] transition-all duration-200",
+        "max-w-[82%] sm:max-w-[70%] px-3 py-1.5 rounded-2xl relative group select-none md:select-text shadow-[0_1px_2px_rgba(0,0,0,0.06)] transition-shadow duration-200",
         isOwn
           ? "bg-primary text-primary-foreground rounded-tr-none border border-primary/20"
           : "bg-card text-card-foreground rounded-tl-none border border-border/30",
@@ -150,8 +159,8 @@ export function MessageBubble({
       {/* Sleek Minimal Hover Floating Option Trigger Menu */}
       <div
         className={cn(
-          "absolute top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-10 pointer-events-none group-hover:pointer-events-auto hidden sm:block",
-          isOwn ? "-left-10" : "-right-10",
+          "absolute top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity duration-200 z-10 pointer-events-none group-hover:pointer-events-auto group-focus-within:pointer-events-auto hidden sm:block",
+          isOwn ? "-left-11" : "-right-11",
         )}
       >
         <DropdownMenu modal={false}>
@@ -159,30 +168,31 @@ export function MessageBubble({
             <Button
               variant="ghost"
               size="icon"
-              className="h-7 w-7 text-muted-foreground hover:text-foreground hover:bg-muted/80 bg-background/95 backdrop-blur-sm rounded-full shadow-md border border-border/30 transform active:scale-90 transition-transform"
+              aria-label="Message options"
+              className="h-8 w-8 text-muted-foreground hover:text-foreground hover:bg-muted/80 bg-background/95 backdrop-blur-sm rounded-full shadow-md border border-border/30 transform-gpu motion-safe:active:scale-90 transition-transform focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
             >
               <MoreHorizontal className="w-4 h-4" />
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent
-            className="bg-popover/95 backdrop-blur-md border-border/60 p-1 rounded-xl shadow-xl min-w-[120px] animate-in fade-in-50 slide-in-from-top-2 duration-150"
+            className="bg-popover/95 backdrop-blur-md border-border/60 p-1 rounded-xl shadow-xl min-w-[130px] motion-safe:animate-in motion-safe:fade-in-50 motion-safe:slide-in-from-top-2 duration-150"
             align={isOwn ? "end" : "start"}
           >
             <DropdownMenuItem
               onClick={handleReply}
-              className="gap-2 px-2.5 py-1.5 text-xs font-medium rounded-lg cursor-pointer"
+              className="gap-2 px-2.5 py-2 text-xs font-medium rounded-lg cursor-pointer focus-visible:ring-2 focus-visible:ring-primary/50"
             >
               <Reply className="w-3.5 h-3.5 text-muted-foreground" /> Reply
             </DropdownMenuItem>
             <DropdownMenuItem
               onClick={handleCopy}
-              className="gap-2 px-2.5 py-1.5 text-xs font-medium rounded-lg cursor-pointer"
+              className="gap-2 px-2.5 py-2 text-xs font-medium rounded-lg cursor-pointer focus-visible:ring-2 focus-visible:ring-primary/50"
             >
               <Copy className="w-3.5 h-3.5 text-muted-foreground" /> Copy
             </DropdownMenuItem>
             <DropdownMenuItem
               onClick={handleForward}
-              className="gap-2 px-2.5 py-1.5 text-xs font-medium rounded-lg cursor-pointer"
+              className="gap-2 px-2.5 py-2 text-xs font-medium rounded-lg cursor-pointer focus-visible:ring-2 focus-visible:ring-primary/50"
             >
               <Forward className="w-3.5 h-3.5 text-muted-foreground" /> Forward
             </DropdownMenuItem>
@@ -191,7 +201,7 @@ export function MessageBubble({
                 <DropdownMenuSeparator className="opacity-40" />
                 <DropdownMenuItem
                   onClick={handleDelete}
-                  className="gap-2 px-2.5 py-1.5 text-xs font-medium rounded-lg text-destructive focus:text-destructive cursor-pointer"
+                  className="gap-2 px-2.5 py-2 text-xs font-medium rounded-lg text-destructive focus:text-destructive cursor-pointer focus-visible:ring-2 focus-visible:ring-destructive/50"
                 >
                   <Trash2 className="w-3.5 h-3.5" /> Delete
                 </DropdownMenuItem>
@@ -209,11 +219,28 @@ export function MessageBubble({
       )}
 
       {message.repliedTo && (
-        <div className="mb-2 rounded-xl border-l-2 border-primary/60 bg-muted/70 p-2">
-          <p className="text-[11px] font-semibold text-primary mb-1">
-            Replying to {message.repliedTo.sender?.display_name || 'Unknown'}
+        <div
+          className={cn(
+            "mb-2 rounded-xl border-l-2 p-2",
+            isOwn
+              ? "border-primary-foreground/50 bg-black/10"
+              : "border-primary/60 bg-muted/70",
+          )}
+        >
+          <p
+            className={cn(
+              "text-[11px] font-semibold mb-1",
+              isOwn ? "text-primary-foreground/90" : "text-primary",
+            )}
+          >
+            Replying to {message.repliedTo.sender?.display_name || "Unknown"}
           </p>
-          <p className="text-[12px] text-muted-foreground line-clamp-2">
+          <p
+            className={cn(
+              "text-[12px] line-clamp-2",
+              isOwn ? "text-primary-foreground/75" : "text-muted-foreground",
+            )}
+          >
             {message.repliedTo.content}
           </p>
         </div>
@@ -222,8 +249,23 @@ export function MessageBubble({
       {/* Forwarded metadata */}
       {message.forwarded_from_profile && (
         <div className="flex items-center gap-2 mb-1">
-          <span className="text-[11px] text-muted-foreground/80">Forwarded from</span>
-          <span className="text-[11px] font-semibold text-foreground">{message.forwarded_from_profile.display_name || message.forwarded_from_profile.username}</span>
+          <span
+            className={cn(
+              "text-[11px]",
+              isOwn ? "text-primary-foreground/70" : "text-muted-foreground/80",
+            )}
+          >
+            Forwarded from
+          </span>
+          <span
+            className={cn(
+              "text-[11px] font-semibold",
+              isOwn ? "text-primary-foreground" : "text-foreground",
+            )}
+          >
+            {message.forwarded_from_profile.display_name ||
+              message.forwarded_from_profile.username}
+          </span>
         </div>
       )}
 
@@ -235,12 +277,17 @@ export function MessageBubble({
           />
         </div>
       ) : (
-        /* Layout fix: Render text and meta items inside a fluid structural inline container */
-        <div className="relative inline-block w-full text-sm leading-relaxed whitespace-pre-wrap break-words tracking-normal">
+        /* Timestamp/status clearance: instead of an invisible trailing
+           spacer span (which only reliably reserves room when it lands on
+           the final wrapped line), reserve space with inline-end padding
+           sized to the meta block's footprint. This guarantees the last
+           line of text never sits under the timestamp/checkmarks
+           regardless of exactly where the text wraps. */
+        <div
+          className="text-sm leading-relaxed whitespace-pre-wrap break-words tracking-normal"
+          style={{ paddingInlineEnd: "3.25rem" }}
+        >
           <span className="text-[14px]">{message.content}</span>
-
-          {/* Invisible padding block enforces standard layout sizing, preventing layout overlap splits */}
-          <span className="inline-block w-[52px] h-3" />
         </div>
       )}
 
@@ -273,7 +320,7 @@ export function MessageBubble({
       {message.reactions && message.reactions.length > 0 && (
         <div
           className={cn(
-            "absolute -bottom-3 flex gap-0.5 items-center z-20 pointer-events-none animate-in zoom-in-95 duration-200",
+            "absolute -bottom-3 flex gap-0.5 items-center z-20 pointer-events-none motion-safe:animate-in motion-safe:zoom-in-95 duration-200",
             isOwn ? "right-2" : "left-2",
           )}
         >
@@ -289,13 +336,13 @@ export function MessageBubble({
             <span
               key={emoji}
               className={cn(
-                "inline-flex items-center gap-0.5 text-[10px] font-bold px-1.5 py-0.5 rounded-full border shadow-sm pointer-events-auto transform active:scale-90 transition-transform",
+                "inline-flex items-center gap-0.5 text-[10px] font-bold px-1.5 py-0.5 rounded-full border shadow-sm",
                 isOwn
                   ? "bg-card text-foreground border-border/60"
                   : "bg-muted text-muted-foreground border-border/40",
               )}
             >
-              <span>{emoji}</span>
+              <span aria-hidden="true">{emoji}</span>
               {count > 1 && (
                 <span className="text-[9px] opacity-90">{count}</span>
               )}
@@ -311,36 +358,40 @@ export function MessageBubble({
       <ContextMenuTrigger asChild>
         <div
           className={cn(
-            "flex w-full mb-1 px-4 transform translate-z-0 transition-transform will-change-transform animate-in fade-in slide-in-from-bottom-1 duration-300 ease-out",
+            "flex w-full mb-1 px-4 transform-gpu transition-transform will-change-transform motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-bottom-1 duration-300 ease-out",
             isOwn ? "justify-end pl-12" : "justify-start pr-12",
           )}
         >
           {messageContent}
         </div>
       </ContextMenuTrigger>
-      <ContextMenuContent className="bg-popover/95 backdrop-blur-md border-border/60 w-44 p-1 rounded-xl shadow-2xl animate-in zoom-in-95 duration-150">
+      <ContextMenuContent className="bg-popover/95 backdrop-blur-md border-border/60 w-48 p-1 rounded-xl shadow-2xl motion-safe:animate-in motion-safe:zoom-in-95 duration-150">
         <ContextMenuItem
           onClick={handleReply}
-          className="gap-2.5 px-3 py-2 text-xs font-medium rounded-lg cursor-pointer"
+          className="gap-2.5 px-3 py-2.5 text-xs font-medium rounded-lg cursor-pointer focus-visible:ring-2 focus-visible:ring-primary/50"
         >
           <Reply className="w-4 h-4 text-muted-foreground" /> Reply
         </ContextMenuItem>
         <ContextMenuItem
           onClick={handleCopy}
-          className="gap-2.5 px-3 py-2 text-xs font-medium rounded-lg cursor-pointer"
+          className="gap-2.5 px-3 py-2.5 text-xs font-medium rounded-lg cursor-pointer focus-visible:ring-2 focus-visible:ring-primary/50"
         >
           <Copy className="w-4 h-4 text-muted-foreground" /> Copy Text
         </ContextMenuItem>
         <ContextMenuItem
           onClick={handleForward}
-          className="gap-2.5 px-3 py-2 text-xs font-medium rounded-lg cursor-pointer"
+          className="gap-2.5 px-3 py-2.5 text-xs font-medium rounded-lg cursor-pointer focus-visible:ring-2 focus-visible:ring-primary/50"
         >
           <Forward className="w-4 h-4 text-muted-foreground" /> Forward
         </ContextMenuItem>
         <div className="px-2 py-1">
           <Popover>
             <PopoverTrigger asChild>
-              <Button variant="ghost" size="sm" className="gap-2 px-2 py-1 text-xs w-full justify-start">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="gap-2 px-2 py-1.5 text-xs w-full justify-start rounded-lg focus-visible:ring-2 focus-visible:ring-primary/50"
+              >
                 <SmilePlus className="w-4 h-4 text-muted-foreground" /> React
               </Button>
             </PopoverTrigger>
@@ -354,7 +405,7 @@ export function MessageBubble({
             <ContextMenuSeparator className="opacity-40" />
             <ContextMenuItem
               onClick={handleDelete}
-              className="gap-2.5 px-3 py-2 text-xs font-medium rounded-lg text-destructive focus:text-destructive cursor-pointer"
+              className="gap-2.5 px-3 py-2.5 text-xs font-medium rounded-lg text-destructive focus:text-destructive cursor-pointer focus-visible:ring-2 focus-visible:ring-destructive/50"
             >
               <Trash2 className="w-4 h-4" /> Delete Message
             </ContextMenuItem>
