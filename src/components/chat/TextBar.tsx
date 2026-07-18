@@ -32,18 +32,11 @@ export default function TextBar({
 }: TextBarProps) {
   const [text, setText] = useState("");
   const [keyboardHeight, setKeyboardHeight] = useState(0);
-  // Self-managed portal target, mirroring the exact pattern already used by
-  // ChatInput's own 'chat-input-portal' div and ChatLayout's
-  // 'chat-header-portal'. Without this, TextBar renders in-place inside
-  // whatever JSX tree ChatLayout returns it from — and if any ancestor
-  // above ChatLayout uses a CSS transform (route transitions, page-slide
-  // wrappers, etc.), this bar's position:fixed silently re-anchors to that
-  // transformed ancestor instead of the real viewport. That mismatch is
-  // what causes fixed elements to visibly jump/shift when the keyboard
-  // opens — the same class of bug ChatHeader was deliberately portaled to
-  // document.body to avoid. This file already imported createPortal but
-  // never called it; wiring it up finishes that existing pattern rather
-  // than introducing a new one.
+  // Self-managed portal target — renders into document.body so this bar can
+  // never inherit a transform-scoped ancestor and, just as importantly,
+  // can never push/reflow ChatHeader or ChatArea since it isn't part of
+  // their DOM tree at all. Fixed + portaled = paints on top, affects
+  // nothing else in layout.
   const [portalEl, setPortalEl] = useState<HTMLDivElement | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const taRef = useRef<HTMLTextAreaElement | null>(null);
@@ -155,11 +148,8 @@ export default function TextBar({
         right: 0,
         bottom: 0,
         zIndex: 999,
-        // Compositor-only transform instead of animating `bottom` — matches
-        // ChatInput's already-correct approach. Animating `bottom` forces a
-        // layout recalculation on every keyboard-resize frame; translate3d
-        // only triggers compositing, which is smoother and removes a
-        // second, smaller source of jank on top of the portal fix above.
+        // Compositor-only transform (not `bottom`) — stays above the
+        // keyboard smoothly without forcing layout recalculation.
         transform: `translate3d(0, -${keyboardHeight}px, 0)`,
         willChange: "transform",
         transition: "transform 180ms ease-out",

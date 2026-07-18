@@ -1,5 +1,12 @@
 import React, { useRef, useEffect, useState, useCallback } from "react";
-import { MoreVertical, Users, Info } from "lucide-react";
+import {
+  MoreVertical,
+  Users,
+  Info,
+  ChevronUp,
+  ChevronDown,
+  Loader2,
+} from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -39,7 +46,7 @@ interface ChatAreaProps {
 
 function MessageSkeleton() {
   return (
-    <div className="space-y-4 p-4 animate-pulse">
+    <div className="space-y-4 p-4 motion-safe:animate-pulse" aria-hidden="true">
       {[...Array(5)].map((_, i) => (
         <div
           key={i}
@@ -75,13 +82,13 @@ function SenderHoverCard({
     <HoverCard openDelay={200} closeDelay={100}>
       <HoverCardTrigger asChild>{children}</HoverCardTrigger>
       <HoverCardContent
-        className="w-64 bg-card/95 backdrop-blur-md border-border/80 shadow-xl rounded-2xl p-3 animate-in fade-in-50 slide-in-from-top-2 duration-200"
+        className="w-64 bg-card/95 backdrop-blur-md border-border/80 shadow-xl rounded-2xl p-3 motion-safe:animate-in motion-safe:fade-in-50 motion-safe:slide-in-from-top-2 duration-200"
         side="right"
         align="start"
       >
         <div className="flex items-center gap-3">
-          <Avatar className="w-10 h-10 border border-border/40">
-            <AvatarFallback className="bg-primary/10 text-primary text-xs font-semibold">
+          <Avatar className="w-10 h-10 border-2 border-background ring-1 ring-border/60 shadow-sm">
+            <AvatarFallback className="bg-gradient-to-br from-primary/15 to-primary/5 text-primary text-xs font-semibold">
               {name
                 .split(" ")
                 .map((n) => n[0])
@@ -90,8 +97,8 @@ function SenderHoverCard({
                 .slice(0, 2)}
             </AvatarFallback>
           </Avatar>
-          <div>
-            <p className="text-sm font-semibold text-foreground tracking-wide">
+          <div className="min-w-0">
+            <p className="text-sm font-semibold text-foreground tracking-wide truncate">
               {name}
             </p>
             <p className="text-[11px] text-muted-foreground/80">
@@ -137,8 +144,8 @@ export function ChatArea({
     const container = scrollRef.current;
     if (!container) return;
     const atBottom =
-      container.scrollHeight - container.scrollTop - container.clientHeight <
-      120;
+      container.scrollHeight - container.scrollTop - container.clientHeight;
+    120;
     setIsNearBottom(atBottom);
   }, []);
 
@@ -214,6 +221,10 @@ export function ChatArea({
   const isGroup = chat.type === "group" || chat.type === "channel";
   const showOnlineRing = !isGroup && chat.is_online;
 
+  const scrollToBottom = useCallback(() => {
+    bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
+  }, []);
+
   /*
    * ══════════════════════════════════════════════════════════════════════════
    * THREE-LAYER ARCHITECTURE — wallpaper is completely decoupled
@@ -223,19 +234,31 @@ export function ChatArea({
    *                               it after mount. No transforms, no resizes,
    *                               no viewport listeners. Pure CSS, immovable.
    *
-   * Layer 1 (z-10): HEADER     — position:relative, flex-shrink-0, sits at
-   *                               the top. Opaque background so wallpaper
-   *                               doesn't bleed through.
+   * Layer 1: HEADER — NOT part of this component at all. ChatHeader is
+   *                    rendered via createPortal directly into
+   *                    document.body (chat-header-portal), fixed to the
+   *                    top of the real viewport. It lives completely
+   *                    outside this component's DOM tree, so nothing that
+   *                    happens in here (padding, scroll, keyboard) can
+   *                    ever affect it.
    *
    * Layer 2 (z-[1]): MESSAGES  — position:relative, flex-1, overflow-y:auto.
    *                               Transparent background so wallpaper shows
    *                               through. padding-bottom tracks input height
    *                               so messages are always visible above it.
+   *                               `contain: layout paint` on the root below
+   *                               keeps any height/padding change in this
+   *                               subtree from ever triggering a reflow of
+   *                               siblings — belt-and-suspenders on top of
+   *                               the portal isolation above.
    *
-   * Layer 3 (z-60): INPUT BAR  — position:fixed (in ChatInput component),
-   *                               tracks keyboard via visualViewport. Sits
-   *                               above everything. Only this element and the
-   *                               message scroll offset react to keyboard.
+   * Layer 3: INPUT BAR — NOT part of this component either. TextBar is
+   *                       also independently portaled to document.body
+   *                       (chat-textbar-portal), fixed to the bottom,
+   *                       and tracks the keyboard via visualViewport +
+   *                       a compositor-only translate3d. It sits above
+   *                       everything and cannot cause layout shifts here
+   *                       or in the header, for the same portal reason.
    *
    * The wallpaper (Layer 0) is ABSOLUTE within the parent container, NOT
    * fixed. Why? On iOS Safari, position:fixed elements inside a transformed
@@ -259,6 +282,7 @@ export function ChatArea({
     userSelect: "none",
     WebkitUserSelect: "none",
     isolation: "isolate",
+    contain: "layout paint",
     minHeight: 0,
     minWidth: 0,
   };
@@ -285,6 +309,11 @@ export function ChatArea({
     backgroundColor: "transparent",
     boxSizing: "border-box",
     paddingBottom: (inputHeight ?? 0) + (keyboardHeight ?? 0) + 8,
+    transitionProperty: "padding-bottom",
+    transitionDuration: "180ms",
+    transitionTimingFunction: "cubic-bezier(0.4, 0, 0.2, 1)",
+    maskImage: "linear-gradient(to bottom, transparent 0, black 14px)",
+    WebkitMaskImage: "linear-gradient(to bottom, transparent 0, black 14px)",
   };
 
   return (
@@ -295,29 +324,46 @@ export function ChatArea({
           viewport-fixed layer outside any transform-scoped ancestors. */}
 
       {/* ═══════════════════════════════════════════════════════════════════
-          CONTENT LAYERS (1-3): Header + Messages + Input
+          CONTENT LAYER: Messages
           This flex column sits above the wallpaper. It fills the parent
           and handles all layout/scroll. The wallpaper is NOT part of this
-          flex flow — it's a sibling absolute-positioned behind it.
+          flex flow — it's a sibling absolute-positioned behind it. Header
+          and input bar are independently portaled elsewhere (see above).
           ═══════════════════════════════════════════════════════════════════ */}
       <div style={contentStyles}>
-        {/* Header rendered at layout level (ChatLayout) to keep it viewport-fixed */}
-
-        {/* ─── LAYER 2: MESSAGES SCROLL AREA (with top padding for header) ─────────────────────────── */}
+        {/* ─── MESSAGES SCROLL AREA ─────────────────────────────────────── */}
         {/* Transparent background so the wallpaper (Layer 0) shows through.
             padding-bottom tracks the input bar height at rest so the final
             message remains visible above the fixed input bar. This container
-            does not resize with the keyboard; only the scroll position can move. */}
+            does not resize with the keyboard; only the scroll position (and
+            a smoothly-transitioned padding-bottom) can move. */}
         <div
           ref={scrollRef}
           onScroll={handleScroll}
           style={scrollContainerStyles}
+          role="log"
+          aria-live="polite"
+          aria-relevant="additions"
+          aria-label={`Messages with ${chat?.name ?? "conversation"}`}
         >
-          <div className="max-w-3xl mx-auto space-y-1">
+          <div className="max-w-3xl mx-auto space-y-1 motion-reduce:!transition-none">
             {hasMore && (
               <div className="flex justify-center py-3">
-                <span className="text-[11px] font-medium bg-muted/50 backdrop-blur-sm border border-border/40 text-muted-foreground px-3 py-1 rounded-full shadow-sm">
-                  {loadingOlder ? "Loading…" : "Scroll up for older messages"}
+                <span className="inline-flex items-center gap-1.5 text-[11px] font-medium bg-muted/60 backdrop-blur-sm border border-border/40 text-muted-foreground px-3 py-1.5 rounded-full shadow-sm">
+                  {loadingOlder ? (
+                    <>
+                      <Loader2
+                        className="w-3 h-3 motion-safe:animate-spin"
+                        aria-hidden="true"
+                      />
+                      Loading…
+                    </>
+                  ) : (
+                    <>
+                      <ChevronUp className="w-3 h-3" aria-hidden="true" />
+                      Scroll up for older messages
+                    </>
+                  )}
                 </span>
               </div>
             )}
@@ -340,7 +386,7 @@ export function ChatArea({
                 const bubble = (
                   <div
                     key={msg.id}
-                    className="transform translate-z-0 transition-all duration-200 ease-out animate-in fade-in-40 slide-in-from-bottom-1"
+                    className="transform-gpu transition-all duration-200 ease-out motion-safe:animate-in motion-safe:fade-in-40 motion-safe:slide-in-from-bottom-1"
                   >
                     <MessageBubble
                       message={msg}
@@ -363,7 +409,14 @@ export function ChatArea({
                       name={msg.sender.display_name}
                       userId={msg.sender_id}
                     >
-                      <div className="focus:outline-none">{bubble}</div>
+                      <div
+                        className="rounded-xl focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 focus-visible:ring-offset-1"
+                        tabIndex={0}
+                        role="button"
+                        aria-label={`Message from ${msg.sender.display_name}`}
+                      >
+                        {bubble}
+                      </div>
                     </SenderHoverCard>
                   );
                 }
@@ -374,28 +427,33 @@ export function ChatArea({
 
             {/* WhatsApp-Style Micro-Animated Typing Bubble */}
             {typingUsers.length > 0 && (
-              <div className="flex items-center gap-2.5 px-4 py-2.5 max-w-[160px] bg-muted/70 backdrop-blur-sm text-xs text-muted-foreground font-medium rounded-2xl shadow-sm border border-border/30 animate-in fade-in-50 slide-in-from-bottom-2 duration-300">
-                <span className="flex items-center gap-1">
+              <div
+                className="flex items-center gap-2.5 px-4 py-2.5 max-w-[160px] bg-muted/70 backdrop-blur-sm text-xs text-muted-foreground font-medium rounded-2xl shadow-sm border border-border/30 motion-safe:animate-in motion-safe:fade-in-50 motion-safe:slide-in-from-bottom-2 duration-300"
+                role="status"
+                aria-live="polite"
+                aria-label="Someone is typing"
+              >
+                <span className="flex items-center gap-1" aria-hidden="true">
                   <span
-                    className="w-1.5 h-1.5 bg-primary/70 rounded-full animate-bounce"
+                    className="w-1.5 h-1.5 bg-primary/70 rounded-full motion-safe:animate-bounce"
                     style={{ animationDelay: "0ms", animationDuration: "0.8s" }}
                   />
                   <span
-                    className="w-1.5 h-1.5 bg-primary/70 rounded-full animate-bounce"
+                    className="w-1.5 h-1.5 bg-primary/70 rounded-full motion-safe:animate-bounce"
                     style={{
                       animationDelay: "200ms",
                       animationDuration: "0.8s",
                     }}
                   />
                   <span
-                    className="w-1.5 h-1.5 bg-primary/70 rounded-full animate-bounce"
+                    className="w-1.5 h-1.5 bg-primary/70 rounded-full motion-safe:animate-bounce"
                     style={{
                       animationDelay: "400ms",
                       animationDuration: "0.8s",
                     }}
                   />
                 </span>
-                <span className="truncate tracking-wide text-[11px] text-muted-foreground/90">
+                <span className="truncate tracking-wide text-xs text-muted-foreground/90">
                   typing…
                 </span>
               </div>
@@ -403,18 +461,22 @@ export function ChatArea({
             <div ref={bottomRef} className="h-px w-full" />
           </div>
         </div>
-      </div>
 
-      {/* ═══════════════════════════════════════════════════════════════════
-          LAYER 3: INPUT BAR (ChatInput component)
-          This renders with position:fixed inside ChatInput itself —
-          it tracks keyboard height via visualViewport and floats above
-          everything. It is NOT part of the flex column above, so it
-          cannot cause layout shifts to the wallpaper or the scroll area.
-          The gradient wrapper is purely cosmetic — it fades into the
-          wallpaper color at the bottom of the screen.
-          ═══════════════════════════════════════════════════════════════════ */}
-      {/* Chat input removed — no input or keyboard */}
+        {/* Floating scroll-to-bottom affordance — only shown once the user
+            has scrolled away from the latest message. Reuses the existing
+            isNearBottom state and bottomRef; no new state/effects added. */}
+        {!isNearBottom && messages.length > 0 && (
+          <button
+            type="button"
+            onClick={scrollToBottom}
+            aria-label="Scroll to latest message"
+            className="absolute right-4 z-20 flex items-center justify-center w-11 h-11 rounded-full bg-card/95 backdrop-blur-md border border-border/60 shadow-lg text-foreground/80 hover:text-foreground hover:bg-card active:scale-95 transition-all duration-200 motion-safe:animate-in motion-safe:fade-in-50 motion-safe:slide-in-from-bottom-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
+            style={{ bottom: (inputHeight ?? 0) + (keyboardHeight ?? 0) + 16 }}
+          >
+            <ChevronDown className="w-5 h-5" aria-hidden="true" />
+          </button>
+        )}
+      </div>
     </div>
   );
 }

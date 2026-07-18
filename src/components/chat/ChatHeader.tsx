@@ -34,10 +34,15 @@ export default function ChatHeader({
       .slice(0, 2);
 
   return (
-    // NOTE: this header is rendered into a portal attached to document.body.
-    // That means it can safely be fixed to the viewport and stay directly
-    // below the Dynamic Island / status bar on iOS without being scoped to
-    // any transformed ancestor inside ChatLayout.
+    // This header is rendered into a portal attached to document.body (see
+    // ChatLayout's 'chat-header-portal'). That's what makes `position: fixed`
+    // safe here: a portaled element sits completely outside ChatArea's and
+    // TextBar's DOM trees, so it cannot be pushed, resized, or reflowed by
+    // anything that happens inside them — including the keyboard opening,
+    // which only affects TextBar (also independently portaled, pinned to
+    // the opposite edge). Two independently-portaled fixed elements can
+    // never fight over position; that's what guarantees this header stays
+    // exactly where it is regardless of what the text bar does.
     <div
       className="chat-header z-20 flex-shrink-0 flex items-center gap-3 px-4 bg-card shadow-sm shadow-black/5 border-b border-border/70"
       style={{
