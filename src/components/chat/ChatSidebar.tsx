@@ -279,7 +279,7 @@ export function ChatSidebar({
       <div
         ref={containerRef}
         className="flex-1 relative h-full overflow-hidden"
-        style={{ touchAction: 'pan-y' }}
+        style={{ touchAction: 'pan-y', paddingTop: '90px' }}
       >
         {/* Transform track containing both panels */}
         <div
